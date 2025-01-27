@@ -39,19 +39,6 @@
 			  )
   }
 
-  use numeron::battle_initiated_event::BattleInitiatedEvent;
-
-  use numeron::battle_initiated_event;
-
-  public fun battle_initiated_event(battle_id: address, creature1: address, creature2: address, map_id: address) {
-    dubhe::storage_event::emit_set_record<BattleInitiatedEvent, BattleInitiatedEvent, BattleInitiatedEvent>(
-				string(b"battle_initiated_event"),
-				option::none(),
-			  	option::none(),
-			  option::some(battle_initiated_event::new(battle_id,creature1,creature2,map_id))
-			  )
-  }
-
   use numeron::map_created_event::MapCreatedEvent;
 
   use numeron::map_created_event;
@@ -76,5 +63,9 @@
 			  	option::none(),
 			  option::some(extension_registered_event::new(extension_id,creator,name))
 			  )
+  }
+
+  public fun battle_initiated_event(_battle_id: address, _creature1: address, _creature2: address, _map_id: address) {
+    // TODO: Implement battle initiated event
   }
 }

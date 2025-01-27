@@ -18,6 +18,8 @@
 
   use numeron::weather_type::WeatherType;
 
+  use numeron::position::Position;
+
   public struct MapConfig has copy, drop, store {
     width: u64,
     height: u64,

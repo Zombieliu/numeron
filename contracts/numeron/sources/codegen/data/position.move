@@ -25,13 +25,11 @@
   }
 
   public fun new(x: u64, y: u64, map_id: address): Position {
-    Position {
-                                   x,y,map_id
-                               }
+    Position { x, y, map_id }
   }
 
-  public fun get(self: &Position): (u64,u64,address) {
-    (self.x,self.y,self.map_id)
+  public fun get(self: &Position): (u64, u64, address) {
+    (self.x, self.y, self.map_id)
   }
 
   public fun get_x(self: &Position): u64 {
