@@ -18,6 +18,10 @@
 
   use numeron::weather_type::WeatherType;
 
+  use numeron::region_type::RegionType;
+
+  use numeron::connection_type::ConnectionType;
+
   use numeron::position::Position;
 
   use numeron::creature_stats::CreatureStats;
@@ -26,46 +30,15 @@
 
   use numeron::extension_data::ExtensionData;
 
-  use numeron::creature_spawned_event::CreatureSpawnedEvent;
+  use numeron::connection_point::ConnectionPoint;
 
-  use numeron::creature_spawned_event;
+  use numeron::requirement::Requirement;
 
-  public fun creature_spawned_event(creature_id: address, creature_type: CreatureType, position: Position) {
-    dubhe::storage_event::emit_set_record<CreatureSpawnedEvent, CreatureSpawnedEvent, CreatureSpawnedEvent>(
-				string(b"creature_spawned_event"),
-				option::none(),
-			  	option::none(),
-			  option::some(creature_spawned_event::new(creature_id,creature_type,position))
-			  )
-  }
+  use numeron::region_metadata::RegionMetadata;
 
-  use numeron::map_created_event::MapCreatedEvent;
+  use numeron::map_created::MapCreated;
 
-  use numeron::map_created_event;
+  use numeron::map_updated::MapUpdated;
 
-  public fun map_created_event(map_id: address, creator: address, config: MapConfig) {
-    dubhe::storage_event::emit_set_record<MapCreatedEvent, MapCreatedEvent, MapCreatedEvent>(
-				string(b"map_created_event"),
-				option::none(),
-			  	option::none(),
-			  option::some(map_created_event::new(map_id,creator,config))
-			  )
-  }
-
-  use numeron::extension_registered_event::ExtensionRegisteredEvent;
-
-  use numeron::extension_registered_event;
-
-  public fun extension_registered_event(extension_id: address, creator: address, name: String) {
-    dubhe::storage_event::emit_set_record<ExtensionRegisteredEvent, ExtensionRegisteredEvent, ExtensionRegisteredEvent>(
-				string(b"extension_registered_event"),
-				option::none(),
-			  	option::none(),
-			  option::some(extension_registered_event::new(extension_id,creator,name))
-			  )
-  }
-
-  public fun battle_initiated_event(_battle_id: address, _creature1: address, _creature2: address, _map_id: address) {
-    // TODO: Implement battle initiated event
-  }
+  use numeron::map_connected::MapConnected;
 }

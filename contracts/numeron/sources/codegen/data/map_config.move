@@ -18,30 +18,46 @@
 
   use numeron::weather_type::WeatherType;
 
-  use numeron::position::Position;
+  use numeron::region_type::RegionType;
+
+  use numeron::connection_type::ConnectionType;
 
   public struct MapConfig has copy, drop, store {
     width: u64,
     height: u64,
     creator: address,
+    region_type: RegionType,
     terrain: vector<vector<TerrainType>>,
     spawn_points: vector<Position>,
+    connection_points: vector<ConnectionPoint>,
+    level_range: vector<u8>,
+    weather_conditions: vector<WeatherType>,
+    special_features: vector<u8>,
+    metadata: String,
   }
 
   public fun new(
     width: u64,
     height: u64,
     creator: address,
+    region_type: RegionType,
     terrain: vector<vector<TerrainType>>,
     spawn_points: vector<Position>,
+    connection_points: vector<ConnectionPoint>,
+    level_range: vector<u8>,
+    weather_conditions: vector<WeatherType>,
+    special_features: vector<u8>,
+    metadata: String,
   ): MapConfig {
     MapConfig {
-                                   width,height,creator,terrain,spawn_points
+                                   width,height,creator,region_type,terrain,spawn_points,connection_points,level_range,weather_conditions,special_features,metadata
                                }
   }
 
-  public fun get(self: &MapConfig): (u64,u64,address,vector<vector<TerrainType>>,vector<Position>) {
-    (self.width,self.height,self.creator,self.terrain,self.spawn_points)
+  public fun get(
+    self: &MapConfig,
+  ): (u64,u64,address,RegionType,vector<vector<TerrainType>>,vector<Position>,vector<ConnectionPoint>,vector<u8>,vector<WeatherType>,vector<u8>,String) {
+    (self.width,self.height,self.creator,self.region_type,self.terrain,self.spawn_points,self.connection_points,self.level_range,self.weather_conditions,self.special_features,self.metadata)
   }
 
   public fun get_width(self: &MapConfig): u64 {
@@ -56,12 +72,36 @@
     self.creator
   }
 
+  public fun get_region_type(self: &MapConfig): RegionType {
+    self.region_type
+  }
+
   public fun get_terrain(self: &MapConfig): vector<vector<TerrainType>> {
     self.terrain
   }
 
   public fun get_spawn_points(self: &MapConfig): vector<Position> {
     self.spawn_points
+  }
+
+  public fun get_connection_points(self: &MapConfig): vector<ConnectionPoint> {
+    self.connection_points
+  }
+
+  public fun get_level_range(self: &MapConfig): vector<u8> {
+    self.level_range
+  }
+
+  public fun get_weather_conditions(self: &MapConfig): vector<WeatherType> {
+    self.weather_conditions
+  }
+
+  public fun get_special_features(self: &MapConfig): vector<u8> {
+    self.special_features
+  }
+
+  public fun get_metadata(self: &MapConfig): String {
+    self.metadata
   }
 
   public(package) fun set_width(self: &mut MapConfig, width: u64) {
@@ -76,6 +116,10 @@
     self.creator = creator;
   }
 
+  public(package) fun set_region_type(self: &mut MapConfig, region_type: RegionType) {
+    self.region_type = region_type;
+  }
+
   public(package) fun set_terrain(self: &mut MapConfig, terrain: vector<vector<TerrainType>>) {
     self.terrain = terrain;
   }
@@ -84,18 +128,50 @@
     self.spawn_points = spawn_points;
   }
 
+  public(package) fun set_connection_points(self: &mut MapConfig, connection_points: vector<ConnectionPoint>) {
+    self.connection_points = connection_points;
+  }
+
+  public(package) fun set_level_range(self: &mut MapConfig, level_range: vector<u8>) {
+    self.level_range = level_range;
+  }
+
+  public(package) fun set_weather_conditions(self: &mut MapConfig, weather_conditions: vector<WeatherType>) {
+    self.weather_conditions = weather_conditions;
+  }
+
+  public(package) fun set_special_features(self: &mut MapConfig, special_features: vector<u8>) {
+    self.special_features = special_features;
+  }
+
+  public(package) fun set_metadata(self: &mut MapConfig, metadata: String) {
+    self.metadata = metadata;
+  }
+
   public(package) fun set(
     self: &mut MapConfig,
     width: u64,
     height: u64,
     creator: address,
+    region_type: RegionType,
     terrain: vector<vector<TerrainType>>,
     spawn_points: vector<Position>,
+    connection_points: vector<ConnectionPoint>,
+    level_range: vector<u8>,
+    weather_conditions: vector<WeatherType>,
+    special_features: vector<u8>,
+    metadata: String,
   ) {
     self.width = width;
     self.height = height;
     self.creator = creator;
+    self.region_type = region_type;
     self.terrain = terrain;
     self.spawn_points = spawn_points;
+    self.connection_points = connection_points;
+    self.level_range = level_range;
+    self.weather_conditions = weather_conditions;
+    self.special_features = special_features;
+    self.metadata = metadata;
   }
 }

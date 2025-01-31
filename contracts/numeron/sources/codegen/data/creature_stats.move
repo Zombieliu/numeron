@@ -18,6 +18,10 @@
 
   use numeron::weather_type::WeatherType;
 
+  use numeron::region_type::RegionType;
+
+  use numeron::connection_type::ConnectionType;
+
   public struct CreatureStats has copy, drop, store {
     level: u8,
     hp: u64,

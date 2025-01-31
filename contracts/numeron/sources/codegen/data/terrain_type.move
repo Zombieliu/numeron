@@ -7,11 +7,27 @@
   module numeron::terrain_type {
 
   public enum TerrainType has copy, drop , store {
-                                Cave,Forest,Lake,Mountain,Plain,Volcano
+                                Beach,Cave,City,Custom,Desert,Forest,Lake,Mountain,Plain,Snow,Swamp,Sky,Underground,Volcano
                         }
+
+  public fun new_beach(): TerrainType {
+    TerrainType::Beach
+  }
 
   public fun new_cave(): TerrainType {
     TerrainType::Cave
+  }
+
+  public fun new_city(): TerrainType {
+    TerrainType::City
+  }
+
+  public fun new_custom(): TerrainType {
+    TerrainType::Custom
+  }
+
+  public fun new_desert(): TerrainType {
+    TerrainType::Desert
   }
 
   public fun new_forest(): TerrainType {
@@ -28,6 +44,22 @@
 
   public fun new_plain(): TerrainType {
     TerrainType::Plain
+  }
+
+  public fun new_snow(): TerrainType {
+    TerrainType::Snow
+  }
+
+  public fun new_swamp(): TerrainType {
+    TerrainType::Swamp
+  }
+
+  public fun new_sky(): TerrainType {
+    TerrainType::Sky
+  }
+
+  public fun new_underground(): TerrainType {
+    TerrainType::Underground
   }
 
   public fun new_volcano(): TerrainType {

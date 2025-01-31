@@ -34,6 +34,10 @@
 
   use numeron::weather_type::WeatherType;
 
+  use numeron::region_type::RegionType;
+
+  use numeron::connection_type::ConnectionType;
+
   use numeron::position::Position;
 
   use numeron::creature_stats::CreatureStats;
@@ -42,156 +46,42 @@
 
   use numeron::extension_data::ExtensionData;
 
+  use numeron::connection_point::ConnectionPoint;
+
+  use numeron::requirement::Requirement;
+
+  use numeron::region_metadata::RegionMetadata;
+
+  use numeron::map_created::MapCreated;
+
+  use numeron::map_updated::MapUpdated;
+
+  use numeron::map_connected::MapConnected;
+
   public struct Schema has key, store {
     id: UID,
   }
 
-  public fun borrow_creature(self: &Schema): &StorageMap<address, CreatureType> {
-    storage::borrow_field(&self.id, b"creature")
+  public fun borrow_map_metadata(self: &Schema): &StorageMap<address, RegionMetadata> {
+    storage::borrow_field(&self.id, b"map_metadata")
   }
 
-  public(package) fun creature(self: &mut Schema): &mut StorageMap<address, CreatureType> {
-    storage::borrow_mut_field(&mut self.id, b"creature")
+  public(package) fun map_metadata(self: &mut Schema): &mut StorageMap<address, RegionMetadata> {
+    storage::borrow_mut_field(&mut self.id, b"map_metadata")
   }
 
-  public fun borrow_creature_stats(self: &Schema): &StorageMap<address, CreatureStats> {
-    storage::borrow_field(&self.id, b"creature_stats")
+  public fun borrow_map_connections(self: &Schema): &StorageMap<address, vector<ConnectionPoint>> {
+    storage::borrow_field(&self.id, b"map_connections")
   }
 
-  public(package) fun creature_stats(self: &mut Schema): &mut StorageMap<address, CreatureStats> {
-    storage::borrow_mut_field(&mut self.id, b"creature_stats")
-  }
-
-  public fun borrow_creature_owner(self: &Schema): &StorageMap<address, address> {
-    storage::borrow_field(&self.id, b"creature_owner")
-  }
-
-  public(package) fun creature_owner(self: &mut Schema): &mut StorageMap<address, address> {
-    storage::borrow_mut_field(&mut self.id, b"creature_owner")
-  }
-
-  public fun borrow_map_registry(self: &Schema): &StorageMap<address, bool> {
-    storage::borrow_field(&self.id, b"map_registry")
-  }
-
-  public(package) fun map_registry(self: &mut Schema): &mut StorageMap<address, bool> {
-    storage::borrow_mut_field(&mut self.id, b"map_registry")
-  }
-
-  public fun borrow_map_config(self: &Schema): &StorageMap<address, MapConfig> {
-    storage::borrow_field(&self.id, b"map_config")
-  }
-
-  public(package) fun map_config(self: &mut Schema): &mut StorageMap<address, MapConfig> {
-    storage::borrow_mut_field(&mut self.id, b"map_config")
-  }
-
-  public fun borrow_map_extensions(self: &Schema): &StorageMap<address, vector<ExtensionData>> {
-    storage::borrow_field(&self.id, b"map_extensions")
-  }
-
-  public(package) fun map_extensions(self: &mut Schema): &mut StorageMap<address, vector<ExtensionData>> {
-    storage::borrow_mut_field(&mut self.id, b"map_extensions")
-  }
-
-  public fun borrow_position(self: &Schema): &StorageMap<address, Position> {
-    storage::borrow_field(&self.id, b"position")
-  }
-
-  public(package) fun position(self: &mut Schema): &mut StorageMap<address, Position> {
-    storage::borrow_mut_field(&mut self.id, b"position")
-  }
-
-  public fun borrow_terrain(self: &Schema): &StorageMap<address, TerrainType> {
-    storage::borrow_field(&self.id, b"terrain")
-  }
-
-  public(package) fun terrain(self: &mut Schema): &mut StorageMap<address, TerrainType> {
-    storage::borrow_mut_field(&mut self.id, b"terrain")
-  }
-
-  public fun borrow_player(self: &Schema): &StorageMap<address, bool> {
-    storage::borrow_field(&self.id, b"player")
-  }
-
-  public(package) fun player(self: &mut Schema): &mut StorageMap<address, bool> {
-    storage::borrow_mut_field(&mut self.id, b"player")
-  }
-
-  public fun borrow_player_creatures(self: &Schema): &StorageMap<address, vector<address>> {
-    storage::borrow_field(&self.id, b"player_creatures")
-  }
-
-  public(package) fun player_creatures(self: &mut Schema): &mut StorageMap<address, vector<address>> {
-    storage::borrow_mut_field(&mut self.id, b"player_creatures")
-  }
-
-  public fun borrow_player_current_map(self: &Schema): &StorageMap<address, address> {
-    storage::borrow_field(&self.id, b"player_current_map")
-  }
-
-  public(package) fun player_current_map(self: &mut Schema): &mut StorageMap<address, address> {
-    storage::borrow_mut_field(&mut self.id, b"player_current_map")
-  }
-
-  public fun borrow_battle_state(self: &Schema): &StorageMap<address, BattleResult> {
-    storage::borrow_field(&self.id, b"battle_state")
-  }
-
-  public(package) fun battle_state(self: &mut Schema): &mut StorageMap<address, BattleResult> {
-    storage::borrow_mut_field(&mut self.id, b"battle_state")
-  }
-
-  public fun borrow_battle_participants(self: &Schema): &StorageMap<address, vector<address>> {
-    storage::borrow_field(&self.id, b"battle_participants")
-  }
-
-  public(package) fun battle_participants(self: &mut Schema): &mut StorageMap<address, vector<address>> {
-    storage::borrow_mut_field(&mut self.id, b"battle_participants")
-  }
-
-  public fun borrow_extension_registry(self: &Schema): &StorageMap<address, bool> {
-    storage::borrow_field(&self.id, b"extension_registry")
-  }
-
-  public(package) fun extension_registry(self: &mut Schema): &mut StorageMap<address, bool> {
-    storage::borrow_mut_field(&mut self.id, b"extension_registry")
-  }
-
-  public fun borrow_extension_creator(self: &Schema): &StorageMap<address, address> {
-    storage::borrow_field(&self.id, b"extension_creator")
-  }
-
-  public(package) fun extension_creator(self: &mut Schema): &mut StorageMap<address, address> {
-    storage::borrow_mut_field(&mut self.id, b"extension_creator")
-  }
-
-  public fun borrow_extension_data(self: &Schema): &StorageMap<address, ExtensionData> {
-    storage::borrow_field(&self.id, b"extension_data")
-  }
-
-  public(package) fun extension_data(self: &mut Schema): &mut StorageMap<address, ExtensionData> {
-    storage::borrow_mut_field(&mut self.id, b"extension_data")
+  public(package) fun map_connections(self: &mut Schema): &mut StorageMap<address, vector<ConnectionPoint>> {
+    storage::borrow_mut_field(&mut self.id, b"map_connections")
   }
 
   public(package) fun create(ctx: &mut TxContext): Schema {
     let mut id = object::new(ctx);
-    storage::add_field<StorageMap<address, CreatureType>>(&mut id, b"creature", storage_map::new(b"creature", ctx));
-    storage::add_field<StorageMap<address, CreatureStats>>(&mut id, b"creature_stats", storage_map::new(b"creature_stats", ctx));
-    storage::add_field<StorageMap<address, address>>(&mut id, b"creature_owner", storage_map::new(b"creature_owner", ctx));
-    storage::add_field<StorageMap<address, bool>>(&mut id, b"map_registry", storage_map::new(b"map_registry", ctx));
-    storage::add_field<StorageMap<address, MapConfig>>(&mut id, b"map_config", storage_map::new(b"map_config", ctx));
-    storage::add_field<StorageMap<address, vector<ExtensionData>>>(&mut id, b"map_extensions", storage_map::new(b"map_extensions", ctx));
-    storage::add_field<StorageMap<address, Position>>(&mut id, b"position", storage_map::new(b"position", ctx));
-    storage::add_field<StorageMap<address, TerrainType>>(&mut id, b"terrain", storage_map::new(b"terrain", ctx));
-    storage::add_field<StorageMap<address, bool>>(&mut id, b"player", storage_map::new(b"player", ctx));
-    storage::add_field<StorageMap<address, vector<address>>>(&mut id, b"player_creatures", storage_map::new(b"player_creatures", ctx));
-    storage::add_field<StorageMap<address, address>>(&mut id, b"player_current_map", storage_map::new(b"player_current_map", ctx));
-    storage::add_field<StorageMap<address, BattleResult>>(&mut id, b"battle_state", storage_map::new(b"battle_state", ctx));
-    storage::add_field<StorageMap<address, vector<address>>>(&mut id, b"battle_participants", storage_map::new(b"battle_participants", ctx));
-    storage::add_field<StorageMap<address, bool>>(&mut id, b"extension_registry", storage_map::new(b"extension_registry", ctx));
-    storage::add_field<StorageMap<address, address>>(&mut id, b"extension_creator", storage_map::new(b"extension_creator", ctx));
-    storage::add_field<StorageMap<address, ExtensionData>>(&mut id, b"extension_data", storage_map::new(b"extension_data", ctx));
+    storage::add_field<StorageMap<address, RegionMetadata>>(&mut id, b"map_metadata", storage_map::new(b"map_metadata", ctx));
+    storage::add_field<StorageMap<address, vector<ConnectionPoint>>>(&mut id, b"map_connections", storage_map::new(b"map_connections", ctx));
     Schema { id }
   }
 
@@ -199,68 +89,12 @@
 
   // ======================================== View Functions ========================================
 
-  public fun get_creature(self: &Schema, key: address): &CreatureType {
-    self.borrow_creature().get(key)
+  public fun get_map_metadata(self: &Schema, key: address): &RegionMetadata {
+    self.borrow_map_metadata().get(key)
   }
 
-  public fun get_creature_stats(self: &Schema, key: address): &CreatureStats {
-    self.borrow_creature_stats().get(key)
-  }
-
-  public fun get_creature_owner(self: &Schema, key: address): &address {
-    self.borrow_creature_owner().get(key)
-  }
-
-  public fun get_map_registry(self: &Schema, key: address): &bool {
-    self.borrow_map_registry().get(key)
-  }
-
-  public fun get_map_config(self: &Schema, key: address): &MapConfig {
-    self.borrow_map_config().get(key)
-  }
-
-  public fun get_map_extensions(self: &Schema, key: address): &vector<ExtensionData> {
-    self.borrow_map_extensions().get(key)
-  }
-
-  public fun get_position(self: &Schema, key: address): &Position {
-    self.borrow_position().get(key)
-  }
-
-  public fun get_terrain(self: &Schema, key: address): &TerrainType {
-    self.borrow_terrain().get(key)
-  }
-
-  public fun get_player(self: &Schema, key: address): &bool {
-    self.borrow_player().get(key)
-  }
-
-  public fun get_player_creatures(self: &Schema, key: address): &vector<address> {
-    self.borrow_player_creatures().get(key)
-  }
-
-  public fun get_player_current_map(self: &Schema, key: address): &address {
-    self.borrow_player_current_map().get(key)
-  }
-
-  public fun get_battle_state(self: &Schema, key: address): &BattleResult {
-    self.borrow_battle_state().get(key)
-  }
-
-  public fun get_battle_participants(self: &Schema, key: address): &vector<address> {
-    self.borrow_battle_participants().get(key)
-  }
-
-  public fun get_extension_registry(self: &Schema, key: address): &bool {
-    self.borrow_extension_registry().get(key)
-  }
-
-  public fun get_extension_creator(self: &Schema, key: address): &address {
-    self.borrow_extension_creator().get(key)
-  }
-
-  public fun get_extension_data(self: &Schema, key: address): &ExtensionData {
-    self.borrow_extension_data().get(key)
+  public fun get_map_connections(self: &Schema, key: address): &vector<ConnectionPoint> {
+    self.borrow_map_connections().get(key)
   }
 
   // =========================================================================================================

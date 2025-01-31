@@ -7,23 +7,39 @@
   module numeron::weather_type {
 
   public enum WeatherType has copy, drop , store {
-                                Clear,Foggy,Rain,Storm,Sunny
+                                Clear,Cloudy,Custom,Fog,Rain,Snow,Storm,Sandstorm,Sunny
                         }
 
   public fun new_clear(): WeatherType {
     WeatherType::Clear
   }
 
-  public fun new_foggy(): WeatherType {
-    WeatherType::Foggy
+  public fun new_cloudy(): WeatherType {
+    WeatherType::Cloudy
+  }
+
+  public fun new_custom(): WeatherType {
+    WeatherType::Custom
+  }
+
+  public fun new_fog(): WeatherType {
+    WeatherType::Fog
   }
 
   public fun new_rain(): WeatherType {
     WeatherType::Rain
   }
 
+  public fun new_snow(): WeatherType {
+    WeatherType::Snow
+  }
+
   public fun new_storm(): WeatherType {
     WeatherType::Storm
+  }
+
+  public fun new_sandstorm(): WeatherType {
+    WeatherType::Sandstorm
   }
 
   public fun new_sunny(): WeatherType {

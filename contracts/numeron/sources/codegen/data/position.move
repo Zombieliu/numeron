@@ -18,18 +18,24 @@
 
   use numeron::weather_type::WeatherType;
 
+  use numeron::region_type::RegionType;
+
+  use numeron::connection_type::ConnectionType;
+
   public struct Position has copy, drop, store {
     x: u64,
     y: u64,
-    map_id: address,
+    layer: u8,
   }
 
-  public fun new(x: u64, y: u64, map_id: address): Position {
-    Position { x, y, map_id }
+  public fun new(x: u64, y: u64, layer: u8): Position {
+    Position {
+                                   x,y,layer
+                               }
   }
 
-  public fun get(self: &Position): (u64, u64, address) {
-    (self.x, self.y, self.map_id)
+  public fun get(self: &Position): (u64,u64,u8) {
+    (self.x,self.y,self.layer)
   }
 
   public fun get_x(self: &Position): u64 {
@@ -40,8 +46,8 @@
     self.y
   }
 
-  public fun get_map_id(self: &Position): address {
-    self.map_id
+  public fun get_layer(self: &Position): u8 {
+    self.layer
   }
 
   public(package) fun set_x(self: &mut Position, x: u64) {
@@ -52,13 +58,13 @@
     self.y = y;
   }
 
-  public(package) fun set_map_id(self: &mut Position, map_id: address) {
-    self.map_id = map_id;
+  public(package) fun set_layer(self: &mut Position, layer: u8) {
+    self.layer = layer;
   }
 
-  public(package) fun set(self: &mut Position, x: u64, y: u64, map_id: address) {
+  public(package) fun set(self: &mut Position, x: u64, y: u64, layer: u8) {
     self.x = x;
     self.y = y;
-    self.map_id = map_id;
+    self.layer = layer;
   }
 }
