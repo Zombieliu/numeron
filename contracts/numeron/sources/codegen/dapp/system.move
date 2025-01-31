@@ -53,7 +53,7 @@ module numeron::dapp_system {
   ) {
     let admin = dapp.admin().try_get();
     assert!(admin == option::some(ctx.sender()), 0);
-    let created_at = dapp.metadata().remove().get_created_at();
+    let created_at = dapp.metadata().get().get_created_at();
     dapp.metadata().set(
             dapp_metadata::new(
                 name,
