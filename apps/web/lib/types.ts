@@ -93,7 +93,7 @@ export type MatchSessionStatus = "staging" | "live" | "completed";
 
 export type MatchSessionRecord = {
   id: string;
-  template: "uplink-sweep";
+  template: "numeron-run";
   slotId: SaveSlotId;
   playerName: string;
   status: MatchSessionStatus;
@@ -212,11 +212,11 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
   touchControls: true,
   player: null,
   slice: {
-    objective: "Secure each uplink pad once per sweep.",
-    status: "Waiting for runtime handoff.",
+    objective: "Stand up the first Numeron board slice.",
+    status: "Waiting for board allocation.",
     score: 0,
     captured: 0,
-    total: 4,
+    total: 0,
     round: 1,
     completed: false,
   },

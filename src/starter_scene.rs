@@ -1,32 +1,58 @@
 use crate::GameState;
-use crate::loading::TextureAssets;
-use crate::player::Player;
 use bevy::prelude::*;
 
 pub struct StarterScenePlugin;
 
-const BEACON_CAPTURE_RADIUS: f32 = 88.0;
-const BEACON_BASE_SIZE: f32 = 120.0;
-const ROUND_RESET_SECONDS: f32 = 1.4;
+const BOARD_ROWS: usize = 4;
+const BOARD_COLS: usize = 6;
+const CELL_SIZE: f32 = 140.0;
+const CELL_PADDING: f32 = 16.0;
+const UNIT_SIZE_RATIO: f32 = 0.64;
 
 #[derive(Resource, Clone, Debug)]
-pub struct StarterSceneConfig {
-    pub arena_size: Vec2,
-    pub player_size: Vec2,
-    pub beacon_positions: [Vec2; 4],
+pub struct BoardConfig {
+    pub rows: usize,
+    pub cols: usize,
+    pub cell_size: f32,
+    pub origin: Vec2,
 }
 
-impl Default for StarterSceneConfig {
+impl Default for BoardConfig {
+    fn default() -> Self {
+        let width = CELL_SIZE * BOARD_COLS as f32;
+        let height = CELL_SIZE * BOARD_ROWS as f32;
+
+        Self {
+            rows: BOARD_ROWS,
+            cols: BOARD_COLS,
+            cell_size: CELL_SIZE,
+            origin: Vec2::new(
+                -width * 0.5 + CELL_SIZE * 0.5,
+                -height * 0.5 + CELL_SIZE * 0.5,
+            ),
+        }
+    }
+}
+
+#[derive(Resource, Clone, Debug)]
+pub struct CombatState {
+    pub phase: CombatPhase,
+    pub round: u32,
+    pub player_health: u32,
+    pub enemy_health: u32,
+    pub player_units: usize,
+    pub enemy_units: usize,
+}
+
+impl Default for CombatState {
     fn default() -> Self {
         Self {
-            arena_size: Vec2::new(1280.0, 720.0),
-            player_size: Vec2::splat(96.0),
-            beacon_positions: [
-                Vec2::new(-420.0, -220.0),
-                Vec2::new(420.0, -220.0),
-                Vec2::new(-420.0, 220.0),
-                Vec2::new(420.0, 220.0),
-            ],
+            phase: CombatPhase::Preparation,
+            round: 1,
+            player_health: 30,
+            enemy_health: 30,
+            player_units: 0,
+            enemy_units: 0,
         }
     }
 }
@@ -45,222 +71,308 @@ pub struct StarterSliceProjection {
 impl Default for StarterSliceProjection {
     fn default() -> Self {
         Self {
-            objective: "Secure each uplink pad once per sweep.".to_owned(),
-            status: "Loop 1 active. Sweep the four uplinks.".to_owned(),
+            objective: "Draft a front line and prepare to open combat.".to_owned(),
+            status: "Board ready. Seed squads are standing by.".to_owned(),
             score: 0,
             captured: 0,
-            total: 4,
+            total: 0,
             round: 1,
             completed: false,
         }
     }
 }
 
-#[derive(Resource, Default)]
-struct StarterSliceLoopState {
-    reset_timer: Option<Timer>,
+#[derive(Component)]
+pub struct BoardAnchor;
+
+#[derive(Component)]
+struct BoardTile {
+    row: usize,
+    col: usize,
 }
 
 #[derive(Component)]
-struct BeaconPad {
-    index: usize,
-    captured: bool,
+struct UnitEntity {
+    owner: UnitOwner,
+    name: &'static str,
+    health: u32,
+    max_health: u32,
+    row: usize,
+    col: usize,
+}
+
+#[derive(Component)]
+struct UnitHealthFrame;
+
+#[derive(Component)]
+struct UnitHealthFill;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CombatPhase {
+    Preparation,
+    Combat,
+    Resolution,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum UnitOwner {
+    Player,
+    Enemy,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct UnitSeed {
+    owner: UnitOwner,
+    row: usize,
+    col: usize,
+    color: Color,
+    name: &'static str,
+    health: u32,
 }
 
 impl Plugin for StarterScenePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<StarterSceneConfig>()
+        app.init_resource::<BoardConfig>()
+            .init_resource::<CombatState>()
             .init_resource::<StarterSliceProjection>()
-            .init_resource::<StarterSliceLoopState>()
-            .add_systems(OnEnter(GameState::Playing), spawn_starter_scene)
+            .add_systems(OnEnter(GameState::Playing), spawn_board_scene)
             .add_systems(
                 Update,
-                (
-                    animate_beacons,
-                    collect_beacons,
-                    recycle_completed_round,
-                )
+                (refresh_projection, update_unit_health_bars)
                     .run_if(in_state(GameState::Playing)),
             );
     }
 }
 
-fn spawn_starter_scene(
+fn spawn_board_scene(
     mut commands: Commands,
-    scene: Res<StarterSceneConfig>,
-    mut slice: ResMut<StarterSliceProjection>,
-    mut slice_loop: ResMut<StarterSliceLoopState>,
-    textures: Res<TextureAssets>,
+    board: Res<BoardConfig>,
+    mut combat: ResMut<CombatState>,
+    mut projection: ResMut<StarterSliceProjection>,
 ) {
-    *slice = StarterSliceProjection {
-        total: scene.beacon_positions.len(),
-        ..default()
-    };
-    *slice_loop = StarterSliceLoopState::default();
-
     commands.spawn((Camera2d, Name::new("RuntimeCamera")));
 
     commands.spawn((
+        BoardAnchor,
+        Name::new("BoardAnchor"),
+        Transform::default(),
+        GlobalTransform::default(),
+    ));
+
+    let board_width = board.cols as f32 * board.cell_size;
+    let board_height = board.rows as f32 * board.cell_size;
+
+    commands.spawn((
         Sprite::from_color(
-            Color::linear_rgba(0.06, 0.11, 0.15, 0.92),
-            scene.arena_size,
+            Color::linear_rgba(0.04, 0.06, 0.09, 0.98),
+            Vec2::new(board_width + 120.0, board_height + 120.0),
+        ),
+        Transform::from_translation(Vec3::new(0.0, 0.0, -12.0)),
+        Name::new("BoardBackdrop"),
+    ));
+
+    commands.spawn((
+        Sprite::from_color(
+            Color::linear_rgba(0.07, 0.11, 0.16, 1.0),
+            Vec2::new(board_width + 24.0, board_height + 24.0),
         ),
         Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
-        Name::new("ArenaBackdrop"),
+        Name::new("BoardPlate"),
     ));
 
     commands.spawn((
         Sprite::from_color(
-            Color::linear_rgba(0.39, 0.87, 0.78, 0.15),
-            Vec2::new(scene.arena_size.x - 128.0, 4.0),
+            Color::linear_rgba(0.22, 0.78, 0.64, 0.18),
+            Vec2::new(6.0, board_height + 32.0),
         ),
         Transform::from_translation(Vec3::new(0.0, 0.0, -8.0)),
-        Name::new("CenterLine"),
+        Name::new("MidLine"),
     ));
 
-    commands.spawn((
-        Sprite::from_color(
-            Color::linear_rgba(0.40, 0.78, 0.92, 0.12),
-            Vec2::new(scene.arena_size.x - 64.0, scene.arena_size.y - 64.0),
-        ),
-        Transform::from_translation(Vec3::new(0.0, 0.0, -9.0)),
-        Name::new("ArenaFrame"),
-    ));
-
-    for (index, beacon) in scene.beacon_positions.into_iter().enumerate() {
-        commands.spawn((
-            Sprite::from_color(beacon_idle_color(index), Vec2::splat(BEACON_BASE_SIZE)),
-            Transform::from_translation(beacon.extend(-5.0)),
-            BeaconPad {
-                index,
-                captured: false,
-            },
-            Name::new("BeaconPad"),
-        ));
+    for row in 0..board.rows {
+        for col in 0..board.cols {
+            commands.spawn((
+                Sprite::from_color(
+                    tile_color(row, col),
+                    Vec2::splat(board.cell_size - CELL_PADDING),
+                ),
+                Transform::from_translation(board_to_world(&board, row, col).extend(-4.0)),
+                BoardTile { row, col },
+                Name::new("BoardTile"),
+            ));
+        }
     }
+
+    let seeds = seeded_units();
+    combat.player_units = seeds
+        .iter()
+        .filter(|seed| seed.owner == UnitOwner::Player)
+        .count();
+    combat.enemy_units = seeds
+        .iter()
+        .filter(|seed| seed.owner == UnitOwner::Enemy)
+        .count();
+
+    for seed in seeds {
+        spawn_unit(&mut commands, &board, seed);
+    }
+
+    *projection = StarterSliceProjection {
+        objective: "Replace the template slice with the first board-driven Numeron combat loop."
+            .to_owned(),
+        status: "Preparation phase. Seed squads are standing by on both sides.".to_owned(),
+        score: 0,
+        captured: combat.player_units,
+        total: combat.player_units + combat.enemy_units,
+        round: combat.round,
+        completed: false,
+    };
+}
+
+fn refresh_projection(
+    combat: Res<CombatState>,
+    mut projection: ResMut<StarterSliceProjection>,
+) {
+    if !combat.is_changed() {
+        return;
+    }
+
+    projection.round = combat.round;
+    projection.captured = combat.player_units;
+    projection.total = combat.player_units + combat.enemy_units;
+    projection.completed = combat.phase == CombatPhase::Resolution;
+    projection.status = match combat.phase {
+        CombatPhase::Preparation => format!(
+            "Preparation phase. {} allied units face {} enemy units.",
+            combat.player_units, combat.enemy_units
+        ),
+        CombatPhase::Combat => format!(
+            "Combat phase. {} vs {} with both squads committed.",
+            combat.player_units, combat.enemy_units
+        ),
+        CombatPhase::Resolution => format!(
+            "Resolution phase. Player HP {} · Enemy HP {}.",
+            combat.player_health, combat.enemy_health
+        ),
+    };
+}
+
+fn update_unit_health_bars(
+    units: Query<&UnitEntity>,
+    mut bars: Query<(&mut Sprite, &ChildOf), With<UnitHealthFill>>,
+    board: Res<BoardConfig>,
+) {
+    for (mut sprite, parent) in &mut bars {
+        if let Ok(unit) = units.get(parent.parent()) {
+            let width = board.cell_size * 0.46
+                * (unit.health as f32 / unit.max_health.max(1) as f32);
+            sprite.custom_size = Some(Vec2::new(width.max(8.0), 10.0));
+        }
+    }
+}
+
+fn spawn_unit(commands: &mut Commands, board: &BoardConfig, seed: UnitSeed) {
+    let translation = board_to_world(board, seed.row, seed.col);
 
     commands
         .spawn((
             Sprite::from_color(
-                Color::linear_rgba(0.74, 0.89, 0.56, 0.95),
-                scene.player_size,
+                seed.color,
+                Vec2::splat(board.cell_size * UNIT_SIZE_RATIO),
             ),
-            Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-            Player,
-            Name::new("Player"),
+            Transform::from_translation(translation.extend(2.0)),
+            UnitEntity {
+                owner: seed.owner,
+                name: seed.name,
+                health: seed.health,
+                max_health: seed.health,
+                row: seed.row,
+                col: seed.col,
+            },
+            Name::new(seed.name),
         ))
         .with_children(|parent| {
             parent.spawn((
-                Sprite::from_image(textures.bevy.clone()),
-                Transform::from_scale(Vec3::splat(0.24)).with_translation(Vec3::new(0.0, 0.0, 1.0)),
-                Name::new("PlayerMark"),
+                Sprite::from_color(
+                    Color::linear_rgba(0.02, 0.03, 0.05, 0.92),
+                    Vec2::new(board.cell_size * 0.48, 12.0),
+                ),
+                Transform::from_translation(Vec3::new(0.0, board.cell_size * 0.34, 2.0)),
+                UnitHealthFrame,
+                Name::new("UnitHealthFrame"),
+            ));
+
+            parent.spawn((
+                Sprite::from_color(
+                    match seed.owner {
+                        UnitOwner::Player => Color::linear_rgba(0.38, 0.88, 0.72, 0.96),
+                        UnitOwner::Enemy => Color::linear_rgba(0.97, 0.43, 0.55, 0.96),
+                    },
+                    Vec2::new(board.cell_size * 0.46, 10.0),
+                ),
+                Transform::from_translation(Vec3::new(0.0, board.cell_size * 0.34, 3.0)),
+                UnitHealthFill,
+                Name::new("UnitHealthFill"),
             ));
         });
 }
 
-fn animate_beacons(
-    time: Res<Time>,
-    mut beacons: Query<(&BeaconPad, &mut Transform, &mut Sprite)>,
-) {
-    for (beacon, mut transform, mut sprite) in &mut beacons {
-        if beacon.captured {
-            transform.scale = Vec3::splat(1.05);
-            sprite.color = beacon_captured_color();
-            sprite.custom_size = Some(Vec2::splat(BEACON_BASE_SIZE + 10.0));
-            continue;
-        }
-
-        let pulse = (time.elapsed_secs() * 1.7 + beacon.index as f32 * 0.8).sin() * 0.08;
-        transform.scale = Vec3::splat(1.0 + pulse);
-        sprite.color = beacon_idle_color(beacon.index);
-        sprite.custom_size = Some(Vec2::splat(BEACON_BASE_SIZE));
-    }
+fn seeded_units() -> [UnitSeed; 4] {
+    [
+        UnitSeed {
+            owner: UnitOwner::Player,
+            row: 1,
+            col: 1,
+            color: Color::linear_rgba(0.30, 0.83, 0.79, 0.98),
+            name: "Verdant Bruiser",
+            health: 12,
+        },
+        UnitSeed {
+            owner: UnitOwner::Player,
+            row: 2,
+            col: 1,
+            color: Color::linear_rgba(0.32, 0.62, 0.93, 0.98),
+            name: "Signal Ranger",
+            health: 9,
+        },
+        UnitSeed {
+            owner: UnitOwner::Enemy,
+            row: 1,
+            col: 4,
+            color: Color::linear_rgba(0.94, 0.41, 0.58, 0.98),
+            name: "Ash Duelist",
+            health: 10,
+        },
+        UnitSeed {
+            owner: UnitOwner::Enemy,
+            row: 2,
+            col: 4,
+            color: Color::linear_rgba(0.82, 0.30, 0.35, 0.98),
+            name: "Iron Vanguard",
+            health: 13,
+        },
+    ]
 }
 
-fn collect_beacons(
-    player: Single<&Transform, With<Player>>,
-    mut beacons: Query<(&Transform, &mut BeaconPad, &mut Sprite)>,
-    mut slice: ResMut<StarterSliceProjection>,
-    mut slice_loop: ResMut<StarterSliceLoopState>,
-) {
-    if slice.completed {
-        return;
-    }
-
-    let player_position = player.translation.truncate();
-
-    for (transform, mut beacon, mut sprite) in &mut beacons {
-        if beacon.captured {
-            continue;
-        }
-
-        if player_position.distance(transform.translation.truncate()) > BEACON_CAPTURE_RADIUS {
-            continue;
-        }
-
-        beacon.captured = true;
-        sprite.color = beacon_captured_color();
-        sprite.custom_size = Some(Vec2::splat(BEACON_BASE_SIZE + 10.0));
-
-        slice.captured += 1;
-        slice.score += 150;
-        slice.status = format!(
-            "Uplink {} secured. {} of {} locked.",
-            beacon.index + 1,
-            slice.captured,
-            slice.total
-        );
-
-        if slice.captured == slice.total {
-            slice.completed = true;
-            slice.status = format!(
-                "Sweep {} cleared. Resetting uplinks for the next loop.",
-                slice.round
-            );
-            slice_loop.reset_timer =
-                Some(Timer::from_seconds(ROUND_RESET_SECONDS, TimerMode::Once));
-        }
-    }
+fn board_to_world(board: &BoardConfig, row: usize, col: usize) -> Vec2 {
+    Vec2::new(
+        board.origin.x + col as f32 * board.cell_size,
+        board.origin.y + row as f32 * board.cell_size,
+    )
 }
 
-fn recycle_completed_round(
-    time: Res<Time>,
-    mut beacons: Query<(&mut BeaconPad, &mut Sprite)>,
-    mut slice: ResMut<StarterSliceProjection>,
-    mut slice_loop: ResMut<StarterSliceLoopState>,
-) {
-    let Some(timer) = slice_loop.reset_timer.as_mut() else {
-        return;
-    };
-
-    timer.tick(time.delta());
-
-    if !timer.is_finished() {
-        return;
+fn tile_color(row: usize, col: usize) -> Color {
+    if col < BOARD_COLS / 2 {
+        if (row + col) % 2 == 0 {
+            Color::linear_rgba(0.10, 0.18, 0.18, 0.96)
+        } else {
+            Color::linear_rgba(0.07, 0.14, 0.15, 0.96)
+        }
+    } else {
+        if (row + col) % 2 == 0 {
+            Color::linear_rgba(0.17, 0.11, 0.14, 0.96)
+        } else {
+            Color::linear_rgba(0.14, 0.08, 0.11, 0.96)
+        }
     }
-
-    for (mut beacon, mut sprite) in &mut beacons {
-        beacon.captured = false;
-        sprite.color = beacon_idle_color(beacon.index);
-        sprite.custom_size = Some(Vec2::splat(BEACON_BASE_SIZE));
-    }
-
-    slice.round += 1;
-    slice.captured = 0;
-    slice.completed = false;
-    slice.status = format!("Loop {} active. Sweep the four uplinks.", slice.round);
-    slice_loop.reset_timer = None;
-}
-
-fn beacon_idle_color(index: usize) -> Color {
-    match index % 4 {
-        0 => Color::linear_rgba(0.45, 0.85, 0.76, 0.22),
-        1 => Color::linear_rgba(0.36, 0.70, 0.94, 0.22),
-        2 => Color::linear_rgba(0.88, 0.68, 0.38, 0.22),
-        _ => Color::linear_rgba(0.82, 0.52, 0.88, 0.22),
-    }
-}
-
-fn beacon_captured_color() -> Color {
-    Color::linear_rgba(0.92, 0.95, 0.62, 0.34)
 }

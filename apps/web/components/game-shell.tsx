@@ -261,7 +261,7 @@ export function GameShell() {
       if (!current || current.id !== nextSessionId) {
         return {
           id: nextSessionId,
-          template: "uplink-sweep",
+          template: "numeron-run",
           slotId: activeSlot.id,
           playerName:
             runtimeSnapshot.world.player?.name ??
@@ -642,11 +642,11 @@ export function GameShell() {
     <main className="shell">
       <aside className="sidebar">
         <div>
-          <div className="eyebrow">Template</div>
-          <h1 className="title">Next.js + Bevy WASM</h1>
+          <div className="eyebrow">Numeron</div>
+          <h1 className="title">Board Auto-Battler</h1>
           <p className="muted">
-            React owns the shell. Bevy owns the canvas runtime. Native still uses
-            the same Rust crate.
+            React controls the HUD, shop, and save flow while Bevy drives the shared
+            board simulation for both web and native.
           </p>
         </div>
 
@@ -727,31 +727,30 @@ export function GameShell() {
           <div className="eyebrow">Status</div>
           <div>{renderBootRecord(runtimeSnapshot.boot.current)}</div>
           <div className="muted">
-            Controls: WASD / arrow keys, or the touch pad on the right.
+            Current runtime is the first board skeleton. Shop, deploy, and combat
+            flow land next.
           </div>
           <div className="muted">
             Runtime active: {runtimeSnapshot.runtimeActive ? "yes" : "no"}
           </div>
           <div className="muted">
-            Player:{" "}
+            Commander:{" "}
             {runtimeSnapshot.world.player?.name ?? runtimeSnapshot.bootConfig.playerName}
           </div>
           <div className="muted">
-            Position:{" "}
-            {runtimeSnapshot.world.player
-              ? `${runtimeSnapshot.world.player.x.toFixed(1)}, ${runtimeSnapshot.world.player.y.toFixed(1)}`
-              : "waiting"}
+            Board Seed: {runtimeSnapshot.world.slice.captured}/
+            {runtimeSnapshot.world.slice.total || "?"} units staged
           </div>
           <div className="muted">
-            Objective: {runtimeSnapshot.world.slice.objective}
+            Board objective: {runtimeSnapshot.world.slice.objective}
           </div>
           <div className="muted">
-            Slice status: {runtimeSnapshot.world.slice.status}
+            Round state: {runtimeSnapshot.world.slice.status}
           </div>
         </section>
 
         <section className="panel">
-          <div className="eyebrow">Match Contract</div>
+          <div className="eyebrow">Active Run</div>
           <div className="stat-grid">
             <div className="stat-card">
               <span className="stat-label">Status</span>
@@ -762,7 +761,7 @@ export function GameShell() {
               <strong>{currentSession?.round ?? runtimeSnapshot.world.slice.round}</strong>
             </div>
             <div className="stat-card">
-              <span className="stat-label">Score</span>
+              <span className="stat-label">Board Score</span>
               <strong>{currentSession?.score ?? runtimeSnapshot.world.slice.score}</strong>
             </div>
           </div>
@@ -772,13 +771,13 @@ export function GameShell() {
             {formatTimestamp(currentSession?.endedAt)}
           </div>
           <div className="muted">
-            Progress: {runtimeSnapshot.world.slice.captured}/{runtimeSnapshot.world.slice.total}{" "}
-            uplinks
+            Seeded Units: {runtimeSnapshot.world.slice.captured}/
+            {runtimeSnapshot.world.slice.total || "?"}
           </div>
         </section>
 
         <section className="panel">
-          <div className="eyebrow">Progression Meta</div>
+          <div className="eyebrow">Run Meta</div>
           <div className="stat-grid">
             <div className="stat-card">
               <span className="stat-label">Level</span>
@@ -789,12 +788,12 @@ export function GameShell() {
               <strong>{activeSlot.progression.xp}</strong>
             </div>
             <div className="stat-card">
-              <span className="stat-label">Sweeps</span>
+              <span className="stat-label">Battles</span>
               <strong>{activeSlot.progression.totalSweeps}</strong>
             </div>
           </div>
-          <div className="muted">Total launches: {activeSlot.progression.totalRuns}</div>
-          <div className="muted">Best score: {activeSlot.profile.bestScore}</div>
+          <div className="muted">Runs launched: {activeSlot.progression.totalRuns}</div>
+          <div className="muted">Best board score: {activeSlot.profile.bestScore}</div>
           <div className="badge-row">
             {activeSlot.progression.unlockedBadges.length > 0 ? (
               activeSlot.progression.unlockedBadges.map((badge) => (
@@ -820,7 +819,7 @@ export function GameShell() {
               >
                 <span className="slot-title">{slot.label}</span>
                 <span className="slot-meta">Best {slot.profile.bestScore}</span>
-                <span className="slot-meta">Loop {slot.profile.bestRound}</span>
+                <span className="slot-meta">Round {slot.profile.bestRound}</span>
               </button>
             ))}
           </div>
@@ -836,8 +835,8 @@ export function GameShell() {
           </label>
 
           <div className="muted">
-            Last run: {activeSlot.profile.lastScore} score, loop {activeSlot.profile.lastRound},
-            uplinks {activeSlot.profile.lastCaptured}
+            Last run: {activeSlot.profile.lastScore} score, round {activeSlot.profile.lastRound},
+            staged units {activeSlot.profile.lastCaptured}
           </div>
 
           <div className="session-list">
@@ -856,13 +855,13 @@ export function GameShell() {
         </section>
 
         <section className="panel">
-          <div className="eyebrow">Save Matrix</div>
+          <div className="eyebrow">Run Snapshot</div>
           <div className="action-row">
             <button className="button secondary" onClick={() => void handleCopySaveMatrix()}>
-              Copy Save Matrix
+              Copy Snapshot
             </button>
             <button className="button secondary" onClick={handleImportSaveMatrix}>
-              Load Save Matrix
+              Load Snapshot
             </button>
             <button className="button secondary" onClick={handleResetActiveSlot}>
               Reset Active Slot
@@ -872,12 +871,12 @@ export function GameShell() {
             </button>
           </div>
           <label className="label">
-            Save JSON
+            Snapshot JSON
             <textarea
               className="profile-textarea"
               value={saveDraft}
               onChange={(event) => setSaveDraft(event.target.value)}
-              placeholder="Exported save matrix JSON appears here. Paste a payload to import."
+              placeholder="Exported Numeron run snapshot JSON appears here. Paste a payload to import."
               rows={8}
             />
           </label>
@@ -904,9 +903,10 @@ export function GameShell() {
             </div>
 
             <div className="hud-card objective-card">
-              <div className="eyebrow">Live Slice</div>
+              <div className="eyebrow">Board Slice</div>
               <div className="objective-title">
-                {runtimeSnapshot.world.slice.captured}/{runtimeSnapshot.world.slice.total} uplinks
+                {runtimeSnapshot.world.slice.captured}/{runtimeSnapshot.world.slice.total || "?"}{" "}
+                seeded units
               </div>
               <div className="muted">{runtimeSnapshot.world.slice.status}</div>
             </div>
@@ -1144,7 +1144,7 @@ function formatBadgeLabel(badge: ProgressionBadge) {
     case "first-launch":
       return "First Launch";
     case "first-sweep":
-      return "First Sweep";
+      return "First Battle";
     case "score-300":
       return "Score 300";
     case "loop-3":

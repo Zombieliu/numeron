@@ -1,7 +1,7 @@
 use crate::GameState;
 use crate::RuntimeConfig;
 use crate::actions::Actions;
-use crate::starter_scene::StarterSceneConfig;
+use crate::starter_scene::BoardConfig;
 use bevy::prelude::*;
 
 pub struct PlayerPlugin;
@@ -21,7 +21,7 @@ fn move_player(
     time: Res<Time>,
     actions: Res<Actions>,
     config: Res<RuntimeConfig>,
-    scene: Res<StarterSceneConfig>,
+    scene: Res<BoardConfig>,
     mut player_query: Query<&mut Transform, With<Player>>,
 ) {
     let Some(movement) = actions.player_movement else {
@@ -35,16 +35,13 @@ fn move_player(
     );
     for mut player_transform in &mut player_query {
         player_transform.translation += movement;
-        let player_half_width = scene.player_size.x * 0.5;
-        let player_half_height = scene.player_size.y * 0.5;
-
         player_transform.translation.x = player_transform.translation.x.clamp(
-            -(scene.arena_size.x * 0.5) + player_half_width,
-            (scene.arena_size.x * 0.5) - player_half_width,
+            scene.origin.x - scene.cell_size * 0.5,
+            scene.origin.x + (scene.cols.saturating_sub(1) as f32 * scene.cell_size) + scene.cell_size * 0.5,
         );
         player_transform.translation.y = player_transform.translation.y.clamp(
-            -(scene.arena_size.y * 0.5) + player_half_height,
-            (scene.arena_size.y * 0.5) - player_half_height,
+            scene.origin.y - scene.cell_size * 0.5,
+            scene.origin.y + (scene.rows.saturating_sub(1) as f32 * scene.cell_size) + scene.cell_size * 0.5,
         );
     }
 }

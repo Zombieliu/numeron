@@ -1,6 +1,5 @@
 use crate::RuntimeConfig;
-use crate::player::Player;
-use crate::starter_scene::StarterSliceProjection;
+use crate::starter_scene::{BoardAnchor, StarterSliceProjection};
 use bevy::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
@@ -162,57 +161,48 @@ pub fn read_runtime_virtual_input() -> Option<Vec2> {
 
 fn publish_runtime_ready(
     mut state: ResMut<RuntimeBridgeState>,
-    config: Res<RuntimeConfig>,
     slice: Option<Res<StarterSliceProjection>>,
-    player: Query<&Transform, With<Player>>,
+    board: Query<Entity, With<BoardAnchor>>,
 ) {
     if state.ready_emitted {
         return;
     }
 
-    if let Ok(transform) = player.single() {
+    if board.single().is_ok() {
         publish_status(
             "scene-ready",
-            &format!("Runtime ready for {}", config.player_name),
+            "Numeron board slice allocated",
         );
         publish_runtime_event(
             "runtime.ready",
-            &projection_object(&config, transform.translation, slice.as_deref()),
+            &projection_object(slice.as_deref()),
         );
         state.ready_emitted = true;
     }
 }
 
 fn publish_runtime_projection(
-    config: Res<RuntimeConfig>,
     slice: Option<Res<StarterSliceProjection>>,
-    player: Query<Ref<Transform>, With<Player>>,
 ) {
     let slice_changed = slice.as_ref().is_some_and(|value| value.is_changed());
 
-    if let Ok(transform) = player.single()
-        && (transform.is_changed() || slice_changed)
-    {
+    if slice_changed {
         publish_runtime_event(
             "runtime.projection.changed",
-            &projection_object(&config, transform.translation, slice.as_deref()),
+            &projection_object(slice.as_deref()),
         );
     }
 }
 
-fn projection_object(
-    config: &RuntimeConfig,
-    translation: Vec3,
-    slice: Option<&StarterSliceProjection>,
-) -> ProjectionPayload {
+fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayload {
     let slice = slice.cloned().unwrap_or_default();
 
     ProjectionPayload {
         ready: true,
-        player_name: config.player_name.clone(),
-        x: translation.x,
-        y: translation.y,
-        touch_controls: config.touch_controls,
+        player_name: "Board".to_owned(),
+        x: 0.0,
+        y: 0.0,
+        touch_controls: false,
         objective: slice.objective,
         status: slice.status,
         score: slice.score,
@@ -289,20 +279,12 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 &"objective".into(),
                 &projection.objective.clone().into(),
             );
-            let _ = Reflect::set(
-                &slice,
-                &"status".into(),
-                &projection.status.clone().into(),
-            );
+            let _ = Reflect::set(&slice, &"status".into(), &projection.status.clone().into());
             let _ = Reflect::set(&slice, &"score".into(), &projection.score.into());
             let _ = Reflect::set(&slice, &"captured".into(), &projection.captured.into());
             let _ = Reflect::set(&slice, &"total".into(), &projection.total.into());
             let _ = Reflect::set(&slice, &"round".into(), &projection.round.into());
-            let _ = Reflect::set(
-                &slice,
-                &"completed".into(),
-                &projection.completed.into(),
-            );
+            let _ = Reflect::set(&slice, &"completed".into(), &projection.completed.into());
             let _ = Reflect::set(&projection_object, &"slice".into(), &slice);
             let _ = Reflect::set(&payload, &"projection".into(), &projection_object);
             let _ = callback.call1(&JsValue::NULL, &payload);

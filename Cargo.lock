@@ -784,23 +784,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_hybrid_game"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy_asset_loader",
- "bevy_kira_audio",
- "console_error_panic_hook",
- "embed-resource",
- "image",
- "js-sys",
- "log",
- "wasm-bindgen",
- "webbrowser",
- "winit",
-]
-
-[[package]]
 name = "bevy_image"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3360,6 +3343,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "numeron"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_asset_loader",
+ "bevy_kira_audio",
+ "console_error_panic_hook",
+ "embed-resource",
+ "image",
+ "js-sys",
+ "log",
+ "wasm-bindgen",
+ "webbrowser",
+ "winit",
 ]
 
 [[package]]

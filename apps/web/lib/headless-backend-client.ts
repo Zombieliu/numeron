@@ -144,7 +144,7 @@ export function applyBackendSnapshot(
 function fromRemoteSession(remote: RemoteBackendSession): MatchSessionRecord {
   return {
     id: remote.id,
-    template: "uplink-sweep",
+    template: "numeron-run",
     slotId: sanitizeSlotId(remote.slot_id),
     playerName: remote.player_name,
     status: remote.status,

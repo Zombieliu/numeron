@@ -24,7 +24,7 @@ pub use crate::runtime_app::{
     DEFAULT_WINDOW_TITLE, RuntimeBootstrap, RuntimeMode, build_native_app, build_runtime_app,
     build_web_app,
 };
-pub use crate::starter_scene::StarterSceneConfig;
+pub use crate::starter_scene::BoardConfig;
 
 // This example game uses States to separate logic
 // See https://bevy-cheatbook.github.io/programming/states.html

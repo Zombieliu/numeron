@@ -204,7 +204,7 @@ export function sanitizeMatchSession(
       typeof value?.id === "string" && value.id.trim()
         ? value.id
         : `${slotId}-${Date.now()}`,
-    template: "uplink-sweep",
+    template: "numeron-run",
     slotId,
     playerName:
       typeof value?.playerName === "string" && value.playerName.trim()
@@ -218,7 +218,7 @@ export function sanitizeMatchSession(
     objective:
       typeof value?.objective === "string" && value.objective.trim()
         ? value.objective
-        : "Secure each uplink pad once per sweep.",
+        : "Stand up the first Numeron board slice.",
     score: Math.max(0, Number(value?.score ?? 0) || 0),
     captured: Math.max(0, Number(value?.captured ?? 0) || 0),
     total: Math.max(1, Number(value?.total ?? 4) || 4),

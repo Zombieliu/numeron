@@ -171,22 +171,16 @@ async function runSmoke(url) {
 
     await page.locator("text=/scene-ready/i").first().waitFor({ timeout: 30_000 });
 
-    const rightButton = page.getByRole("button", { name: "Right" });
-    await rightButton.dispatchEvent("pointerdown");
-    await sleep(1_000);
-    await rightButton.dispatchEvent("pointerup");
-    await sleep(500);
-
     const statusPanel = page.locator("section.panel").filter({ hasText: "Status" }).first();
     const statusText = await statusPanel.innerText();
     const progressionPanel = page
       .locator("section.panel")
-      .filter({ hasText: "Progression Meta" })
+      .filter({ hasText: "Run Meta" })
       .first();
     const progressionText = await progressionPanel.innerText();
     const sessionPanel = page
       .locator("section.panel")
-      .filter({ hasText: "Match Contract" })
+      .filter({ hasText: "Active Run" })
       .first();
     const sessionText = await sessionPanel.innerText();
     const dataModePanel = page
@@ -199,11 +193,11 @@ async function runSmoke(url) {
       throw new Error(`Smoke failed: runtime never became active.\n${statusText}`);
     }
 
-    if (/Position:\s+0\.0,\s+0\.0/i.test(statusText) || /Position:\s+waiting/i.test(statusText)) {
-      throw new Error(`Smoke failed: runtime position never changed.\n${statusText}`);
+    if (!/Board Seed:\s+2\/4 units staged/i.test(statusText)) {
+      throw new Error(`Smoke failed: board seed state did not materialize.\n${statusText}`);
     }
 
-    if (!/Total launches:\s+1/i.test(progressionText) || !/Level/i.test(progressionText)) {
+    if (!/Runs launched:\s+1/i.test(progressionText) || !/Level/i.test(progressionText)) {
       throw new Error(`Smoke failed: progression panel did not update.\n${progressionText}`);
     }
 
@@ -215,7 +209,7 @@ async function runSmoke(url) {
       throw new Error(`Smoke failed: remote mode did not stay active.\n${dataModeText}`);
     }
 
-    await page.getByRole("button", { name: "Copy Save Matrix" }).click();
+    await page.getByRole("button", { name: "Copy Snapshot" }).click();
     const profileJson = await page.locator("textarea.profile-textarea").inputValue();
 
     if (
