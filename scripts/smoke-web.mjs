@@ -170,6 +170,8 @@ async function runSmoke(url) {
     await launchButton.click();
 
     await page.locator("text=/scene-ready/i").first().waitFor({ timeout: 30_000 });
+    await page.getByTestId("lock-shop").click();
+    await page.getByTestId("lock-shop").waitFor({ state: "visible" });
 
     await page.getByTestId("shop-offer-0").click();
     await page.getByTestId("bench-slot-1").click();
@@ -218,13 +220,26 @@ async function runSmoke(url) {
       .filter({ hasText: "Synergies" })
       .first();
     const synergyText = await synergyPanel.innerText();
+    const enemyPanel = page
+      .locator("section.panel")
+      .filter({ hasText: "Enemy Lineup" })
+      .first();
+    const enemyText = await enemyPanel.innerText();
 
     if (!/Bench/i.test(benchText) || !/Click to select|Selected for deployment|Buy from the shop/i.test(benchText)) {
       throw new Error(`Smoke failed: bench panel did not materialize.\n${benchText}`);
     }
 
+    if (!/Unlock Shop|Locked offers will carry into the next round/i.test(await page.locator('[data-testid="draft-shop"]').innerText())) {
+      throw new Error("Smoke failed: shop lock state did not toggle.");
+    }
+
     if (!/Dawn Circuit|Dusk Bastion|Vanguard Line|Skirmisher Line/i.test(synergyText)) {
       throw new Error(`Smoke failed: synergy panel did not materialize.\n${synergyText}`);
+    }
+
+    if (!/Threat|Intent/i.test(enemyText)) {
+      throw new Error(`Smoke failed: enemy preview panel did not materialize.\n${enemyText}`);
     }
 
     if (!/Round state:\s+Resolution phase|Round state:\s+Victory|Round state:\s+Defeat/i.test(statusText)) {

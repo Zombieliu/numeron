@@ -34,6 +34,8 @@ export type RuntimeUnitView = {
   archetype: "verdant-bruiser" | "signal-ranger" | "ash-duelist" | "iron-vanguard";
   faction: "dawn" | "dusk";
   role: "vanguard" | "skirmisher";
+  skill: string;
+  targetRule: string;
   stars: number;
   attack: number;
   health: number;
@@ -69,11 +71,14 @@ export type RuntimeProjection = {
     total: number;
     round: number;
     rerollCost: number;
+    shopLocked: boolean;
     shopOffers: RuntimeUnitView[];
     benchUnits: RuntimeUnitView[];
     playerBoard: Array<RuntimeUnitView | null>;
     enemyBoard: Array<RuntimeUnitView | null>;
     activeTraits: RuntimeTraitView[];
+    enemyThreat: number;
+    enemyIntent: string;
     benchCapacity: number;
     boardCapacity: number;
     completed: boolean;
@@ -211,6 +216,9 @@ export type UiIntent =
       type: "runtime.shop.reroll";
     }
   | {
+      type: "runtime.shop.lock.toggle";
+    }
+  | {
       type: "runtime.shop.buy";
       index: number;
     }
@@ -285,11 +293,14 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     total: 0,
     round: 1,
     rerollCost: 1,
+    shopLocked: false,
     shopOffers: [],
     benchUnits: [],
     playerBoard: [null, null, null, null],
     enemyBoard: [null, null, null],
     activeTraits: [],
+    enemyThreat: 0,
+    enemyIntent: "Awaiting board allocation.",
     benchCapacity: 4,
     boardCapacity: 4,
     completed: false,

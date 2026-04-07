@@ -33,6 +33,7 @@ type RuntimeModule = {
   startRuntimeCombat?: () => void;
   resetRuntimeRound?: () => void;
   rerollRuntimeShop?: () => void;
+  toggleRuntimeShopLock?: () => void;
   buyRuntimeShopOffer?: (index: number) => void;
   deployRuntimeBenchUnit?: (benchIndex: number, slotIndex: number) => void;
   withdrawRuntimeBoardUnit?: (slotIndex: number) => void;
@@ -119,6 +120,10 @@ export function resetRuntimeRound() {
 
 export function rerollRuntimeShop() {
   runtimeModule?.rerollRuntimeShop?.();
+}
+
+export function toggleRuntimeShopLock() {
+  runtimeModule?.toggleRuntimeShopLock?.();
 }
 
 export function buyRuntimeShopOffer(index: number) {
@@ -300,6 +305,10 @@ function normalizeRuntimeEventPayload(
           projection.slice?.rerollCost ??
             DEFAULT_RUNTIME_PROJECTION.slice.rerollCost,
         ),
+        shopLocked: Boolean(
+          projection.slice?.shopLocked ??
+            DEFAULT_RUNTIME_PROJECTION.slice.shopLocked,
+        ),
         shopOffers: Array.isArray(projection.slice?.shopOffers)
           ? projection.slice.shopOffers.map(normalizeRuntimeUnitView)
           : DEFAULT_RUNTIME_PROJECTION.slice.shopOffers,
@@ -319,6 +328,14 @@ function normalizeRuntimeEventPayload(
         activeTraits: Array.isArray(projection.slice?.activeTraits)
           ? projection.slice.activeTraits.map(normalizeRuntimeTraitView)
           : DEFAULT_RUNTIME_PROJECTION.slice.activeTraits,
+        enemyThreat: clampPositiveNumber(
+          projection.slice?.enemyThreat,
+          DEFAULT_RUNTIME_PROJECTION.slice.enemyThreat,
+        ),
+        enemyIntent: String(
+          projection.slice?.enemyIntent ??
+            DEFAULT_RUNTIME_PROJECTION.slice.enemyIntent,
+        ),
         benchCapacity: Number(
           projection.slice?.benchCapacity ??
             DEFAULT_RUNTIME_PROJECTION.slice.benchCapacity,
@@ -354,6 +371,8 @@ function normalizeRuntimeUnitView(value: unknown) {
     archetype: normalizeArchetype(record.archetype),
     faction: normalizeFaction(record.faction),
     role: normalizeRole(record.role),
+    skill: String(record.skill ?? "Basic strike"),
+    targetRule: String(record.targetRule ?? "Targets the front line."),
     stars: clampPositiveNumber(record.stars, 1),
     attack: clampPositiveNumber(record.attack, 1),
     health: clampPositiveNumber(record.health, 1),

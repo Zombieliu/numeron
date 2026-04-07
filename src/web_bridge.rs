@@ -65,6 +65,7 @@ pub enum RuntimeCommand {
     StartCombat,
     ResetRound,
     RerollShop,
+    ToggleShopLock,
     BuyOffer(usize),
     DeployBenchToBoard {
         bench_index: usize,
@@ -155,6 +156,14 @@ pub fn reset_runtime_round() {
 pub fn reroll_runtime_shop() {
     COMMAND_QUEUE.with(|queue| {
         queue.borrow_mut().push(RuntimeCommand::RerollShop);
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = toggleRuntimeShopLock)]
+pub fn toggle_runtime_shop_lock() {
+    COMMAND_QUEUE.with(|queue| {
+        queue.borrow_mut().push(RuntimeCommand::ToggleShopLock);
     });
 }
 
@@ -313,11 +322,14 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         total: slice.total,
         round: slice.round,
         reroll_cost: slice.reroll_cost,
+        shop_locked: slice.shop_locked,
         shop_offers: slice.shop_offers,
         bench_units: slice.bench_units,
         player_board: slice.player_board,
         enemy_board: slice.enemy_board,
         active_traits: slice.active_traits,
+        enemy_threat: slice.enemy_threat,
+        enemy_intent: slice.enemy_intent,
         bench_capacity: slice.bench_capacity,
         board_capacity: slice.board_capacity,
         completed: slice.completed,
@@ -342,11 +354,14 @@ struct ProjectionPayload {
     total: usize,
     round: u32,
     reroll_cost: u32,
+    shop_locked: bool,
     shop_offers: Vec<RuntimeUnitView>,
     bench_units: Vec<RuntimeUnitView>,
     player_board: Vec<Option<RuntimeUnitView>>,
     enemy_board: Vec<Option<RuntimeUnitView>>,
     active_traits: Vec<RuntimeTraitView>,
+    enemy_threat: u32,
+    enemy_intent: String,
     bench_capacity: usize,
     board_capacity: usize,
     completed: bool,
@@ -420,6 +435,7 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
             let _ = Reflect::set(&slice, &"total".into(), &projection.total.into());
             let _ = Reflect::set(&slice, &"round".into(), &projection.round.into());
             let _ = Reflect::set(&slice, &"rerollCost".into(), &projection.reroll_cost.into());
+            let _ = Reflect::set(&slice, &"shopLocked".into(), &projection.shop_locked.into());
             let offers = js_sys::Array::new();
             for offer in &projection.shop_offers {
                 offers.push(&runtime_unit_view_object(offer));
@@ -453,6 +469,16 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
             let _ = Reflect::set(&slice, &"activeTraits".into(), &active_traits);
             let _ = Reflect::set(
                 &slice,
+                &"enemyThreat".into(),
+                &projection.enemy_threat.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"enemyIntent".into(),
+                &projection.enemy_intent.clone().into(),
+            );
+            let _ = Reflect::set(
+                &slice,
                 &"benchCapacity".into(),
                 &projection.bench_capacity.into(),
             );
@@ -483,6 +509,12 @@ fn runtime_unit_view_object(view: &RuntimeUnitView) -> JsValue {
     );
     let _ = Reflect::set(&payload, &"faction".into(), &view.faction.clone().into());
     let _ = Reflect::set(&payload, &"role".into(), &view.role.clone().into());
+    let _ = Reflect::set(&payload, &"skill".into(), &view.skill.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"targetRule".into(),
+        &view.target_rule.clone().into(),
+    );
     let _ = Reflect::set(&payload, &"stars".into(), &view.stars.into());
     let _ = Reflect::set(&payload, &"attack".into(), &view.attack.into());
     let _ = Reflect::set(&payload, &"health".into(), &view.health.into());

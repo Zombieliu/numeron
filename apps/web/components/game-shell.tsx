@@ -110,6 +110,9 @@ export function GameShell() {
     canDraft &&
     runtimeSnapshot.world.slice.gold >= 3 &&
     benchUnits.length < runtimeSnapshot.world.slice.benchCapacity;
+  const canRerollShop =
+    canDraft &&
+    runtimeSnapshot.world.slice.gold >= runtimeSnapshot.world.slice.rerollCost;
   const canWithdrawUnit =
     canDraft && benchUnits.length < runtimeSnapshot.world.slice.benchCapacity;
 
@@ -574,6 +577,12 @@ export function GameShell() {
     });
   }
 
+  function handleToggleShopLock() {
+    void dispatchUiIntent({
+      type: "runtime.shop.lock.toggle",
+    });
+  }
+
   function handleBuyOffer(index: number) {
     void dispatchUiIntent({
       type: "runtime.shop.buy",
@@ -883,6 +892,12 @@ export function GameShell() {
                 {benchUnits.length}/{runtimeSnapshot.world.slice.benchCapacity}
               </strong>
             </div>
+            <div className="stat-card">
+              <span className="stat-label">Shop</span>
+              <strong>
+                {runtimeSnapshot.world.slice.shopLocked ? "Locked" : "Open"}
+              </strong>
+            </div>
           </div>
           <div className="action-row">
             <button
@@ -930,14 +945,27 @@ export function GameShell() {
             <button
               className="button secondary"
               onClick={handleRerollShop}
-              disabled={!canDraft || runtimeSnapshot.world.slice.gold < runtimeSnapshot.world.slice.rerollCost}
+              disabled={!canRerollShop}
               data-testid="reroll-shop"
             >
               Reroll Shop
             </button>
+            <button
+              className="button secondary"
+              onClick={handleToggleShopLock}
+              disabled={!canDraft}
+              data-testid="lock-shop"
+            >
+              {runtimeSnapshot.world.slice.shopLocked ? "Unlock Shop" : "Lock Shop"}
+            </button>
           </div>
           <div className="muted">
             Buying now sends units to the bench. Deploy them into empty board slots before combat.
+          </div>
+          <div className="muted">
+            {runtimeSnapshot.world.slice.shopLocked
+              ? "Locked offers will carry into the next round."
+              : "Open shop will refresh on the next round start."}
           </div>
         </section>
 
@@ -968,7 +996,10 @@ export function GameShell() {
                       : "Buy from the shop"}
                   </span>
                   {unit ? (
-                    <span className="slot-meta">{renderUnitMeta(unit)}</span>
+                    <>
+                      <span className="slot-meta">{renderUnitMeta(unit)}</span>
+                      <span className="slot-meta">{unit.skill}</span>
+                    </>
                   ) : null}
                 </button>
               );
@@ -1026,7 +1057,10 @@ export function GameShell() {
                         : "Select a bench unit first"}
                   </span>
                   {unit ? (
-                    <span className="slot-meta">{renderUnitMeta(unit)}</span>
+                    <>
+                      <span className="slot-meta">{renderUnitMeta(unit)}</span>
+                      <span className="slot-meta">{unit.skill}</span>
+                    </>
                   ) : null}
                 </button>
               );
@@ -1076,6 +1110,16 @@ export function GameShell() {
 
         <section className="panel">
           <div className="eyebrow">Enemy Lineup</div>
+          <div className="stat-grid">
+            <div className="stat-card">
+              <span className="stat-label">Threat</span>
+              <strong>{runtimeSnapshot.world.slice.enemyThreat}</strong>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Intent</span>
+              <strong>{runtimeSnapshot.world.slice.enemyIntent}</strong>
+            </div>
+          </div>
           <div className="formation-grid enemy-grid">
             {enemyBoard.map((unit, index) => (
               <div
@@ -1091,7 +1135,10 @@ export function GameShell() {
                     : "Unused this round"}
                 </span>
                 {unit ? (
-                  <span className="slot-meta">{renderUnitMeta(unit)}</span>
+                  <>
+                    <span className="slot-meta">{renderUnitMeta(unit)}</span>
+                    <span className="slot-meta">{unit.skill}</span>
+                  </>
                 ) : null}
               </div>
             ))}
@@ -1102,8 +1149,8 @@ export function GameShell() {
           <div className="eyebrow">Status</div>
           <div>{renderBootRecord(runtimeSnapshot.boot.current)}</div>
           <div className="muted">
-            Current runtime now supports shop purchases, manual deployment, unit selling,
-            duplicate merging, and simple faction/class synergies.
+            Current runtime now supports a lockable shop, richer enemy forecasts, unit
+            skills/targeting rules, plus selling and merge-based roster growth.
           </div>
           <div className="muted">
             Runtime active: {runtimeSnapshot.runtimeActive ? "yes" : "no"}
@@ -1519,7 +1566,7 @@ function formatPhaseLabel(phase: RuntimeSnapshot["world"]["slice"]["phase"]) {
 }
 
 function renderUnitMeta(unit: RuntimeUnitView) {
-  return `${formatFactionLabel(unit.faction)} · ${formatRoleLabel(unit.role)} · ${unit.attack} atk · ${unit.health} hp · Sell ${unit.sellValue}`;
+  return `${formatFactionLabel(unit.faction)} · ${formatRoleLabel(unit.role)} · ${unit.attack} atk · ${unit.health} hp · Sell ${unit.sellValue} · ${unit.targetRule}`;
 }
 
 function formatFactionLabel(faction: RuntimeUnitView["faction"] | RuntimeTraitView["key"]) {

@@ -18,6 +18,7 @@ import {
   launchRuntime,
   rerollRuntimeShop,
   resetRuntimeRound,
+  toggleRuntimeShopLock,
   sellRuntimeBenchUnit,
   sellRuntimeBoardUnit,
   setRuntimeSessionConfig,
@@ -128,6 +129,10 @@ export async function dispatchUiIntent(intent: UiIntent): Promise<RuntimeSnapsho
     }
     case "runtime.shop.reroll": {
       rerollRuntimeShop();
+      return currentSnapshot;
+    }
+    case "runtime.shop.lock.toggle": {
+      toggleRuntimeShopLock();
       return currentSnapshot;
     }
     case "runtime.shop.buy": {
@@ -273,6 +278,10 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
         projection.slice?.rerollCost ??
           DEFAULT_RUNTIME_PROJECTION.slice.rerollCost,
       ),
+      shopLocked: Boolean(
+        projection.slice?.shopLocked ??
+          DEFAULT_RUNTIME_PROJECTION.slice.shopLocked,
+      ),
       shopOffers: Array.isArray(projection.slice?.shopOffers)
         ? projection.slice.shopOffers.map(normalizeRuntimeUnitView)
         : DEFAULT_RUNTIME_PROJECTION.slice.shopOffers,
@@ -292,6 +301,14 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       activeTraits: Array.isArray(projection.slice?.activeTraits)
         ? projection.slice.activeTraits.map(normalizeRuntimeTraitView)
         : DEFAULT_RUNTIME_PROJECTION.slice.activeTraits,
+      enemyThreat: normalizeNumber(
+        projection.slice?.enemyThreat,
+        DEFAULT_RUNTIME_PROJECTION.slice.enemyThreat,
+      ),
+      enemyIntent: String(
+        projection.slice?.enemyIntent ??
+          DEFAULT_RUNTIME_PROJECTION.slice.enemyIntent,
+      ),
       benchCapacity: Number(
         projection.slice?.benchCapacity ??
           DEFAULT_RUNTIME_PROJECTION.slice.benchCapacity,
@@ -320,6 +337,8 @@ function normalizeRuntimeUnitView(value: unknown) {
     archetype: normalizeArchetype(record.archetype),
     faction: normalizeFaction(record.faction),
     role: normalizeRole(record.role),
+    skill: String(record.skill ?? "Basic strike"),
+    targetRule: String(record.targetRule ?? "Targets the front line."),
     stars: normalizeNumber(record.stars, 1),
     attack: normalizeNumber(record.attack, 1),
     health: normalizeNumber(record.health, 1),

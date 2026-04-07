@@ -1,6 +1,7 @@
 use crate::GameState;
 use crate::web_bridge::{RuntimeCommand, take_runtime_commands};
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 pub struct StarterScenePlugin;
 
@@ -85,6 +86,8 @@ pub struct RuntimeUnitView {
     pub archetype: String,
     pub faction: String,
     pub role: String,
+    pub skill: String,
+    pub target_rule: String,
     pub stars: u8,
     pub attack: u32,
     pub health: u32,
@@ -115,11 +118,14 @@ pub struct StarterSliceProjection {
     pub total: usize,
     pub round: u32,
     pub reroll_cost: u32,
+    pub shop_locked: bool,
     pub shop_offers: Vec<RuntimeUnitView>,
     pub bench_units: Vec<RuntimeUnitView>,
     pub player_board: Vec<Option<RuntimeUnitView>>,
     pub enemy_board: Vec<Option<RuntimeUnitView>>,
     pub active_traits: Vec<RuntimeTraitView>,
+    pub enemy_threat: u32,
+    pub enemy_intent: String,
     pub bench_capacity: usize,
     pub board_capacity: usize,
     pub completed: bool,
@@ -140,11 +146,14 @@ impl Default for StarterSliceProjection {
             total: 0,
             round: 1,
             reroll_cost: REROLL_COST,
+            shop_locked: false,
             shop_offers: Vec::new(),
             bench_units: Vec::new(),
             player_board: vec![None; PLAYER_SLOTS.len()],
             enemy_board: vec![None; ENEMY_SLOTS.len()],
             active_traits: Vec::new(),
+            enemy_threat: 0,
+            enemy_intent: "Awaiting board allocation.".to_owned(),
             bench_capacity: BENCH_CAPACITY,
             board_capacity: PLAYER_SLOTS.len(),
             completed: false,
@@ -156,6 +165,7 @@ impl Default for StarterSliceProjection {
 struct ShopState {
     offers: Vec<UnitInstance>,
     reroll_cursor: usize,
+    locked: bool,
 }
 
 #[derive(Resource, Default)]
@@ -187,6 +197,8 @@ struct BoardTile;
 #[derive(Component)]
 struct UnitEntity {
     owner: UnitOwner,
+    archetype: UnitArchetype,
+    action_counter: u32,
     health: i32,
     max_health: i32,
     attack: u32,
@@ -315,6 +327,30 @@ impl UnitArchetype {
         }
     }
 
+    fn skill_label(self) -> &'static str {
+        match self {
+            Self::VerdantBruiser => "Bulwark Bash",
+            Self::SignalRanger => "Piercing Volley",
+            Self::AshDuelist => "Execution Arc",
+            Self::IronVanguard => "Anchor Strike",
+        }
+    }
+
+    fn target_rule(self) -> &'static str {
+        match self {
+            Self::VerdantBruiser => "Targets the healthiest enemy and surges every second swing.",
+            Self::SignalRanger => {
+                "Snipes the weakest enemy and fires a stronger volley every second shot."
+            }
+            Self::AshDuelist => {
+                "Executes the weakest enemy and deals bonus damage below half health."
+            }
+            Self::IronVanguard => {
+                "Challenges the highest-attack enemy and shrugs off 1 damage from each hit."
+            }
+        }
+    }
+
     fn faction(self) -> UnitFaction {
         match self {
             Self::VerdantBruiser | Self::SignalRanger => UnitFaction::Dawn,
@@ -388,6 +424,8 @@ impl UnitInstance {
             archetype: self.archetype.key().to_owned(),
             faction: self.archetype.faction().key().to_owned(),
             role: self.archetype.role().key().to_owned(),
+            skill: self.archetype.skill_label().to_owned(),
+            target_rule: self.archetype.target_rule().to_owned(),
             stars: self.stars,
             attack: stats.attack,
             health: stats.max_health.max(1) as u32,
@@ -423,6 +461,17 @@ struct UnitStats {
 enum UnitLocation {
     Board(usize),
     Bench(usize),
+}
+
+#[derive(Clone, Copy, Debug)]
+struct CombatUnitSnapshot {
+    entity: Entity,
+    owner: UnitOwner,
+    archetype: UnitArchetype,
+    health: i32,
+    max_health: i32,
+    attack: u32,
+    action_counter: u32,
 }
 
 impl Plugin for StarterScenePlugin {
@@ -512,6 +561,7 @@ fn setup_board_scene(
     *combat = CombatState::default();
     combat_timer.0.reset();
 
+    shop.locked = false;
     player_squad.board = [None; PLAYER_SLOTS.len()];
     player_squad.bench = vec![UnitInstance::new(UnitArchetype::VerdantBruiser)];
     enemy_squad.units = seed_enemy_squad(1);
@@ -566,11 +616,18 @@ fn handle_runtime_commands(
                     combat.phase = CombatPhase::Preparation;
                     combat.gold += ROUND_INCOME;
                     enemy_squad.units = seed_enemy_squad(combat.round);
-                    reroll_shop(&mut shop, combat.round);
-                    combat.status = format!(
-                        "Round {} ready. Draft, merge, or reposition before combat.",
-                        combat.round
-                    );
+                    if shop.locked {
+                        combat.status = format!(
+                            "Round {} ready. Locked shop carried forward. Draft or reposition before combat.",
+                            combat.round
+                        );
+                    } else {
+                        reroll_shop(&mut shop, combat.round);
+                        combat.status = format!(
+                            "Round {} ready. Draft, merge, or reposition before combat.",
+                            combat.round
+                        );
+                    }
                     needs_respawn = true;
                 }
             }
@@ -580,6 +637,18 @@ fn handle_runtime_commands(
                     reroll_shop(&mut shop, combat.round + 1);
                     combat.status = "Shop rerolled. Draft before combat starts.".to_owned();
                 }
+            }
+            RuntimeCommand::ToggleShopLock => {
+                if combat.phase != CombatPhase::Preparation {
+                    continue;
+                }
+
+                shop.locked = !shop.locked;
+                combat.status = if shop.locked {
+                    "Shop lock engaged. Current offers will carry into the next round.".to_owned()
+                } else {
+                    "Shop lock released. Next round will refresh the offers.".to_owned()
+                };
             }
             RuntimeCommand::BuyOffer(index) => {
                 if combat.phase != CombatPhase::Preparation
@@ -723,31 +792,66 @@ fn run_combat_tick(
         return;
     }
 
-    let mut player_entities = Vec::new();
-    let mut enemy_entities = Vec::new();
+    let snapshots = unit_queries
+        .p0()
+        .iter()
+        .map(|(entity, unit)| CombatUnitSnapshot {
+            entity,
+            owner: unit.owner,
+            archetype: unit.archetype,
+            health: unit.health,
+            max_health: unit.max_health,
+            attack: unit.attack,
+            action_counter: unit.action_counter,
+        })
+        .collect::<Vec<_>>();
 
-    for (entity, unit) in &unit_queries.p0() {
-        match unit.owner {
-            UnitOwner::Player => player_entities.push((entity, unit.health, unit.attack)),
-            UnitOwner::Enemy => enemy_entities.push((entity, unit.health, unit.attack)),
+    let player_entities = snapshots
+        .iter()
+        .copied()
+        .filter(|snapshot| snapshot.owner == UnitOwner::Player)
+        .collect::<Vec<_>>();
+    let enemy_entities = snapshots
+        .iter()
+        .copied()
+        .filter(|snapshot| snapshot.owner == UnitOwner::Enemy)
+        .collect::<Vec<_>>();
+
+    let mut pending_damage = HashMap::<Entity, i32>::new();
+    let mut combat_highlights = Vec::new();
+
+    for attacker in &player_entities {
+        if let Some((target_entity, damage, highlight)) = resolve_attack(*attacker, &enemy_entities)
+        {
+            *pending_damage.entry(target_entity).or_insert(0) += damage;
+            if combat_highlights.len() < 2 {
+                combat_highlights.push(highlight);
+            }
         }
     }
 
-    player_entities.sort_by_key(|(_, health, _)| *health);
-    enemy_entities.sort_by_key(|(_, health, _)| *health);
-
-    if let (Some((_, _, player_attack)), Some((enemy_target, _, _))) =
-        (player_entities.first(), enemy_entities.first())
-        && let Ok(mut unit) = unit_queries.p1().get_mut(*enemy_target)
-    {
-        unit.health -= *player_attack as i32;
+    for attacker in &enemy_entities {
+        if let Some((target_entity, damage, highlight)) =
+            resolve_attack(*attacker, &player_entities)
+        {
+            *pending_damage.entry(target_entity).or_insert(0) += damage;
+            if combat_highlights.len() < 4 {
+                combat_highlights.push(highlight);
+            }
+        }
     }
 
-    if let (Some((_, _, enemy_attack)), Some((player_target, _, _))) =
-        (enemy_entities.first(), player_entities.first())
-        && let Ok(mut unit) = unit_queries.p1().get_mut(*player_target)
-    {
-        unit.health -= *enemy_attack as i32;
+    for snapshot in &snapshots {
+        if let Ok(mut unit) = unit_queries.p1().get_mut(snapshot.entity) {
+            unit.action_counter += 1;
+        }
+    }
+
+    for (target_entity, damage) in pending_damage {
+        if let Ok(mut unit) = unit_queries.p1().get_mut(target_entity) {
+            let mitigated = mitigate_damage(unit.archetype, damage);
+            unit.health -= mitigated;
+        }
     }
 
     let post_units = unit_queries
@@ -812,13 +916,112 @@ fn run_combat_tick(
             &mut combat,
         );
     } else {
-        combat.status = format!(
-            "Combat underway. {} allied units vs {} enemies.",
-            combat.player_units, combat.enemy_units
-        );
+        combat.status = if combat_highlights.is_empty() {
+            format!(
+                "Combat underway. {} allied units vs {} enemies.",
+                combat.player_units, combat.enemy_units
+            )
+        } else {
+            format!(
+                "Combat underway. {} allied units vs {} enemies. {}",
+                combat.player_units,
+                combat.enemy_units,
+                combat_highlights
+                    .into_iter()
+                    .take(2)
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            )
+        };
     }
 
     update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
+}
+
+fn resolve_attack(
+    attacker: CombatUnitSnapshot,
+    opponents: &[CombatUnitSnapshot],
+) -> Option<(Entity, i32, String)> {
+    let target = select_target(attacker.archetype, opponents)?;
+    let mut damage = attacker.attack as i32;
+    let mut skill_note = None;
+
+    match attacker.archetype {
+        UnitArchetype::VerdantBruiser => {
+            if (attacker.action_counter + 1) % 2 == 0 {
+                damage += 2;
+                skill_note = Some("Bulwark Bash landed heavy");
+            }
+        }
+        UnitArchetype::SignalRanger => {
+            if (attacker.action_counter + 1) % 2 == 0 {
+                damage += 2;
+                skill_note = Some("Piercing Volley broke through");
+            }
+        }
+        UnitArchetype::AshDuelist => {
+            if target.health * 2 <= target.max_health {
+                damage += 2;
+                skill_note = Some("Execution Arc punished a weakened target");
+            }
+        }
+        UnitArchetype::IronVanguard => {
+            if (attacker.action_counter + 1) % 2 == 0 {
+                damage += 1;
+                skill_note = Some("Anchor Strike cracked the enemy line");
+            }
+        }
+    }
+
+    let highlight = if let Some(skill_note) = skill_note {
+        format!(
+            "{} hit {} for {}. {}.",
+            attacker.archetype.label(),
+            target.archetype.label(),
+            damage,
+            skill_note
+        )
+    } else {
+        format!(
+            "{} hit {} for {}.",
+            attacker.archetype.label(),
+            target.archetype.label(),
+            damage
+        )
+    };
+
+    Some((target.entity, damage.max(1), highlight))
+}
+
+fn select_target(
+    archetype: UnitArchetype,
+    opponents: &[CombatUnitSnapshot],
+) -> Option<CombatUnitSnapshot> {
+    let mut candidates = opponents.to_vec();
+    if candidates.is_empty() {
+        return None;
+    }
+
+    match archetype {
+        UnitArchetype::VerdantBruiser => {
+            candidates.sort_by_key(|candidate| (-candidate.max_health, candidate.health));
+        }
+        UnitArchetype::SignalRanger | UnitArchetype::AshDuelist => {
+            candidates.sort_by_key(|candidate| (candidate.health, -(candidate.attack as i32)));
+        }
+        UnitArchetype::IronVanguard => {
+            candidates.sort_by_key(|candidate| (-(candidate.attack as i32), -candidate.health));
+        }
+    }
+
+    candidates.first().copied()
+}
+
+fn mitigate_damage(archetype: UnitArchetype, damage: i32) -> i32 {
+    match archetype {
+        UnitArchetype::IronVanguard => (damage - 1).max(1),
+        _ => damage.max(1),
+    }
 }
 
 fn update_unit_health_bars(
@@ -847,8 +1050,8 @@ fn update_projection_from_state(
     let enemy_buffs = trait_buffs_for(enemy_squad.units.iter().copied());
 
     projection.phase = combat.phase.as_str().to_owned();
-    projection.objective =
-        "Draft a compact squad, merge duplicates, and survive the first Numeron rounds.".to_owned();
+    projection.objective = "Draft a compact squad, manage a lockable shop, and survive scaling enemy rounds with unit skills."
+        .to_owned();
     projection.status = combat.status.clone();
     projection.score = combat.score;
     projection.gold = combat.gold;
@@ -858,6 +1061,7 @@ fn update_projection_from_state(
     projection.total = combat.player_units + combat.enemy_units;
     projection.round = combat.round;
     projection.reroll_cost = REROLL_COST;
+    projection.shop_locked = shop.locked;
     projection.shop_offers = shop
         .offers
         .iter()
@@ -886,6 +1090,8 @@ fn update_projection_from_state(
         .collect();
     projection.active_traits =
         trait_views_for(player_squad.board.iter().flatten().copied()).collect();
+    projection.enemy_threat = enemy_threat(enemy_squad.units.iter().copied());
+    projection.enemy_intent = enemy_intent_for_round(combat.round);
     projection.bench_capacity = BENCH_CAPACITY;
     projection.board_capacity = PLAYER_SLOTS.len();
     projection.completed = combat.phase == CombatPhase::Resolution;
@@ -959,6 +1165,8 @@ fn spawn_unit(
             Transform::from_translation(translation.extend(2.0)),
             UnitEntity {
                 owner,
+                archetype: unit.archetype,
+                action_counter: 0,
                 health: stats.max_health,
                 max_health: stats.max_health,
                 attack: stats.attack,
@@ -1016,12 +1224,44 @@ fn seed_enemy_squad(round: u32) -> Vec<UnitInstance> {
         units.push(UnitInstance::new(UnitArchetype::AshDuelist));
     }
 
+    if round >= 3 {
+        units[0].stars = 2;
+    }
+
     if round >= 4 {
         units[1].stars = 2;
     }
 
+    if round >= 5 && units.len() == ENEMY_SLOTS.len() {
+        units[2] = UnitInstance::new(UnitArchetype::SignalRanger);
+    }
+
+    if round >= 6 {
+        units[2].stars = 2;
+    }
+
     units.truncate(ENEMY_SLOTS.len());
     units
+}
+
+fn enemy_threat(units: impl Iterator<Item = UnitInstance>) -> u32 {
+    units
+        .map(|unit| {
+            let stats = scaled_stats(unit);
+            stats.attack + stats.max_health.max(0) as u32 + unit.stars as u32 * 3
+        })
+        .sum()
+}
+
+fn enemy_intent_for_round(round: u32) -> String {
+    match round {
+        1 => "Scout squad: two bruisers test the board.".to_owned(),
+        2 => "Pressure spike: a third body joins the enemy lane.".to_owned(),
+        3 => "First elite spike: the lead duelist upgrades to two stars.".to_owned(),
+        4 => "Frontline hardens: Iron Vanguard upgrades and soaks damage.".to_owned(),
+        5 => "Mixed threat: the enemy swaps in a ranged Signal Ranger.".to_owned(),
+        _ => "Veteran warband: upgraded mixed comp with stronger pressure.".to_owned(),
+    }
 }
 
 fn normalize_player_squad(player_squad: &mut PlayerSquad) -> Vec<String> {
