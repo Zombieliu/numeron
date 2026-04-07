@@ -1,0 +1,45 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" rx="32" fill="#071019"/>
+  <rect x="24" y="24" width="1232" height="672" rx="28" fill="url(#bg)"/>
+  <text x="72" y="96" fill="#BFE38F" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18" letter-spacing="3.6">BEVY HYBRID GAME TEMPLATE</text>
+  <text x="72" y="146" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="42" font-weight="700">Commercial Starter Kit Map</text>
+  <text x="72" y="188" fill="#95A9B5" font-family="IBM Plex Sans, Arial, sans-serif" font-size="22">One runtime crate, one product shell, and one reusable path from prototype to shipped template.</text>
+
+  <rect x="72" y="240" width="360" height="188" rx="24" fill="#10202A" stroke="#365262"/>
+  <text x="104" y="286" fill="#6ED3B7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="20" font-weight="700">Runtime Core</text>
+  <text x="104" y="326" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Shared native/web bootstrap</text>
+  <text x="104" y="358" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Bevy starter slice + wasm bridge</text>
+  <text x="104" y="390" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Runtime-owned camera, input, scene</text>
+
+  <rect x="460" y="240" width="360" height="188" rx="24" fill="#13252F" stroke="#365262"/>
+  <text x="492" y="286" fill="#6ED3B7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="20" font-weight="700">Product Shell</text>
+  <text x="492" y="326" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Next.js launcher / HUD / shell</text>
+  <text x="492" y="358" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Save slots, session panel, progression</text>
+  <text x="492" y="390" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• JSON import/export for local-first data</text>
+
+  <rect x="848" y="240" width="360" height="188" rx="24" fill="#142A31" stroke="#365262"/>
+  <text x="880" y="286" fill="#6ED3B7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="20" font-weight="700">Shipping Path</text>
+  <text x="880" y="326" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Static export for Pages / Netlify / CF</text>
+  <text x="880" y="358" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Native packaging scaffolding kept intact</text>
+  <text x="880" y="390" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">• Smoke-tested browser path in CI</text>
+
+  <rect x="72" y="474" width="530" height="158" rx="24" fill="#101B24" stroke="#365262"/>
+  <text x="104" y="520" fill="#BFE38F" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18" font-weight="700">Swap Points</text>
+  <text x="104" y="558" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">Replace the starter scene, change the shell UX, or swap local save storage</text>
+  <text x="104" y="588" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">for auth/cloud save later without rewriting the Bevy runtime contract.</text>
+
+  <rect x="634" y="474" width="574" height="158" rx="24" fill="#101B24" stroke="#365262"/>
+  <text x="666" y="520" fill="#BFE38F" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18" font-weight="700">Template UX</text>
+  <text x="666" y="558" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">Rename automation, setup docs, changelog/versioning, issue templates,</text>
+  <text x="666" y="588" fill="#EDF4F7" font-family="IBM Plex Sans, Arial, sans-serif" font-size="18">and repo packaging make this usable as a public template instead of an internal spike.</text>
+
+  <path d="M432 334H460" stroke="#6ED3B7" stroke-width="4" stroke-linecap="round"/>
+  <path d="M820 334H848" stroke="#6ED3B7" stroke-width="4" stroke-linecap="round"/>
+
+  <defs>
+    <linearGradient id="bg" x1="120" y1="72" x2="1120" y2="664" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1520"/>
+      <stop offset="1" stop-color="#071019"/>
+    </linearGradient>
+  </defs>
+</svg>

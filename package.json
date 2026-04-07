@@ -1,0 +1,22 @@
+{
+  "name": "numeron",
+  "private": true,
+  "scripts": {
+    "native": "cargo run",
+    "backend:dev": "cargo run --manifest-path server/headless_runtime/Cargo.toml",
+    "backend:check": "cargo check --manifest-path server/headless_runtime/Cargo.toml",
+    "runtime:build:dev": "bash scripts/build-bevy-runtime.sh dev",
+    "runtime:build:release": "bash scripts/build-bevy-runtime.sh release",
+    "rename:template": "node scripts/rename-template.mjs",
+    "smoke:web": "node scripts/smoke-web.mjs",
+    "web:dev": "pnpm runtime:build:dev && pnpm --dir apps/web dev",
+    "web:build": "pnpm runtime:build:release && pnpm --dir apps/web build",
+    "dev": "pnpm web:dev",
+    "build": "pnpm web:build",
+    "typecheck": "pnpm --dir apps/web typecheck"
+  },
+  "devDependencies": {
+    "playwright": "1.55.0"
+  },
+  "packageManager": "pnpm@9.15.4"
+}

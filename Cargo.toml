@@ -1,0 +1,77 @@
+[package]
+name = "numeron"
+version = "0.1.0"
+publish = false
+edition = "2024"
+description = "Hybrid Bevy template with shared native and Next.js + WASM runtime bootstrap."
+license = "CC0-1.0"
+readme = "README.md"
+repository = "https://github.com/Zombieliu/numeron"
+exclude = ["dist", "build", "assets", "credits"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+
+# The release profile is also reused by the Android packaging flow.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+
+# Profile for distribution
+[profile.dist]
+inherits = "release"
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[features]
+dev = [
+    "bevy/dynamic_linking",
+]
+
+# All of Bevy's default features exept for the audio related ones (bevy_audio, vorbis), since they clash with bevy_kira_audio
+#   and android_shared_stdcxx/android-game-activity, since those are covered in `mobile`
+[dependencies]
+bevy = { version = "0.18.1", default-features = false, features = [
+    "default_app",
+    "2d_api",
+    "2d_bevy_render",
+    "ui_api",
+    "ui_bevy_render",
+    "scene",
+    "bevy_gilrs",
+    "bevy_winit",
+    "default_font",
+    "multi_threaded",
+    "webgl2",
+    "x11",
+    "wayland",
+    "sysinfo_plugin",
+] }
+bevy_kira_audio = { version = "0.25", features = ["android_shared_stdcxx"] }
+bevy_asset_loader = { version = "0.25.0" }
+webbrowser = { version = "1", features = ["hardened"] }
+js-sys = "0.3.72"
+wasm-bindgen = "0.2.95"
+console_error_panic_hook = "0.1.7"
+
+# keep the following in sync with Bevy's dependencies
+winit = { version = "0.30", default-features = false }
+image = { version = "0.25", default-features = false }
+## This greatly improves WGPU's performance due to its heavy use of trace! calls
+log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
+
+[build-dependencies]
+embed-resource = "1"

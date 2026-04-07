@@ -1,0 +1,13 @@
+target/
+server/headless_runtime/target/
+.idea/
+.DS_Store
+
+dist/
+node_modules/
+.next/
+apps/web/.next/
+apps/web/public/bevy-runtime/pkg/
+apps/web/tsconfig.tsbuildinfo
+out/
+output/playwright/

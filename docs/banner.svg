@@ -1,0 +1,84 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="96" y1="64" x2="1184" y2="576" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A1720"/>
+      <stop offset="0.55" stop-color="#102430"/>
+      <stop offset="1" stop-color="#071017"/>
+    </linearGradient>
+    <radialGradient id="glowLeft" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(272 148) rotate(52.1639) scale(315.698 349.025)">
+      <stop stop-color="#58D0B0" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#58D0B0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowRight" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1008 468) rotate(141.843) scale(393.595 275.655)">
+      <stop stop-color="#9FD577" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#9FD577" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="520" y2="336" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#112130" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#0A151D" stop-opacity="0.88"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="198" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#62D3B8"/>
+      <stop offset="1" stop-color="#B7E58E"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="640" rx="28" fill="url(#bg)"/>
+  <rect width="1280" height="640" rx="28" fill="url(#glowLeft)"/>
+  <rect width="1280" height="640" rx="28" fill="url(#glowRight)"/>
+
+  <g opacity="0.4">
+    <path d="M788 96H1176" stroke="#2A4456" stroke-width="2"/>
+    <path d="M820 160H1144" stroke="#2A4456" stroke-width="2"/>
+    <path d="M756 224H1112" stroke="#2A4456" stroke-width="2"/>
+    <path d="M820 288H1176" stroke="#2A4456" stroke-width="2"/>
+    <path d="M724 352H1080" stroke="#2A4456" stroke-width="2"/>
+    <path d="M820 416H1144" stroke="#2A4456" stroke-width="2"/>
+    <path d="M756 480H1176" stroke="#2A4456" stroke-width="2"/>
+    <path d="M820 544H1080" stroke="#2A4456" stroke-width="2"/>
+  </g>
+
+  <rect x="72" y="72" width="560" height="496" rx="30" fill="url(#card)" stroke="#2B4556" stroke-width="2"/>
+  <rect x="96" y="98" width="184" height="32" rx="16" fill="#0E2230"/>
+  <text x="118" y="119" fill="#B7E58E" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="2.8">REACT SHELL + BEVY RUNTIME</text>
+
+  <text x="96" y="196" fill="#EEF5F8" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="700">Bevy Hybrid</text>
+  <text x="96" y="262" fill="#EEF5F8" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="700">Game Template</text>
+  <text x="96" y="320" fill="#93A8B5" font-family="Arial, Helvetica, sans-serif" font-size="26">Shared native + Next.js + WASM bootstrap</text>
+  <text x="96" y="358" fill="#93A8B5" font-family="Arial, Helvetica, sans-serif" font-size="26">for browser-first game products.</text>
+
+  <rect x="96" y="414" width="198" height="48" rx="24" fill="url(#accent)"/>
+  <text x="132" y="445" fill="#0A1E22" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">Use this template</text>
+
+  <rect x="320" y="414" width="156" height="48" rx="24" fill="#0D1E2A" stroke="#2E4A5E" stroke-width="2"/>
+  <text x="354" y="445" fill="#D7E5EC" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700">cargo run</text>
+
+  <rect x="96" y="492" width="162" height="32" rx="16" fill="#102433"/>
+  <text x="122" y="513" fill="#D7E5EC" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">Native + Web Shared</text>
+  <rect x="272" y="492" width="132" height="32" rx="16" fill="#102433"/>
+  <text x="298" y="513" fill="#D7E5EC" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">Static Export</text>
+  <rect x="418" y="492" width="148" height="32" rx="16" fill="#102433"/>
+  <text x="444" y="513" fill="#D7E5EC" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">Starter Scene</text>
+
+  <g transform="translate(750 110)">
+    <rect width="432" height="420" rx="30" fill="#0B1720" stroke="#304B5E" stroke-width="2"/>
+    <rect x="28" y="28" width="168" height="364" rx="22" fill="#132332" stroke="#2D495B" stroke-width="2"/>
+    <text x="52" y="70" fill="#B7E58E" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">LAUNCHER</text>
+    <rect x="52" y="104" width="120" height="14" rx="7" fill="#314D5F"/>
+    <rect x="52" y="136" width="96" height="12" rx="6" fill="#294252"/>
+    <rect x="52" y="182" width="92" height="12" rx="6" fill="#294252"/>
+    <rect x="52" y="208" width="92" height="48" rx="24" fill="url(#accent)"/>
+    <text x="74" y="238" fill="#0A1E22" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Launch</text>
+    <rect x="52" y="292" width="120" height="12" rx="6" fill="#294252"/>
+    <rect x="52" y="320" width="108" height="12" rx="6" fill="#294252"/>
+
+    <rect x="222" y="28" width="182" height="364" rx="22" fill="#081118" stroke="#203745" stroke-width="2"/>
+    <rect x="248" y="56" width="130" height="292" rx="22" fill="#0C1B24" stroke="#35576B" stroke-width="2"/>
+    <path d="M248 204H378" stroke="#2E4A5E" stroke-width="2"/>
+    <path d="M313 56V348" stroke="#2E4A5E" stroke-width="2"/>
+    <rect x="280" y="88" width="66" height="66" rx="18" fill="#B7E58E" fill-opacity="0.25"/>
+    <rect x="280" y="250" width="66" height="66" rx="18" fill="#62D3B8" fill-opacity="0.22"/>
+    <rect x="295" y="183" width="36" height="36" rx="12" fill="#DCEB9B"/>
+    <text x="248" y="378" fill="#92A8B4" font-family="Arial, Helvetica, sans-serif" font-size="16">Visible arena + movable marker</text>
+  </g>
+</svg>

@@ -1,0 +1,45 @@
+name: Bug report
+description: Report a regression or broken template behavior
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What broke in the template?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Exact steps to reproduce from a clean checkout or from a fresh repo generated from the template
+      placeholder: |
+        1. pnpm install
+        2. pnpm dev
+        3. Click Launch Runtime
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser, Rust version, Node version, and whether this was the template repo or a generated repo
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Verification
+      options:
+        - label: I ran `cargo check`
+        - label: I ran `pnpm build`
+        - label: I ran `pnpm smoke:web` if the issue is web/runtime related

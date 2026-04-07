@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Template Setup Guide
+    url: https://github.com/Zombieliu/bevy-hybrid-game-template/blob/main/TEMPLATE_SETUP.md
+    about: Start here if the issue is about renaming or bootstrapping a project from the template.
