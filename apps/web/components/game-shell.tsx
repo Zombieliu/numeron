@@ -43,12 +43,15 @@ import type {
   RuntimeSaveCollection,
   RuntimeSaveSlot,
   RuntimeSnapshot,
+  RuntimeTraitView,
+  RuntimeUnitView,
   SaveSlotId,
 } from "@/lib/types";
 
 const LAUNCHER_STORAGE_KEY = "numeron.launcher.v1";
 const DATA_MODE_STORAGE_KEY = "numeron.data-mode.v1";
 const BACKEND_URL_STORAGE_KEY = "numeron.backend-url.v1";
+const BUY_COST_LABEL = 3;
 
 type ControlKey = "up" | "down" | "left" | "right";
 
@@ -67,6 +70,7 @@ export function GameShell() {
     useState<RuntimeSnapshot>(getRuntimeSnapshot);
   const [controls, setControls] = useState<ControlState>(DEFAULT_CONTROL_STATE);
   const [selectedBenchIndex, setSelectedBenchIndex] = useState<number | null>(null);
+  const [selectedBoardIndex, setSelectedBoardIndex] = useState<number | null>(null);
   const [saveCollection, setSaveCollection] =
     useState<RuntimeSaveCollection>(defaultSaveCollection);
   const [saveDraft, setSaveDraft] = useState("");
@@ -94,8 +98,14 @@ export function GameShell() {
     runtimeSnapshot.world.ready && currentPhase === "resolution";
   const benchUnits = runtimeSnapshot.world.slice.benchUnits;
   const playerBoard = runtimeSnapshot.world.slice.playerBoard;
+  const enemyBoard = runtimeSnapshot.world.slice.enemyBoard;
+  const activeTraits = runtimeSnapshot.world.slice.activeTraits;
   const hasBenchSelection =
     selectedBenchIndex != null && selectedBenchIndex < benchUnits.length;
+  const hasBoardSelection =
+    selectedBoardIndex != null &&
+    selectedBoardIndex < playerBoard.length &&
+    playerBoard[selectedBoardIndex] != null;
   const canBuyUnit =
     canDraft &&
     runtimeSnapshot.world.slice.gold >= 3 &&
@@ -163,6 +173,17 @@ export function GameShell() {
       setSelectedBenchIndex(null);
     }
   }, [benchUnits.length, canDraft, selectedBenchIndex]);
+
+  useEffect(() => {
+    if (
+      selectedBoardIndex == null ||
+      !canDraft ||
+      selectedBoardIndex >= playerBoard.length ||
+      playerBoard[selectedBoardIndex] == null
+    ) {
+      setSelectedBoardIndex(null);
+    }
+  }, [canDraft, playerBoard, selectedBoardIndex]);
 
   useEffect(() => {
     if (!clientReady) {
@@ -561,7 +582,13 @@ export function GameShell() {
   }
 
   function handleSelectBenchUnit(index: number) {
+    setSelectedBoardIndex(null);
     setSelectedBenchIndex((current) => (current === index ? null : index));
+  }
+
+  function handleSelectBoardUnit(index: number) {
+    setSelectedBenchIndex(null);
+    setSelectedBoardIndex((current) => (current === index ? null : index));
   }
 
   function handleDeployBenchUnit(slotIndex: number) {
@@ -577,11 +604,40 @@ export function GameShell() {
     setSelectedBenchIndex(null);
   }
 
-  function handleWithdrawBoardUnit(slotIndex: number) {
+  function handleWithdrawBoardUnit() {
+    if (selectedBoardIndex == null) {
+      return;
+    }
+
     void dispatchUiIntent({
       type: "runtime.board.withdraw",
-      slotIndex,
+      slotIndex: selectedBoardIndex,
     });
+    setSelectedBoardIndex(null);
+  }
+
+  function handleSellBenchUnit() {
+    if (selectedBenchIndex == null) {
+      return;
+    }
+
+    void dispatchUiIntent({
+      type: "runtime.bench.sell",
+      benchIndex: selectedBenchIndex,
+    });
+    setSelectedBenchIndex(null);
+  }
+
+  function handleSellBoardUnit() {
+    if (selectedBoardIndex == null) {
+      return;
+    }
+
+    void dispatchUiIntent({
+      type: "runtime.board.sell",
+      slotIndex: selectedBoardIndex,
+    });
+    setSelectedBoardIndex(null);
   }
 
   async function handlePullRemote() {
@@ -853,15 +909,20 @@ export function GameShell() {
           <div className="offer-grid">
             {runtimeSnapshot.world.slice.shopOffers.map((offer, index) => (
               <button
-                key={`${offer}-${index}`}
+                key={`${offer.archetype}-${offer.stars}-${index}`}
                 type="button"
                 className="offer-card"
                 onClick={() => handleBuyOffer(index)}
                 disabled={!canBuyUnit}
                 data-testid={`shop-offer-${index}`}
               >
-                <span className="slot-title">{offer}</span>
-                <span className="slot-meta">Cost 3</span>
+                <span className="slot-title">{offer.label}</span>
+                <span className="slot-meta">
+                  {formatFactionLabel(offer.faction)} · {formatRoleLabel(offer.role)}
+                </span>
+                <span className="slot-meta">
+                  {renderUnitMeta(offer)} · Cost {BUY_COST_LABEL}
+                </span>
               </button>
             ))}
           </div>
@@ -896,7 +957,9 @@ export function GameShell() {
                   disabled={!canDraft || !unit}
                   data-testid={`bench-slot-${index}`}
                 >
-                  <span className="slot-title">{unit ?? "Empty Bench Slot"}</span>
+                  <span className="slot-title">
+                    {unit ? unit.label : "Empty Bench Slot"}
+                  </span>
                   <span className="slot-meta">
                     {unit
                       ? selectedBenchIndex === index
@@ -904,9 +967,22 @@ export function GameShell() {
                         : "Click to select"
                       : "Buy from the shop"}
                   </span>
+                  {unit ? (
+                    <span className="slot-meta">{renderUnitMeta(unit)}</span>
+                  ) : null}
                 </button>
               );
             })}
+          </div>
+          <div className="action-row">
+            <button
+              className="button secondary"
+              onClick={handleSellBenchUnit}
+              disabled={!hasBenchSelection}
+              data-testid="sell-bench"
+            >
+              Sell Bench Unit
+            </button>
           </div>
           <div className="muted">
             {hasBenchSelection
@@ -921,32 +997,58 @@ export function GameShell() {
             {playerBoard.map((unit, index) => {
               const isEmpty = unit == null;
               const canDeployIntoSlot = canDraft && isEmpty && hasBenchSelection;
-              const canWithdrawFromSlot = canWithdrawUnit && !isEmpty;
+              const isSelected = selectedBoardIndex === index;
+              const canSelectSlot = canDraft && !isEmpty;
 
               return (
                 <button
                   key={`board-${index}`}
                   type="button"
-                  className={`formation-card${isEmpty ? " empty" : ""}`}
+                  className={`formation-card${isEmpty ? " empty" : ""}${
+                    isSelected ? " selected" : ""
+                  }`}
                   onClick={() =>
-                    isEmpty ? handleDeployBenchUnit(index) : handleWithdrawBoardUnit(index)
+                    isEmpty ? handleDeployBenchUnit(index) : handleSelectBoardUnit(index)
                   }
-                  disabled={!canDeployIntoSlot && !canWithdrawFromSlot}
+                  disabled={!canDeployIntoSlot && !canSelectSlot}
                   data-testid={`board-slot-${index}`}
                 >
-                  <span className="slot-title">{unit ?? `Empty Slot ${index + 1}`}</span>
+                  <span className="slot-title">
+                    {unit ? unit.label : `Empty Slot ${index + 1}`}
+                  </span>
                   <span className="slot-meta">
                     {unit
-                      ? canWithdrawFromSlot
-                        ? "Click to return to bench"
-                        : "Locked during combat"
+                      ? isSelected
+                        ? "Selected for board actions"
+                        : "Click to select"
                       : hasBenchSelection
                         ? "Click to deploy selected unit"
                         : "Select a bench unit first"}
                   </span>
+                  {unit ? (
+                    <span className="slot-meta">{renderUnitMeta(unit)}</span>
+                  ) : null}
                 </button>
               );
             })}
+          </div>
+          <div className="action-row">
+            <button
+              className="button secondary"
+              onClick={handleWithdrawBoardUnit}
+              disabled={!hasBoardSelection || !canWithdrawUnit}
+              data-testid="withdraw-board"
+            >
+              Withdraw To Bench
+            </button>
+            <button
+              className="button secondary"
+              onClick={handleSellBoardUnit}
+              disabled={!hasBoardSelection}
+              data-testid="sell-board"
+            >
+              Sell Deployed Unit
+            </button>
           </div>
           <div className="muted">
             Active board: {playerBoard.filter(Boolean).length}/
@@ -955,11 +1057,53 @@ export function GameShell() {
         </section>
 
         <section className="panel">
+          <div className="eyebrow">Synergies</div>
+          <div className="trait-grid">
+            {activeTraits.map((trait) => (
+              <div
+                key={trait.key}
+                className={`trait-card${trait.active ? " active" : ""}`}
+              >
+                <span className="slot-title">{trait.label}</span>
+                <span className="slot-meta">
+                  {trait.count}/{trait.threshold}
+                </span>
+                <span className="slot-meta">{trait.description}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="eyebrow">Enemy Lineup</div>
+          <div className="formation-grid enemy-grid">
+            {enemyBoard.map((unit, index) => (
+              <div
+                key={`enemy-${index}`}
+                className={`formation-card enemy-card${unit ? "" : " empty"}`}
+              >
+                <span className="slot-title">
+                  {unit ? unit.label : `Open Enemy Slot ${index + 1}`}
+                </span>
+                <span className="slot-meta">
+                  {unit
+                    ? `${formatFactionLabel(unit.faction)} · ${formatRoleLabel(unit.role)}`
+                    : "Unused this round"}
+                </span>
+                {unit ? (
+                  <span className="slot-meta">{renderUnitMeta(unit)}</span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel">
           <div className="eyebrow">Status</div>
           <div>{renderBootRecord(runtimeSnapshot.boot.current)}</div>
           <div className="muted">
-            Current runtime now supports shop purchases, bench staging, manual deployment,
-            and automated combat.
+            Current runtime now supports shop purchases, manual deployment, unit selling,
+            duplicate merging, and simple faction/class synergies.
           </div>
           <div className="muted">
             Runtime active: {runtimeSnapshot.runtimeActive ? "yes" : "no"}
@@ -1371,6 +1515,32 @@ function formatPhaseLabel(phase: RuntimeSnapshot["world"]["slice"]["phase"]) {
       return "Combat";
     case "resolution":
       return "Resolution";
+  }
+}
+
+function renderUnitMeta(unit: RuntimeUnitView) {
+  return `${formatFactionLabel(unit.faction)} · ${formatRoleLabel(unit.role)} · ${unit.attack} atk · ${unit.health} hp · Sell ${unit.sellValue}`;
+}
+
+function formatFactionLabel(faction: RuntimeUnitView["faction"] | RuntimeTraitView["key"]) {
+  switch (faction) {
+    case "dawn":
+      return "Dawn";
+    case "dusk":
+      return "Dusk";
+    case "vanguard":
+      return "Vanguard";
+    case "skirmisher":
+      return "Skirmisher";
+  }
+}
+
+function formatRoleLabel(role: RuntimeUnitView["role"]) {
+  switch (role) {
+    case "vanguard":
+      return "Vanguard";
+    case "skirmisher":
+      return "Skirmisher";
   }
 }
 

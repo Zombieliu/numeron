@@ -18,6 +18,8 @@ import {
   launchRuntime,
   rerollRuntimeShop,
   resetRuntimeRound,
+  sellRuntimeBenchUnit,
+  sellRuntimeBoardUnit,
   setRuntimeSessionConfig,
   startRuntimeCombat,
   setRuntimeVirtualInput,
@@ -138,6 +140,14 @@ export async function dispatchUiIntent(intent: UiIntent): Promise<RuntimeSnapsho
     }
     case "runtime.board.withdraw": {
       withdrawRuntimeBoardUnit(intent.slotIndex);
+      return currentSnapshot;
+    }
+    case "runtime.bench.sell": {
+      sellRuntimeBenchUnit(intent.benchIndex);
+      return currentSnapshot;
+    }
+    case "runtime.board.sell": {
+      sellRuntimeBoardUnit(intent.slotIndex);
       return currentSnapshot;
     }
   }
@@ -264,21 +274,24 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
           DEFAULT_RUNTIME_PROJECTION.slice.rerollCost,
       ),
       shopOffers: Array.isArray(projection.slice?.shopOffers)
-        ? projection.slice.shopOffers.map((offer) => String(offer))
+        ? projection.slice.shopOffers.map(normalizeRuntimeUnitView)
         : DEFAULT_RUNTIME_PROJECTION.slice.shopOffers,
       benchUnits: Array.isArray(projection.slice?.benchUnits)
-        ? projection.slice.benchUnits.map((unit) => String(unit))
+        ? projection.slice.benchUnits.map(normalizeRuntimeUnitView)
         : DEFAULT_RUNTIME_PROJECTION.slice.benchUnits,
       playerBoard: Array.isArray(projection.slice?.playerBoard)
         ? projection.slice.playerBoard.map((unit) =>
-            unit == null ? null : String(unit),
+            unit == null ? null : normalizeRuntimeUnitView(unit),
           )
         : DEFAULT_RUNTIME_PROJECTION.slice.playerBoard,
       enemyBoard: Array.isArray(projection.slice?.enemyBoard)
         ? projection.slice.enemyBoard.map((unit) =>
-            unit == null ? null : String(unit),
+            unit == null ? null : normalizeRuntimeUnitView(unit),
           )
         : DEFAULT_RUNTIME_PROJECTION.slice.enemyBoard,
+      activeTraits: Array.isArray(projection.slice?.activeTraits)
+        ? projection.slice.activeTraits.map(normalizeRuntimeTraitView)
+        : DEFAULT_RUNTIME_PROJECTION.slice.activeTraits,
       benchCapacity: Number(
         projection.slice?.benchCapacity ??
           DEFAULT_RUNTIME_PROJECTION.slice.benchCapacity,
@@ -295,5 +308,72 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
 function emit(event: RuntimeEvent) {
   for (const listener of listeners) {
     listener(event);
+  }
+}
+
+function normalizeRuntimeUnitView(value: unknown) {
+  const unit = typeof value === "object" && value ? value : {};
+  const record = unit as Record<string, unknown>;
+
+  return {
+    label: String(record.label ?? "Unknown Unit"),
+    archetype: normalizeArchetype(record.archetype),
+    faction: normalizeFaction(record.faction),
+    role: normalizeRole(record.role),
+    stars: normalizeNumber(record.stars, 1),
+    attack: normalizeNumber(record.attack, 1),
+    health: normalizeNumber(record.health, 1),
+    sellValue: normalizeNumber(record.sellValue, 1),
+  } as const;
+}
+
+function normalizeRuntimeTraitView(value: unknown) {
+  const trait = typeof value === "object" && value ? value : {};
+  const record = trait as Record<string, unknown>;
+
+  return {
+    key: normalizeTraitKey(record.key),
+    label: String(record.label ?? "Trait"),
+    count: normalizeNumber(record.count, 0),
+    threshold: normalizeNumber(record.threshold, 2),
+    description: String(record.description ?? ""),
+    active: Boolean(record.active),
+  } as const;
+}
+
+function normalizeNumber(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
+}
+
+function normalizeArchetype(value: unknown) {
+  switch (value) {
+    case "verdant-bruiser":
+    case "signal-ranger":
+    case "ash-duelist":
+    case "iron-vanguard":
+      return value;
+    default:
+      return "verdant-bruiser";
+  }
+}
+
+function normalizeFaction(value: unknown) {
+  return value === "dusk" ? "dusk" : "dawn";
+}
+
+function normalizeRole(value: unknown) {
+  return value === "skirmisher" ? "skirmisher" : "vanguard";
+}
+
+function normalizeTraitKey(value: unknown) {
+  switch (value) {
+    case "dawn":
+    case "dusk":
+    case "vanguard":
+    case "skirmisher":
+      return value;
+    default:
+      return "dawn";
   }
 }

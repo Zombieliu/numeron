@@ -13,10 +13,13 @@ const SHOP_SIZE: usize = 3;
 const BENCH_CAPACITY: usize = 4;
 const BUY_COST: u32 = 3;
 const REROLL_COST: u32 = 1;
+const SELL_VALUE_BASE: u32 = 2;
 const STARTING_GOLD: u32 = 6;
 const STARTING_HEALTH: u32 = 20;
 const ROUND_INCOME: u32 = 4;
 const COMBAT_INTERVAL: f32 = 0.7;
+const TRAIT_THRESHOLD: usize = 2;
+const MAX_STARS: u8 = 3;
 
 const PLAYER_SLOTS: [(usize, usize); 4] = [(0, 1), (1, 1), (2, 1), (3, 1)];
 const ENEMY_SLOTS: [(usize, usize); 3] = [(0, 4), (1, 4), (2, 4)];
@@ -75,6 +78,30 @@ impl Default for CombatState {
     }
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[derive(Clone, Debug)]
+pub struct RuntimeUnitView {
+    pub label: String,
+    pub archetype: String,
+    pub faction: String,
+    pub role: String,
+    pub stars: u8,
+    pub attack: u32,
+    pub health: u32,
+    pub sell_value: u32,
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[derive(Clone, Debug)]
+pub struct RuntimeTraitView {
+    pub key: String,
+    pub label: String,
+    pub count: usize,
+    pub threshold: usize,
+    pub description: String,
+    pub active: bool,
+}
+
 #[derive(Resource, Clone, Debug)]
 pub struct StarterSliceProjection {
     pub phase: String,
@@ -88,10 +115,11 @@ pub struct StarterSliceProjection {
     pub total: usize,
     pub round: u32,
     pub reroll_cost: u32,
-    pub shop_offers: Vec<String>,
-    pub bench_units: Vec<String>,
-    pub player_board: Vec<Option<String>>,
-    pub enemy_board: Vec<Option<String>>,
+    pub shop_offers: Vec<RuntimeUnitView>,
+    pub bench_units: Vec<RuntimeUnitView>,
+    pub player_board: Vec<Option<RuntimeUnitView>>,
+    pub enemy_board: Vec<Option<RuntimeUnitView>>,
+    pub active_traits: Vec<RuntimeTraitView>,
     pub bench_capacity: usize,
     pub board_capacity: usize,
     pub completed: bool,
@@ -116,6 +144,7 @@ impl Default for StarterSliceProjection {
             bench_units: Vec::new(),
             player_board: vec![None; PLAYER_SLOTS.len()],
             enemy_board: vec![None; ENEMY_SLOTS.len()],
+            active_traits: Vec::new(),
             bench_capacity: BENCH_CAPACITY,
             board_capacity: PLAYER_SLOTS.len(),
             completed: false,
@@ -125,19 +154,19 @@ impl Default for StarterSliceProjection {
 
 #[derive(Resource, Default)]
 struct ShopState {
-    offers: Vec<UnitArchetype>,
+    offers: Vec<UnitInstance>,
     reroll_cursor: usize,
 }
 
 #[derive(Resource, Default)]
 struct PlayerSquad {
-    board: [Option<UnitArchetype>; PLAYER_SLOTS.len()],
-    bench: Vec<UnitArchetype>,
+    board: [Option<UnitInstance>; PLAYER_SLOTS.len()],
+    bench: Vec<UnitInstance>,
 }
 
 #[derive(Resource, Default)]
 struct EnemySquad {
-    units: Vec<UnitArchetype>,
+    units: Vec<UnitInstance>,
 }
 
 #[derive(Resource)]
@@ -193,6 +222,64 @@ enum UnitOwner {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum UnitFaction {
+    Dawn,
+    Dusk,
+}
+
+impl UnitFaction {
+    fn key(self) -> &'static str {
+        match self {
+            UnitFaction::Dawn => "dawn",
+            UnitFaction::Dusk => "dusk",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            UnitFaction::Dawn => "Dawn Circuit",
+            UnitFaction::Dusk => "Dusk Bastion",
+        }
+    }
+
+    fn description(self) -> &'static str {
+        match self {
+            UnitFaction::Dawn => "2 deployed Dawn units: Dawn allies gain +1 attack.",
+            UnitFaction::Dusk => "2 deployed Dusk units: Dusk allies gain +2 health.",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum UnitRole {
+    Vanguard,
+    Skirmisher,
+}
+
+impl UnitRole {
+    fn key(self) -> &'static str {
+        match self {
+            UnitRole::Vanguard => "vanguard",
+            UnitRole::Skirmisher => "skirmisher",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            UnitRole::Vanguard => "Vanguard Line",
+            UnitRole::Skirmisher => "Skirmisher Line",
+        }
+    }
+
+    fn description(self) -> &'static str {
+        match self {
+            UnitRole::Vanguard => "2 deployed Vanguards: all allies gain +2 health.",
+            UnitRole::Skirmisher => "2 deployed Skirmishers: all allies gain +1 attack.",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum UnitArchetype {
     VerdantBruiser,
     SignalRanger,
@@ -210,12 +297,35 @@ impl UnitArchetype {
         ]
     }
 
+    fn key(self) -> &'static str {
+        match self {
+            Self::VerdantBruiser => "verdant-bruiser",
+            Self::SignalRanger => "signal-ranger",
+            Self::AshDuelist => "ash-duelist",
+            Self::IronVanguard => "iron-vanguard",
+        }
+    }
+
     fn label(self) -> &'static str {
         match self {
             Self::VerdantBruiser => "Verdant Bruiser",
             Self::SignalRanger => "Signal Ranger",
             Self::AshDuelist => "Ash Duelist",
             Self::IronVanguard => "Iron Vanguard",
+        }
+    }
+
+    fn faction(self) -> UnitFaction {
+        match self {
+            Self::VerdantBruiser | Self::SignalRanger => UnitFaction::Dawn,
+            Self::AshDuelist | Self::IronVanguard => UnitFaction::Dusk,
+        }
+    }
+
+    fn role(self) -> UnitRole {
+        match self {
+            Self::VerdantBruiser | Self::IronVanguard => UnitRole::Vanguard,
+            Self::SignalRanger | Self::AshDuelist => UnitRole::Skirmisher,
         }
     }
 
@@ -230,7 +340,7 @@ impl UnitArchetype {
         }
     }
 
-    fn max_health(self) -> i32 {
+    fn base_health(self) -> i32 {
         match self {
             Self::VerdantBruiser => 15,
             Self::SignalRanger => 10,
@@ -239,7 +349,7 @@ impl UnitArchetype {
         }
     }
 
-    fn attack(self) -> u32 {
+    fn base_attack(self) -> u32 {
         match self {
             Self::VerdantBruiser => 4,
             Self::SignalRanger => 5,
@@ -247,6 +357,72 @@ impl UnitArchetype {
             Self::IronVanguard => 3,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct UnitInstance {
+    archetype: UnitArchetype,
+    stars: u8,
+}
+
+impl UnitInstance {
+    fn new(archetype: UnitArchetype) -> Self {
+        Self {
+            archetype,
+            stars: 1,
+        }
+    }
+
+    fn label(self) -> String {
+        format!("{} {}", self.archetype.label(), star_badge(self.stars))
+    }
+
+    fn sell_value(self) -> u32 {
+        SELL_VALUE_BASE * self.stars as u32
+    }
+
+    fn base_view(self) -> RuntimeUnitView {
+        let stats = scaled_stats(self);
+        RuntimeUnitView {
+            label: self.label(),
+            archetype: self.archetype.key().to_owned(),
+            faction: self.archetype.faction().key().to_owned(),
+            role: self.archetype.role().key().to_owned(),
+            stars: self.stars,
+            attack: stats.attack,
+            health: stats.max_health.max(1) as u32,
+            sell_value: self.sell_value(),
+        }
+    }
+
+    fn resolved_view(self, buffs: TraitBuffs) -> RuntimeUnitView {
+        let stats = resolved_stats(self, buffs);
+        RuntimeUnitView {
+            attack: stats.attack,
+            health: stats.max_health.max(1) as u32,
+            ..self.base_view()
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct TraitBuffs {
+    dawn_active: bool,
+    dusk_active: bool,
+    vanguard_active: bool,
+    skirmisher_active: bool,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct UnitStats {
+    attack: u32,
+    max_health: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum UnitLocation {
+    Board(usize),
+    Bench(usize),
 }
 
 impl Plugin for StarterScenePlugin {
@@ -337,8 +513,8 @@ fn setup_board_scene(
     combat_timer.0.reset();
 
     player_squad.board = [None; PLAYER_SLOTS.len()];
-    player_squad.bench = vec![UnitArchetype::VerdantBruiser];
-    enemy_squad.units = vec![UnitArchetype::AshDuelist, UnitArchetype::IronVanguard];
+    player_squad.bench = vec![UnitInstance::new(UnitArchetype::VerdantBruiser)];
+    enemy_squad.units = seed_enemy_squad(1);
     reroll_shop(&mut shop, combat.round);
     combat.status = "Bench primed. Deploy a unit before opening combat.".to_owned();
     spawn_round_units(
@@ -358,7 +534,7 @@ fn handle_runtime_commands(
     mut projection: ResMut<StarterSliceProjection>,
     mut shop: ResMut<ShopState>,
     mut player_squad: ResMut<PlayerSquad>,
-    enemy_squad: Res<EnemySquad>,
+    mut enemy_squad: ResMut<EnemySquad>,
     units: Query<Entity, With<UnitEntity>>,
     mut combat_timer: ResMut<CombatTickTimer>,
 ) {
@@ -389,11 +565,12 @@ fn handle_runtime_commands(
                     combat.round += 1;
                     combat.phase = CombatPhase::Preparation;
                     combat.gold += ROUND_INCOME;
+                    enemy_squad.units = seed_enemy_squad(combat.round);
+                    reroll_shop(&mut shop, combat.round);
                     combat.status = format!(
-                        "Round {} ready. Draft one more unit or reroll the shop.",
+                        "Round {} ready. Draft, merge, or reposition before combat.",
                         combat.round
                     );
-                    reroll_shop(&mut shop, combat.round);
                     needs_respawn = true;
                 }
             }
@@ -416,12 +593,17 @@ fn handle_runtime_commands(
                 let purchased = shop.offers[index];
                 player_squad.bench.push(purchased);
                 combat.gold -= BUY_COST;
-                combat.status = format!(
-                    "Drafted {} to bench. Bench now holds {} units.",
-                    purchased.label(),
-                    player_squad.bench.len()
+                let merge_messages = normalize_player_squad(&mut player_squad);
+                combat.status = merge_messages_for(
+                    format!(
+                        "Drafted {} to bench. Bench now holds {} units.",
+                        purchased.label(),
+                        player_squad.bench.len()
+                    ),
+                    &merge_messages,
                 );
                 reroll_shop(&mut shop, combat.round + index as u32 + 2);
+                needs_respawn = true;
             }
             RuntimeCommand::DeployBenchToBoard {
                 bench_index,
@@ -437,10 +619,14 @@ fn handle_runtime_commands(
 
                 let deployed = player_squad.bench.remove(bench_index);
                 player_squad.board[slot_index] = Some(deployed);
-                combat.status = format!(
-                    "Deployed {} into slot {}.",
-                    deployed.label(),
-                    slot_index + 1
+                let merge_messages = normalize_player_squad(&mut player_squad);
+                combat.status = merge_messages_for(
+                    format!(
+                        "Deployed {} into slot {}.",
+                        deployed.label(),
+                        slot_index + 1
+                    ),
+                    &merge_messages,
                 );
                 needs_respawn = true;
             }
@@ -457,10 +643,45 @@ fn handle_runtime_commands(
                 };
 
                 player_squad.bench.push(withdrawn);
+                let merge_messages = normalize_player_squad(&mut player_squad);
+                combat.status = merge_messages_for(
+                    format!(
+                        "Returned {} to bench from slot {}.",
+                        withdrawn.label(),
+                        slot_index + 1
+                    ),
+                    &merge_messages,
+                );
+                needs_respawn = true;
+            }
+            RuntimeCommand::SellBenchUnit(bench_index) => {
+                if combat.phase != CombatPhase::Preparation
+                    || bench_index >= player_squad.bench.len()
+                {
+                    continue;
+                }
+
+                let sold = player_squad.bench.remove(bench_index);
+                combat.gold += sold.sell_value();
+                combat.status = format!("Sold {} for {} gold.", sold.label(), sold.sell_value());
+            }
+            RuntimeCommand::SellBoardUnit(slot_index) => {
+                if combat.phase != CombatPhase::Preparation
+                    || slot_index >= player_squad.board.len()
+                {
+                    continue;
+                }
+
+                let Some(sold) = player_squad.board[slot_index].take() else {
+                    continue;
+                };
+
+                combat.gold += sold.sell_value();
                 combat.status = format!(
-                    "Returned {} to bench from slot {}.",
-                    withdrawn.label(),
-                    slot_index + 1
+                    "Sold {} from slot {} for {} gold.",
+                    sold.label(),
+                    slot_index + 1,
+                    sold.sell_value()
                 );
                 needs_respawn = true;
             }
@@ -622,9 +843,12 @@ fn update_projection_from_state(
     enemy_squad: &EnemySquad,
     projection: &mut ResMut<StarterSliceProjection>,
 ) {
+    let player_buffs = trait_buffs_for(player_squad.board.iter().flatten().copied());
+    let enemy_buffs = trait_buffs_for(enemy_squad.units.iter().copied());
+
     projection.phase = combat.phase.as_str().to_owned();
     projection.objective =
-        "Draft a compact squad, open combat, and survive the first Numeron rounds.".to_owned();
+        "Draft a compact squad, merge duplicates, and survive the first Numeron rounds.".to_owned();
     projection.status = combat.status.clone();
     projection.score = combat.score;
     projection.gold = combat.gold;
@@ -637,27 +861,31 @@ fn update_projection_from_state(
     projection.shop_offers = shop
         .offers
         .iter()
-        .map(|offer| offer.label().to_owned())
+        .copied()
+        .map(UnitInstance::base_view)
         .collect();
     projection.bench_units = player_squad
         .bench
         .iter()
-        .map(|unit| unit.label().to_owned())
+        .copied()
+        .map(UnitInstance::base_view)
         .collect();
     projection.player_board = player_squad
         .board
         .iter()
         .copied()
-        .map(|unit| unit.map(|unit| unit.label().to_owned()))
+        .map(|unit| unit.map(|unit| unit.resolved_view(player_buffs)))
         .collect();
     projection.enemy_board = enemy_squad
         .units
         .iter()
         .copied()
-        .map(|unit| Some(unit.label().to_owned()))
-        .chain(std::iter::repeat(None::<String>))
+        .map(|unit| Some(unit.resolved_view(enemy_buffs)))
+        .chain(std::iter::repeat(None::<RuntimeUnitView>))
         .take(ENEMY_SLOTS.len())
         .collect();
+    projection.active_traits =
+        trait_views_for(player_squad.board.iter().flatten().copied()).collect();
     projection.bench_capacity = BENCH_CAPACITY;
     projection.board_capacity = PLAYER_SLOTS.len();
     projection.completed = combat.phase == CombatPhase::Resolution;
@@ -670,23 +898,42 @@ fn spawn_round_units(
     enemy_squad: &EnemySquad,
     combat: &mut CombatState,
 ) {
+    let player_buffs = trait_buffs_for(player_squad.board.iter().flatten().copied());
+    let enemy_buffs = trait_buffs_for(enemy_squad.units.iter().copied());
+
     combat.player_units = 0;
     combat.enemy_units = 0;
 
-    for (index, maybe_archetype) in player_squad.board.iter().copied().enumerate() {
-        let Some(archetype) = maybe_archetype else {
+    for (index, maybe_unit) in player_squad.board.iter().copied().enumerate() {
+        let Some(unit) = maybe_unit else {
             continue;
         };
 
         if let Some(&(row, col)) = PLAYER_SLOTS.get(index) {
-            spawn_unit(commands, board, UnitOwner::Player, archetype, row, col);
+            spawn_unit(
+                commands,
+                board,
+                UnitOwner::Player,
+                unit,
+                resolved_stats(unit, player_buffs),
+                row,
+                col,
+            );
             combat.player_units += 1;
         }
     }
 
-    for (index, archetype) in enemy_squad.units.iter().copied().enumerate() {
+    for (index, unit) in enemy_squad.units.iter().copied().enumerate() {
         if let Some(&(row, col)) = ENEMY_SLOTS.get(index) {
-            spawn_unit(commands, board, UnitOwner::Enemy, archetype, row, col);
+            spawn_unit(
+                commands,
+                board,
+                UnitOwner::Enemy,
+                unit,
+                resolved_stats(unit, enemy_buffs),
+                row,
+                col,
+            );
             combat.enemy_units += 1;
         }
     }
@@ -696,27 +943,27 @@ fn spawn_unit(
     commands: &mut Commands,
     board: &BoardConfig,
     owner: UnitOwner,
-    archetype: UnitArchetype,
+    unit: UnitInstance,
+    stats: UnitStats,
     row: usize,
     col: usize,
 ) {
     let translation = board_to_world(board, row, col);
-    let max_health = archetype.max_health();
 
     commands
         .spawn((
             Sprite::from_color(
-                archetype.color(owner),
+                unit.archetype.color(owner),
                 Vec2::splat(board.cell_size * UNIT_SIZE_RATIO),
             ),
             Transform::from_translation(translation.extend(2.0)),
             UnitEntity {
                 owner,
-                health: max_health,
-                max_health,
-                attack: archetype.attack(),
+                health: stats.max_health,
+                max_health: stats.max_health,
+                attack: stats.attack,
             },
-            Name::new(archetype.label()),
+            Name::new(unit.label()),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -754,9 +1001,256 @@ fn reroll_shop(shop: &mut ShopState, round_seed: u32) {
     let pool = UnitArchetype::all();
     let start = (shop.reroll_cursor + round_seed as usize) % pool.len();
     shop.offers = (0..SHOP_SIZE)
-        .map(|offset| pool[(start + offset) % pool.len()])
+        .map(|offset| UnitInstance::new(pool[(start + offset) % pool.len()]))
         .collect();
     shop.reroll_cursor = (shop.reroll_cursor + 1) % pool.len();
+}
+
+fn seed_enemy_squad(round: u32) -> Vec<UnitInstance> {
+    let mut units = vec![
+        UnitInstance::new(UnitArchetype::AshDuelist),
+        UnitInstance::new(UnitArchetype::IronVanguard),
+    ];
+
+    if round >= 2 {
+        units.push(UnitInstance::new(UnitArchetype::AshDuelist));
+    }
+
+    if round >= 4 {
+        units[1].stars = 2;
+    }
+
+    units.truncate(ENEMY_SLOTS.len());
+    units
+}
+
+fn normalize_player_squad(player_squad: &mut PlayerSquad) -> Vec<String> {
+    let mut messages = Vec::new();
+
+    loop {
+        let mut merged_any = false;
+
+        for archetype in UnitArchetype::all() {
+            for stars in 1..MAX_STARS {
+                loop {
+                    let matches = matching_locations(player_squad, archetype, stars);
+                    if matches.len() < 3 {
+                        break;
+                    }
+
+                    let consumed = matches.into_iter().take(3).collect::<Vec<_>>();
+                    let anchor_board = consumed.iter().find_map(|location| match location {
+                        UnitLocation::Board(index) => Some(*index),
+                        UnitLocation::Bench(_) => None,
+                    });
+
+                    remove_locations(player_squad, &consumed);
+
+                    let upgraded = UnitInstance {
+                        archetype,
+                        stars: stars + 1,
+                    };
+
+                    if let Some(slot_index) = anchor_board {
+                        player_squad.board[slot_index] = Some(upgraded);
+                    } else {
+                        player_squad.bench.push(upgraded);
+                    }
+
+                    messages.push(format!(
+                        "Merged three {} copies into {}.",
+                        archetype.label(),
+                        upgraded.label()
+                    ));
+                    merged_any = true;
+                }
+            }
+        }
+
+        if !merged_any {
+            break;
+        }
+    }
+
+    messages
+}
+
+fn matching_locations(
+    player_squad: &PlayerSquad,
+    archetype: UnitArchetype,
+    stars: u8,
+) -> Vec<UnitLocation> {
+    let mut matches = player_squad
+        .board
+        .iter()
+        .enumerate()
+        .filter_map(|(index, unit)| match unit {
+            Some(unit) if unit.archetype == archetype && unit.stars == stars => {
+                Some(UnitLocation::Board(index))
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    matches.extend(
+        player_squad
+            .bench
+            .iter()
+            .enumerate()
+            .filter_map(|(index, unit)| {
+                if unit.archetype == archetype && unit.stars == stars {
+                    Some(UnitLocation::Bench(index))
+                } else {
+                    None
+                }
+            }),
+    );
+
+    matches
+}
+
+fn remove_locations(player_squad: &mut PlayerSquad, locations: &[UnitLocation]) {
+    for location in locations {
+        if let UnitLocation::Board(index) = location {
+            player_squad.board[*index] = None;
+        }
+    }
+
+    let mut bench_indices = locations
+        .iter()
+        .filter_map(|location| match location {
+            UnitLocation::Bench(index) => Some(*index),
+            UnitLocation::Board(_) => None,
+        })
+        .collect::<Vec<_>>();
+    bench_indices.sort_unstable_by(|left, right| right.cmp(left));
+
+    for index in bench_indices {
+        player_squad.bench.remove(index);
+    }
+}
+
+fn merge_messages_for(base: String, merge_messages: &[String]) -> String {
+    if merge_messages.is_empty() {
+        base
+    } else {
+        format!("{base} {}", merge_messages.join(" "))
+    }
+}
+
+fn trait_counts(units: impl Iterator<Item = UnitInstance>) -> (usize, usize, usize, usize) {
+    let mut dawn = 0;
+    let mut dusk = 0;
+    let mut vanguard = 0;
+    let mut skirmisher = 0;
+
+    for unit in units {
+        match unit.archetype.faction() {
+            UnitFaction::Dawn => dawn += 1,
+            UnitFaction::Dusk => dusk += 1,
+        }
+
+        match unit.archetype.role() {
+            UnitRole::Vanguard => vanguard += 1,
+            UnitRole::Skirmisher => skirmisher += 1,
+        }
+    }
+
+    (dawn, dusk, vanguard, skirmisher)
+}
+
+fn trait_buffs_for(units: impl Iterator<Item = UnitInstance>) -> TraitBuffs {
+    let (dawn, dusk, vanguard, skirmisher) = trait_counts(units);
+
+    TraitBuffs {
+        dawn_active: dawn >= TRAIT_THRESHOLD,
+        dusk_active: dusk >= TRAIT_THRESHOLD,
+        vanguard_active: vanguard >= TRAIT_THRESHOLD,
+        skirmisher_active: skirmisher >= TRAIT_THRESHOLD,
+    }
+}
+
+fn trait_views_for(
+    units: impl Iterator<Item = UnitInstance>,
+) -> impl Iterator<Item = RuntimeTraitView> {
+    let (dawn, dusk, vanguard, skirmisher) = trait_counts(units);
+
+    [
+        RuntimeTraitView {
+            key: UnitFaction::Dawn.key().to_owned(),
+            label: UnitFaction::Dawn.label().to_owned(),
+            count: dawn,
+            threshold: TRAIT_THRESHOLD,
+            description: UnitFaction::Dawn.description().to_owned(),
+            active: dawn >= TRAIT_THRESHOLD,
+        },
+        RuntimeTraitView {
+            key: UnitFaction::Dusk.key().to_owned(),
+            label: UnitFaction::Dusk.label().to_owned(),
+            count: dusk,
+            threshold: TRAIT_THRESHOLD,
+            description: UnitFaction::Dusk.description().to_owned(),
+            active: dusk >= TRAIT_THRESHOLD,
+        },
+        RuntimeTraitView {
+            key: UnitRole::Vanguard.key().to_owned(),
+            label: UnitRole::Vanguard.label().to_owned(),
+            count: vanguard,
+            threshold: TRAIT_THRESHOLD,
+            description: UnitRole::Vanguard.description().to_owned(),
+            active: vanguard >= TRAIT_THRESHOLD,
+        },
+        RuntimeTraitView {
+            key: UnitRole::Skirmisher.key().to_owned(),
+            label: UnitRole::Skirmisher.label().to_owned(),
+            count: skirmisher,
+            threshold: TRAIT_THRESHOLD,
+            description: UnitRole::Skirmisher.description().to_owned(),
+            active: skirmisher >= TRAIT_THRESHOLD,
+        },
+    ]
+    .into_iter()
+}
+
+fn scaled_stats(unit: UnitInstance) -> UnitStats {
+    let star_multiplier = match unit.stars {
+        1 => 1.0,
+        2 => 1.75,
+        _ => 2.5,
+    };
+
+    UnitStats {
+        attack: (unit.archetype.base_attack() as f32 * star_multiplier).round() as u32,
+        max_health: (unit.archetype.base_health() as f32 * star_multiplier).round() as i32,
+    }
+}
+
+fn resolved_stats(unit: UnitInstance, buffs: TraitBuffs) -> UnitStats {
+    let mut stats = scaled_stats(unit);
+
+    if buffs.vanguard_active {
+        stats.max_health += 2;
+    }
+
+    if buffs.skirmisher_active {
+        stats.attack += 1;
+    }
+
+    match unit.archetype.faction() {
+        UnitFaction::Dawn if buffs.dawn_active => stats.attack += 1,
+        UnitFaction::Dusk if buffs.dusk_active => stats.max_health += 2,
+        _ => {}
+    }
+
+    stats
+}
+
+fn star_badge(stars: u8) -> &'static str {
+    match stars {
+        1 => "I",
+        2 => "II",
+        _ => "III",
+    }
 }
 
 fn board_to_world(board: &BoardConfig, row: usize, col: usize) -> Vec2 {

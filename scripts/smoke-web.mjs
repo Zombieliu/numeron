@@ -213,9 +213,18 @@ async function runSmoke(url) {
 
     const benchPanel = page.getByTestId("bench-panel");
     const benchText = await benchPanel.innerText();
+    const synergyPanel = page
+      .locator("section.panel")
+      .filter({ hasText: "Synergies" })
+      .first();
+    const synergyText = await synergyPanel.innerText();
 
     if (!/Bench/i.test(benchText) || !/Click to select|Selected for deployment|Buy from the shop/i.test(benchText)) {
       throw new Error(`Smoke failed: bench panel did not materialize.\n${benchText}`);
+    }
+
+    if (!/Dawn Circuit|Dusk Bastion|Vanguard Line|Skirmisher Line/i.test(synergyText)) {
+      throw new Error(`Smoke failed: synergy panel did not materialize.\n${synergyText}`);
     }
 
     if (!/Round state:\s+Resolution phase|Round state:\s+Victory|Round state:\s+Defeat/i.test(statusText)) {

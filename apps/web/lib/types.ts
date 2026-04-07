@@ -29,6 +29,26 @@ export type RuntimeBootRecord = {
   timestamp: number;
 };
 
+export type RuntimeUnitView = {
+  label: string;
+  archetype: "verdant-bruiser" | "signal-ranger" | "ash-duelist" | "iron-vanguard";
+  faction: "dawn" | "dusk";
+  role: "vanguard" | "skirmisher";
+  stars: number;
+  attack: number;
+  health: number;
+  sellValue: number;
+};
+
+export type RuntimeTraitView = {
+  key: "dawn" | "dusk" | "vanguard" | "skirmisher";
+  label: string;
+  count: number;
+  threshold: number;
+  description: string;
+  active: boolean;
+};
+
 export type RuntimeProjection = {
   ready: boolean;
   touchControls: boolean;
@@ -49,10 +69,11 @@ export type RuntimeProjection = {
     total: number;
     round: number;
     rerollCost: number;
-    shopOffers: string[];
-    benchUnits: string[];
-    playerBoard: Array<string | null>;
-    enemyBoard: Array<string | null>;
+    shopOffers: RuntimeUnitView[];
+    benchUnits: RuntimeUnitView[];
+    playerBoard: Array<RuntimeUnitView | null>;
+    enemyBoard: Array<RuntimeUnitView | null>;
+    activeTraits: RuntimeTraitView[];
     benchCapacity: number;
     boardCapacity: number;
     completed: boolean;
@@ -201,6 +222,14 @@ export type UiIntent =
   | {
       type: "runtime.board.withdraw";
       slotIndex: number;
+    }
+  | {
+      type: "runtime.bench.sell";
+      benchIndex: number;
+    }
+  | {
+      type: "runtime.board.sell";
+      slotIndex: number;
     };
 
 export type RuntimeEvent =
@@ -260,6 +289,7 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     benchUnits: [],
     playerBoard: [null, null, null, null],
     enemyBoard: [null, null, null],
+    activeTraits: [],
     benchCapacity: 4,
     boardCapacity: 4,
     completed: false,

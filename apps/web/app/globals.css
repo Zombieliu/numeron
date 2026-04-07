@@ -192,6 +192,12 @@ textarea {
   gap: 10px;
 }
 
+.trait-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .slot-card {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -239,6 +245,29 @@ textarea {
 .formation-card.selected {
   border-color: rgba(191, 227, 143, 0.68);
   background: rgba(110, 211, 183, 0.14);
+}
+
+.trait-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trait-card.active {
+  border-color: rgba(191, 227, 143, 0.68);
+  background: rgba(110, 211, 183, 0.12);
+}
+
+.enemy-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.enemy-card {
+  cursor: default;
 }
 
 .offer-card:disabled,
@@ -408,6 +437,14 @@ textarea {
   }
 
   .formation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trait-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .enemy-grid {
     grid-template-columns: 1fr;
   }
 }
