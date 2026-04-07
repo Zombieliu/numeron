@@ -499,49 +499,6 @@ export function formatSessionStatus(
   }
 }
 
-export function localizeSkillLabel(value: string, locale: UiLocale) {
-  return translateExact(value, locale, {
-    "Bulwark Bash": "壁垒重击",
-    "Piercing Volley": "穿透齐射",
-    "Execution Arc": "处决弧刃",
-    "Anchor Strike": "锚定打击",
-  });
-}
-
-export function localizeTempoLabel(value: string, locale: UiLocale) {
-  return translateExact(value, locale, {
-    "Empowers every second swing.": "每第二次攻击会强化。",
-    "Fires a stronger volley every second shot.": "每第二次射击会打出更强齐射。",
-    "Always primed to punish weakened targets.": "始终对残血目标保持惩罚能力。",
-    "Blocks 1 damage on every hit and spikes every second strike.":
-      "每次受击格挡 1 点伤害，并在第二次攻击时增强。",
-  });
-}
-
-export function localizeCastState(value: string, locale: UiLocale) {
-  return translateExact(value, locale, {
-    "Next attack is empowered.": "下一次攻击已强化。",
-    "One swing until the empowered cast.": "再攻击一次就会进入强化。",
-    "Bonus damage is live against targets below half health.":
-      "对半血以下目标会立刻触发额外伤害。",
-    Ready: "就绪",
-  });
-}
-
-export function localizeTargetRule(value: string, locale: UiLocale) {
-  return translateExact(value, locale, {
-    "Targets the healthiest enemy and surges every second swing.":
-      "优先攻击血量最高的敌人，并在每第二次挥击时爆发。",
-    "Snipes the weakest enemy and fires a stronger volley every second shot.":
-      "优先狙击最弱目标，并在每第二次射击时打出强化齐射。",
-    "Executes the weakest enemy and deals bonus damage below half health.":
-      "优先处决最弱敌人，对半血以下目标造成额外伤害。",
-    "Challenges the highest-attack enemy and shrugs off 1 damage from each hit.":
-      "优先挑战攻击最高的敌人，并且每次受击减少 1 点伤害。",
-    "Targets the front line.": "优先攻击前线。",
-  });
-}
-
 export function localizeBootMessage(message: string, locale: UiLocale) {
   return translateExact(message, locale, {
     "Configure the shell, then launch the runtime.": "先配置壳层，再启动 runtime。",

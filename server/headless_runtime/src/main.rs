@@ -37,7 +37,12 @@ async fn main() {
         .route("/profiles/{slot_id}", get(get_profile).put(put_profile))
         .route("/sessions", get(list_sessions).post(create_session))
         .route("/sessions/{session_id}", patch(update_session))
-        .layer(CorsLayer::new().allow_origin(Any).allow_headers(Any).allow_methods(Any))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_headers(Any)
+                .allow_methods(Any),
+        )
         .with_state(shared.clone());
 
     let port = std::env::var("HEADLESS_BACKEND_PORT")
@@ -60,19 +65,22 @@ async fn main() {
 
 fn run_headless_bevy(shared: SharedRuntime) {
     let mut app = App::new();
-    app.add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
-        Duration::from_millis(50),
-    )))
-    .insert_resource(BackendBridge {
-        shared,
-        started_at: Instant::now(),
-    })
-    .insert_resource(AuthorityState::default())
-    .add_systems(Startup, setup_authority_state)
-    .add_systems(
-        Update,
-        (advance_tick, apply_commands, publish_snapshot, check_shutdown),
-    );
+    app.add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_millis(50))))
+        .insert_resource(BackendBridge {
+            shared,
+            started_at: Instant::now(),
+        })
+        .insert_resource(AuthorityState::default())
+        .add_systems(Startup, setup_authority_state)
+        .add_systems(
+            Update,
+            (
+                advance_tick,
+                apply_commands,
+                publish_snapshot,
+                check_shutdown,
+            ),
+        );
 
     app.run();
 }
@@ -124,6 +132,7 @@ async fn put_profile(
         slot_id: sanitize_slot_id(&slot_id),
         player_name: sanitize_player_name(&payload.player_name),
         touch_controls: payload.touch_controls,
+        locale: sanitize_locale_code(payload.locale.as_deref()),
         best_score: payload.best_score.max(0),
         best_round: payload.best_round.max(0),
     });
@@ -155,6 +164,8 @@ async fn create_session(
         session_id: session_id.clone(),
         slot_id: sanitize_slot_id(&payload.slot_id),
         player_name: sanitize_player_name(&payload.player_name),
+        locale: sanitize_locale_code(payload.locale.as_deref()),
+        objective: sanitize_objective(payload.objective.as_deref()),
     });
 
     Json(CreateSessionResponse {
@@ -170,6 +181,15 @@ async fn update_session(
 ) -> Json<QueuedCommandResponse> {
     shared.push_command(BackendCommand::UpdateSession {
         session_id,
+        player_name: payload.player_name.as_deref().map(sanitize_player_name),
+        locale: payload
+            .locale
+            .as_deref()
+            .map(|locale| sanitize_locale_code(Some(locale))),
+        objective: payload
+            .objective
+            .as_deref()
+            .map(|objective| sanitize_objective(Some(objective))),
         status: payload.status,
         score: payload.score,
         captured: payload.captured,
@@ -191,6 +211,7 @@ fn setup_authority_state(mut authority: ResMut<AuthorityState>) {
                 slot_id: slot_id.to_owned(),
                 player_name: "Pilot".to_owned(),
                 touch_controls: true,
+                locale: "en".to_owned(),
                 best_score: 0,
                 best_round: 0,
                 updated_at: iso_now(),
@@ -212,6 +233,8 @@ fn apply_commands(mut authority: ResMut<AuthorityState>, bridge: Res<BackendBrid
                 session_id,
                 slot_id,
                 player_name,
+                locale,
+                objective,
             } => {
                 authority.sessions.insert(
                     session_id.clone(),
@@ -219,9 +242,14 @@ fn apply_commands(mut authority: ResMut<AuthorityState>, bridge: Res<BackendBrid
                         id: session_id,
                         slot_id,
                         player_name,
+                        locale: locale.clone(),
                         status: SessionStatus::Staging,
                         round: 1,
-                        objective: "Secure each uplink pad once per sweep.".to_owned(),
+                        objective: if objective.is_empty() {
+                            default_objective_for_locale(&locale)
+                        } else {
+                            objective
+                        },
                         score: 0,
                         captured: 0,
                         total: 4,
@@ -233,6 +261,9 @@ fn apply_commands(mut authority: ResMut<AuthorityState>, bridge: Res<BackendBrid
             }
             BackendCommand::UpdateSession {
                 session_id,
+                player_name,
+                locale,
+                objective,
                 status,
                 score,
                 captured,
@@ -242,6 +273,19 @@ fn apply_commands(mut authority: ResMut<AuthorityState>, bridge: Res<BackendBrid
                 let mut profile_update: Option<(String, i64, i64)> = None;
 
                 if let Some(session) = authority.sessions.get_mut(&session_id) {
+                    if let Some(next_player_name) = player_name {
+                        session.player_name = next_player_name;
+                    }
+                    if let Some(next_locale) = locale {
+                        session.locale = next_locale;
+                    }
+                    if let Some(next_objective) = objective {
+                        session.objective = if next_objective.is_empty() {
+                            default_objective_for_locale(&session.locale)
+                        } else {
+                            next_objective
+                        };
+                    }
                     if let Some(next_status) = status {
                         session.status = next_status;
                     }
@@ -261,8 +305,7 @@ fn apply_commands(mut authority: ResMut<AuthorityState>, bridge: Res<BackendBrid
                         session.ended_at = Some(iso_now());
                     }
                     session.updated_at = iso_now();
-                    profile_update =
-                        Some((session.slot_id.clone(), session.score, session.round));
+                    profile_update = Some((session.slot_id.clone(), session.score, session.round));
                 }
 
                 if let Some((slot_id, score, round)) = profile_update
@@ -277,6 +320,7 @@ fn apply_commands(mut authority: ResMut<AuthorityState>, bridge: Res<BackendBrid
                 slot_id,
                 player_name,
                 touch_controls,
+                locale,
                 best_score,
                 best_round,
             } => {
@@ -286,6 +330,7 @@ fn apply_commands(mut authority: ResMut<AuthorityState>, bridge: Res<BackendBrid
                         slot_id,
                         player_name,
                         touch_controls,
+                        locale,
                         best_score,
                         best_round,
                         updated_at: iso_now(),
@@ -397,6 +442,7 @@ struct BackendProfile {
     slot_id: String,
     player_name: String,
     touch_controls: bool,
+    locale: String,
     best_score: i64,
     best_round: i64,
     updated_at: String,
@@ -407,6 +453,7 @@ struct BackendSession {
     id: String,
     slot_id: String,
     player_name: String,
+    locale: String,
     status: SessionStatus,
     round: i64,
     objective: String,
@@ -432,9 +479,14 @@ enum BackendCommand {
         session_id: String,
         slot_id: String,
         player_name: String,
+        locale: String,
+        objective: String,
     },
     UpdateSession {
         session_id: String,
+        player_name: Option<String>,
+        locale: Option<String>,
+        objective: Option<String>,
         status: Option<SessionStatus>,
         score: Option<i64>,
         captured: Option<i64>,
@@ -445,6 +497,7 @@ enum BackendCommand {
         slot_id: String,
         player_name: String,
         touch_controls: bool,
+        locale: String,
         best_score: i64,
         best_round: i64,
     },
@@ -455,6 +508,8 @@ struct CreateSessionRequest {
     session_id: Option<String>,
     slot_id: String,
     player_name: String,
+    locale: Option<String>,
+    objective: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -465,6 +520,9 @@ struct CreateSessionResponse {
 
 #[derive(Deserialize)]
 struct UpdateSessionRequest {
+    player_name: Option<String>,
+    locale: Option<String>,
+    objective: Option<String>,
     status: Option<SessionStatus>,
     score: Option<i64>,
     captured: Option<i64>,
@@ -476,6 +534,7 @@ struct UpdateSessionRequest {
 struct PutProfileRequest {
     player_name: String,
     touch_controls: bool,
+    locale: Option<String>,
     best_score: i64,
     best_round: i64,
 }
@@ -501,6 +560,30 @@ fn sanitize_player_name(value: &str) -> String {
         "Pilot".to_owned()
     } else {
         trimmed.chars().take(16).collect()
+    }
+}
+
+fn sanitize_locale_code(value: Option<&str>) -> String {
+    match value.map(str::trim) {
+        Some("zh-CN") => "zh-CN".to_owned(),
+        _ => "en".to_owned(),
+    }
+}
+
+fn sanitize_objective(value: Option<&str>) -> String {
+    let trimmed = value.map(str::trim).unwrap_or_default();
+    if trimmed.is_empty() {
+        String::new()
+    } else {
+        trimmed.chars().take(160).collect()
+    }
+}
+
+fn default_objective_for_locale(locale: &str) -> String {
+    if locale == "zh-CN" {
+        "完成每轮的全部据点占领。".to_owned()
+    } else {
+        "Secure each uplink pad once per sweep.".to_owned()
     }
 }
 

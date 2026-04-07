@@ -211,6 +211,7 @@ export function sanitizeMatchSession(
       typeof value?.playerName === "string" && value.playerName.trim()
         ? value.playerName.trim().slice(0, 16)
         : DEFAULT_RUNTIME_PROFILE.preferredPlayerName,
+    locale: value?.locale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_PROFILE.preferredLocale,
     status:
       value?.status === "completed" || value?.status === "staging"
         ? value.status

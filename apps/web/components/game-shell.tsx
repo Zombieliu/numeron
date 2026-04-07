@@ -42,10 +42,6 @@ import {
   formatSessionStatus,
   getUiCopy,
   localizeBootMessage,
-  localizeCastState,
-  localizeSkillLabel,
-  localizeTargetRule,
-  localizeTempoLabel,
   type UiLocale,
 } from "@/lib/ui-i18n";
 import type {
@@ -222,16 +218,16 @@ export function GameShell() {
 
     updateSlot(activeSlot.id, (slot) => {
       const now = new Date().toISOString();
-          return {
-            ...slot,
-            profile: {
-              ...slot.profile,
-              preferredPlayerName: runtimeSnapshot.bootConfig.playerName,
-              preferredTouchControls: runtimeSnapshot.bootConfig.touchControls,
-              preferredLocale: runtimeSnapshot.bootConfig.locale,
-              updatedAt: now,
-            },
-            updatedAt: now,
+      return {
+        ...slot,
+        profile: {
+          ...slot.profile,
+          preferredPlayerName: runtimeSnapshot.bootConfig.playerName,
+          preferredTouchControls: runtimeSnapshot.bootConfig.touchControls,
+          preferredLocale: runtimeSnapshot.bootConfig.locale,
+          updatedAt: now,
+        },
+        updatedAt: now,
       };
     });
   }, [
@@ -352,6 +348,7 @@ export function GameShell() {
           playerName:
             runtimeSnapshot.world.player?.name ??
             runtimeSnapshot.bootConfig.playerName,
+          locale: runtimeSnapshot.bootConfig.locale,
           status: nextStatus,
           round: runtimeSnapshot.world.slice.round,
           objective: runtimeSnapshot.world.slice.objective,
@@ -369,6 +366,7 @@ export function GameShell() {
         playerName:
           runtimeSnapshot.world.player?.name ??
           runtimeSnapshot.bootConfig.playerName,
+        locale: runtimeSnapshot.bootConfig.locale,
         status: nextStatus,
         round: runtimeSnapshot.world.slice.round,
         objective: runtimeSnapshot.world.slice.objective,
@@ -385,6 +383,7 @@ export function GameShell() {
   }, [
     activeSlot.id,
     runtimeSnapshot.bootConfig.playerName,
+    runtimeSnapshot.bootConfig.locale,
     runtimeSnapshot.world.player?.name,
     runtimeSnapshot.world.ready,
     runtimeSnapshot.world.slice.captured,
@@ -467,6 +466,7 @@ export function GameShell() {
       activeSlot.id,
       activeSlot.profile.preferredPlayerName,
       activeSlot.profile.preferredTouchControls ? "1" : "0",
+      activeSlot.profile.preferredLocale,
       activeSlot.profile.bestScore,
       activeSlot.profile.bestRound,
     ].join(":");
@@ -489,6 +489,7 @@ export function GameShell() {
     activeSlot.label,
     activeSlot.profile.bestRound,
     activeSlot.profile.bestScore,
+    activeSlot.profile.preferredLocale,
     activeSlot.profile.preferredPlayerName,
     activeSlot.profile.preferredTouchControls,
     backendUrl,
@@ -1138,16 +1139,11 @@ export function GameShell() {
                       {unit ? (
                         <>
                           <span className="slot-meta">{renderUnitMeta(unit, locale)}</span>
+                          <span className="slot-meta">{unit.skill}</span>
                           <span className="slot-meta">
-                            {localizeSkillLabel(unit.skill, locale)}
+                            {unit.tempoLabel} {unit.castState}
                           </span>
-                          <span className="slot-meta">
-                            {localizeTempoLabel(unit.tempoLabel, locale)}{" "}
-                            {localizeCastState(unit.castState, locale)}
-                          </span>
-                          <span className="slot-meta">
-                            {localizeTargetRule(unit.targetRule, locale)}
-                          </span>
+                          <span className="slot-meta">{unit.targetRule}</span>
                         </>
                       ) : null}
                     </button>
@@ -1219,16 +1215,11 @@ export function GameShell() {
                     {unit ? (
                       <>
                         <span className="slot-meta">{renderUnitMeta(unit, locale)}</span>
+                        <span className="slot-meta">{unit.skill}</span>
                         <span className="slot-meta">
-                          {localizeSkillLabel(unit.skill, locale)}
+                          {unit.tempoLabel} {unit.castState}
                         </span>
-                        <span className="slot-meta">
-                          {localizeTempoLabel(unit.tempoLabel, locale)}{" "}
-                          {localizeCastState(unit.castState, locale)}
-                        </span>
-                        <span className="slot-meta">
-                          {localizeTargetRule(unit.targetRule, locale)}
-                        </span>
+                        <span className="slot-meta">{unit.targetRule}</span>
                       </>
                     ) : null}
                   </button>
@@ -1373,16 +1364,11 @@ export function GameShell() {
                   {unit ? (
                     <>
                       <span className="slot-meta">{renderUnitMeta(unit, locale)}</span>
+                      <span className="slot-meta">{unit.skill}</span>
                       <span className="slot-meta">
-                        {localizeSkillLabel(unit.skill, locale)}
+                        {unit.tempoLabel} {unit.castState}
                       </span>
-                      <span className="slot-meta">
-                        {localizeTempoLabel(unit.tempoLabel, locale)}{" "}
-                        {localizeCastState(unit.castState, locale)}
-                      </span>
-                      <span className="slot-meta">
-                        {localizeTargetRule(unit.targetRule, locale)}
-                      </span>
+                      <span className="slot-meta">{unit.targetRule}</span>
                     </>
                   ) : null}
                 </div>

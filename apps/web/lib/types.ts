@@ -141,6 +141,7 @@ export type MatchSessionRecord = {
   template: "numeron-run";
   slotId: SaveSlotId;
   playerName: string;
+  locale: "en" | "zh-CN";
   status: MatchSessionStatus;
   round: number;
   objective: string;
@@ -173,6 +174,7 @@ export type RemoteBackendProfile = {
   slot_id: string;
   player_name: string;
   touch_controls: boolean;
+  locale: "en" | "zh-CN";
   best_score: number;
   best_round: number;
   updated_at: string;
@@ -182,6 +184,7 @@ export type RemoteBackendSession = {
   id: string;
   slot_id: string;
   player_name: string;
+  locale: "en" | "zh-CN";
   status: MatchSessionStatus;
   round: number;
   objective: string;

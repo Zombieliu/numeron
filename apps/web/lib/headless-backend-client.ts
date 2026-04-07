@@ -51,6 +51,7 @@ export async function pushBackendProfile(
       body: JSON.stringify({
         player_name: slot.profile.preferredPlayerName,
         touch_controls: slot.profile.preferredTouchControls,
+        locale: slot.profile.preferredLocale,
         best_score: slot.profile.bestScore,
         best_round: slot.profile.bestRound,
       }),
@@ -71,6 +72,8 @@ export async function createBackendSession(
         session_id: session.id,
         slot_id: session.slotId,
         player_name: session.playerName,
+        locale: session.locale,
+        objective: session.objective,
       }),
     },
   );
@@ -86,6 +89,9 @@ export async function updateBackendSession(
     {
       method: "PATCH",
       body: JSON.stringify({
+        player_name: session.playerName,
+        locale: session.locale,
+        objective: session.objective,
         status: session.status,
         score: session.score,
         captured: session.captured,
@@ -118,6 +124,7 @@ export function applyBackendSnapshot(
             ...slot.profile,
             preferredPlayerName: remoteProfile.player_name,
             preferredTouchControls: remoteProfile.touch_controls,
+            preferredLocale: remoteProfile.locale,
             bestScore: Math.max(slot.profile.bestScore, remoteProfile.best_score),
             bestRound: Math.max(slot.profile.bestRound, remoteProfile.best_round),
             updatedAt: remoteProfile.updated_at,
@@ -147,6 +154,7 @@ function fromRemoteSession(remote: RemoteBackendSession): MatchSessionRecord {
     template: "numeron-run",
     slotId: sanitizeSlotId(remote.slot_id),
     playerName: remote.player_name,
+    locale: remote.locale,
     status: remote.status,
     round: remote.round,
     objective: remote.objective,

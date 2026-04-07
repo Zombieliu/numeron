@@ -549,20 +549,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_hybrid_game_headless_backend"
-version = "0.1.0"
-dependencies = [
- "axum",
- "bevy",
- "humantime",
- "serde",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "bevy_image"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2379,6 +2365,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "numeron_headless_backend"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bevy",
+ "humantime",
+ "serde",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
