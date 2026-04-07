@@ -33,6 +33,22 @@ import {
   sanitizeRuntimeBootConfig,
   subscribeRuntimeEvents,
 } from "@/lib/web-bridge";
+import {
+  formatBadgeLabel,
+  formatFactionLabel,
+  formatPhaseLabel,
+  formatRoleLabel,
+  formatRunResult,
+  formatSessionStatus,
+  getUiCopy,
+  localizeBootMessage,
+  localizeCastState,
+  localizeRuntimeText,
+  localizeSkillLabel,
+  localizeTargetRule,
+  localizeTempoLabel,
+  type UiLocale,
+} from "@/lib/ui-i18n";
 import type {
   MatchSessionRecord,
   ProgressionBadge,
@@ -43,7 +59,6 @@ import type {
   RuntimeSaveCollection,
   RuntimeSaveSlot,
   RuntimeSnapshot,
-  RuntimeTraitView,
   RuntimeUnitView,
   SaveSlotId,
 } from "@/lib/types";
@@ -51,6 +66,7 @@ import type {
 const LAUNCHER_STORAGE_KEY = "numeron.launcher.v1";
 const DATA_MODE_STORAGE_KEY = "numeron.data-mode.v1";
 const BACKEND_URL_STORAGE_KEY = "numeron.backend-url.v1";
+const LOCALE_STORAGE_KEY = "numeron.locale.v1";
 const BUY_COST_LABEL = 3;
 
 type ControlKey = "up" | "down" | "left" | "right";
@@ -78,6 +94,7 @@ export function GameShell() {
   const [dataMode, setDataMode] = useState<ShellDataMode>("local");
   const [backendUrl, setBackendUrl] = useState(DEFAULT_REMOTE_BACKEND_URL);
   const [backendMessage, setBackendMessage] = useState<string | null>(null);
+  const [locale, setLocale] = useState<UiLocale>("en");
   const [currentSession, setCurrentSession] = useState<MatchSessionRecord | null>(
     null,
   );
@@ -86,6 +103,7 @@ export function GameShell() {
   const remoteKnownSessionIds = useRef<Set<string>>(new Set());
   const remoteProfileSignature = useRef<string | null>(null);
   const remoteHydrated = useRef(false);
+  const copy = getUiCopy(locale);
 
   const activeSlot = getActiveSlot(saveCollection);
   const currentPhase = runtimeSnapshot.world.slice.phase;
@@ -119,12 +137,25 @@ export function GameShell() {
     runtimeSnapshot.world.slice.gold >= runtimeSnapshot.world.slice.rerollCost;
   const canWithdrawUnit =
     canDraft && benchUnits.length < runtimeSnapshot.world.slice.benchCapacity;
+  const localizedRoundState = localizeRuntimeText(
+    runtimeSnapshot.world.slice.status,
+    locale,
+  );
+  const localizedObjective = localizeRuntimeText(
+    runtimeSnapshot.world.slice.objective,
+    locale,
+  );
+  const localizedEnemyIntent = localizeRuntimeText(
+    runtimeSnapshot.world.slice.enemyIntent,
+    locale,
+  );
 
   useEffect(() => {
     const storedCollection = loadStoredSaveCollection();
     setSaveCollection(storedCollection);
     setDataMode(readStoredDataMode());
     setBackendUrl(readStoredBackendUrl());
+    setLocale(readStoredLocale());
 
     const initialConfig = readStoredBootConfig(storedCollection);
     setRuntimeSnapshot(
@@ -140,6 +171,14 @@ export function GameShell() {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    } catch {}
+
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   useEffect(() => {
     try {
@@ -454,10 +493,10 @@ export function GameShell() {
 
     void pushBackendProfile(normalizeBackendUrl(backendUrl), activeSlot)
       .then(() => {
-        setBackendMessage(`Remote profile synced for ${activeSlot.label}.`);
+        setBackendMessage(copy.remoteProfileSynced(activeSlot.label));
       })
       .catch((error: unknown) => {
-        setBackendMessage(formatErrorMessage(error, "Remote profile sync failed."));
+        setBackendMessage(formatErrorMessage(error, copy.remoteProfileSyncFailed));
       });
   }, [
     activeSlot.id,
@@ -468,6 +507,7 @@ export function GameShell() {
     activeSlot.profile.preferredTouchControls,
     backendUrl,
     clientReady,
+    copy,
     dataMode,
   ]);
 
@@ -479,13 +519,13 @@ export function GameShell() {
     void syncCurrentSessionToRemote(currentSession, backendUrl)
       .then((created) => {
         if (created) {
-          setBackendMessage(`Remote session synced: ${currentSession.id}.`);
+          setBackendMessage(copy.remoteSessionSynced(currentSession.id));
         }
       })
       .catch((error: unknown) => {
-        setBackendMessage(formatErrorMessage(error, "Remote session sync failed."));
+        setBackendMessage(formatErrorMessage(error, copy.remoteSessionSyncFailed));
       });
-  }, [backendUrl, clientReady, currentSession, dataMode]);
+  }, [backendUrl, clientReady, copy, currentSession, dataMode]);
 
   useEffect(() => {
     void dispatchUiIntent({
@@ -715,10 +755,13 @@ export function GameShell() {
         patch: profileToBootConfig(getActiveSlot(nextCollection)),
       });
       setBackendMessage(
-        `Pulled ${snapshot.sessions.length} session(s) and ${Object.keys(snapshot.profiles).length} profile(s) from remote.`,
+        copy.remotePullSummary(
+          snapshot.sessions.length,
+          Object.keys(snapshot.profiles).length,
+        ),
       );
     } catch (error: unknown) {
-      setBackendMessage(formatErrorMessage(error, "Remote pull failed."));
+      setBackendMessage(formatErrorMessage(error, copy.remotePullFailed));
     }
   }
 
@@ -730,10 +773,10 @@ export function GameShell() {
       }
       const health = await fetchBackendHealth(normalizeBackendUrl(backendUrl));
       setBackendMessage(
-        `Remote push complete. tick=${health.tick}, profiles=${health.profiles}, sessions=${health.sessions}.`,
+        copy.remotePushSummary(health.tick, health.profiles, health.sessions),
       );
     } catch (error: unknown) {
-      setBackendMessage(formatErrorMessage(error, "Remote push failed."));
+      setBackendMessage(formatErrorMessage(error, copy.remotePushFailed));
     }
   }
 
@@ -746,7 +789,7 @@ export function GameShell() {
       activeSlotId: slotId,
     }));
 
-    setSaveMessage(`Active slot switched to ${nextSlot.label}.`);
+    setSaveMessage(copy.activeSlotSwitched(nextSlot.label));
     setSaveDraft("");
     void dispatchUiIntent({
       type: "runtime.boot-config.patch",
@@ -772,7 +815,7 @@ export function GameShell() {
     updateSlot(activeSlot.id, () => reset);
     setCurrentSession(null);
     setSaveDraft("");
-    setSaveMessage(`Reset ${activeSlot.label} to template defaults.`);
+    setSaveMessage(copy.resetSlot(activeSlot.label));
     void dispatchUiIntent({
       type: "runtime.boot-config.patch",
       patch: profileToBootConfig(reset),
@@ -786,7 +829,7 @@ export function GameShell() {
     setSaveCollection(next);
     setCurrentSession(null);
     setSaveDraft("");
-    setSaveMessage("Reset all save slots and progression data.");
+    setSaveMessage(copy.resetAllSlots);
     void dispatchUiIntent({
       type: "runtime.boot-config.patch",
       patch: profileToBootConfig(getActiveSlot(next)),
@@ -799,9 +842,9 @@ export function GameShell() {
 
     try {
       await navigator.clipboard.writeText(raw);
-      setSaveMessage("Save matrix JSON copied to clipboard.");
+      setSaveMessage(copy.snapshotCopied);
     } catch {
-      setSaveMessage("Save matrix JSON prepared below. Copy manually if needed.");
+      setSaveMessage(copy.snapshotPrepared);
     }
   }
 
@@ -810,13 +853,13 @@ export function GameShell() {
       const next = importSaveCollection(saveDraft);
       saveStoredSaveCollection(next);
       setSaveCollection(next);
-      setSaveMessage("Save matrix imported from JSON.");
+      setSaveMessage(copy.snapshotImported);
       void dispatchUiIntent({
         type: "runtime.boot-config.patch",
         patch: profileToBootConfig(getActiveSlot(next)),
       });
     } catch {
-      setSaveMessage("Save matrix import failed. Check the JSON payload.");
+      setSaveMessage(copy.snapshotImportFailed);
     }
   }
 
@@ -839,635 +882,751 @@ export function GameShell() {
 
   return (
     <main className="shell">
-      <aside className="sidebar">
-        <div>
-          <div className="eyebrow">Numeron</div>
-          <h1 className="title">Board Auto-Battler</h1>
-          <p className="muted">
-            React controls the HUD, shop, and save flow while Bevy drives the shared
-            board simulation for both web and native.
-          </p>
-        </div>
-
-        <section className="panel">
-          <div className="eyebrow">Data Mode</div>
-          <div className="mode-toggle">
-            <button
-              type="button"
-              className={`mode-chip${dataMode === "local" ? " active" : ""}`}
-              onClick={() => setDataMode("local")}
-            >
-              Local
-            </button>
-            <button
-              type="button"
-              className={`mode-chip${dataMode === "remote" ? " active" : ""}`}
-              onClick={() => setDataMode("remote")}
-            >
-              Remote
-            </button>
-          </div>
-          <label className="label">
-            Backend URL
-            <input
-              type="text"
-              value={backendUrl}
-              onChange={(event) => setBackendUrl(event.target.value)}
-              placeholder={DEFAULT_REMOTE_BACKEND_URL}
-            />
-          </label>
-          <div className="action-row">
-            <button className="button secondary" onClick={() => void handlePullRemote()}>
-              Pull Remote
-            </button>
-            <button className="button secondary" onClick={() => void handlePushRemote()}>
-              Push Active Slot
-            </button>
-          </div>
-          <div className="muted">
-            {dataMode === "local"
-              ? "Shell data stays browser-local."
-              : "Shell profile/session state syncs with the optional headless backend."}
-          </div>
-          {backendMessage ? <div className="muted">{backendMessage}</div> : null}
-        </section>
-
-        <section className="panel">
-          <div className="eyebrow">Launcher</div>
-          <label className="label">
-            Player Name
-            <input
-              type="text"
-              value={runtimeSnapshot.bootConfig.playerName}
-              onChange={(event) =>
-                setLauncherConfig("playerName", event.target.value)
-              }
-              maxLength={16}
-            />
-          </label>
-
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={runtimeSnapshot.bootConfig.touchControls}
-              onChange={(event) =>
-                setLauncherConfig("touchControls", event.target.checked)
-              }
-            />
-            Touch HUD enabled
-          </label>
-
-          <button className="button" onClick={handleLaunch} disabled={!clientReady}>
-            Launch Runtime
-          </button>
-        </section>
-
-        <section className="panel">
-          <div className="eyebrow">Battle Controls</div>
-          <div className="stat-grid">
-            <div className="stat-card">
-              <span className="stat-label">Phase</span>
-              <strong>{formatPhaseLabel(currentPhase)}</strong>
+      <header className="topbar">
+        <div className="topbar-main">
+          <div className="eyebrow">{copy.brand}</div>
+          <h1 className="title">{copy.title}</h1>
+          <p className="muted topbar-copy">{copy.subtitle}</p>
+          <div className="status-strip">
+            <div className="status-pill">
+              <span className="stat-label">{copy.phase}</span>
+              <strong>{formatPhaseLabel(currentPhase, locale)}</strong>
             </div>
-            <div className="stat-card">
-              <span className="stat-label">Gold</span>
+            <div className="status-pill">
+              <span className="stat-label">{copy.gold}</span>
               <strong>{runtimeSnapshot.world.slice.gold}</strong>
             </div>
-            <div className="stat-card">
-              <span className="stat-label">Reroll</span>
-              <strong>{runtimeSnapshot.world.slice.rerollCost}</strong>
+            <div className="status-pill">
+              <span className="stat-label">{copy.runLabel}</span>
+              <strong>{runtimeSnapshot.world.slice.runNumber}</strong>
             </div>
-            <div className="stat-card">
-              <span className="stat-label">Bench</span>
-              <strong>
-                {benchUnits.length}/{runtimeSnapshot.world.slice.benchCapacity}
-              </strong>
+            <div className="status-pill">
+              <span className="stat-label">{copy.result}</span>
+              <strong>{formatRunResult(runtimeSnapshot.world.slice.runResult, locale)}</strong>
             </div>
-            <div className="stat-card">
-              <span className="stat-label">Shop</span>
-              <strong>
-                {runtimeSnapshot.world.slice.shopLocked ? "Locked" : "Open"}
-              </strong>
-            </div>
-          </div>
-          <div className="action-row">
-            <button
-              className="button"
-              onClick={handleStartCombat}
-              disabled={!canStartCombat}
-              data-testid="start-combat"
-            >
-              Start Combat
-            </button>
-            <button
-              className="button secondary"
-              onClick={handleResetRound}
-              disabled={!canAdvanceRound}
-              data-testid="next-round"
-            >
-              Next Round
-            </button>
-            <button
-              className="button secondary"
-              onClick={handleRestartRun}
-              disabled={!canRestartRun}
-              data-testid="restart-run"
-            >
-              Restart Run
-            </button>
-          </div>
-          <div className="muted">
-            {runtimeSnapshot.world.slice.runOver
-              ? formatRunResult(runtimeSnapshot.world.slice.runResult)
-              : runtimeSnapshot.world.slice.roundResolved
-                ? "Round resolved. Advance when you are ready."
-                : "Build during prep, then hand the board to combat."}
-          </div>
-        </section>
-
-        <section className="panel" data-testid="draft-shop">
-          <div className="eyebrow">Draft Shop</div>
-          <div className="offer-grid">
-            {runtimeSnapshot.world.slice.shopOffers.map((offer, index) => (
-              <button
-                key={`${offer.archetype}-${offer.stars}-${index}`}
-                type="button"
-                className="offer-card"
-                onClick={() => handleBuyOffer(index)}
-                disabled={!canBuyUnit}
-                data-testid={`shop-offer-${index}`}
-              >
-                <span className="slot-title">{offer.label}</span>
-                <span className="slot-meta">
-                  {formatFactionLabel(offer.faction)} · {formatRoleLabel(offer.role)}
-                </span>
-                <span className="slot-meta">
-                  {renderUnitMeta(offer)} · Cost {BUY_COST_LABEL}
-                </span>
-              </button>
-            ))}
-          </div>
-          <div className="action-row">
-            <button
-              className="button secondary"
-              onClick={handleRerollShop}
-              disabled={!canRerollShop}
-              data-testid="reroll-shop"
-            >
-              Reroll Shop
-            </button>
-            <button
-              className="button secondary"
-              onClick={handleToggleShopLock}
-              disabled={!canDraft}
-              data-testid="lock-shop"
-            >
-              {runtimeSnapshot.world.slice.shopLocked ? "Unlock Shop" : "Lock Shop"}
-            </button>
-          </div>
-          <div className="muted">
-            Buying now sends units to the bench. Deploy them into empty board slots before combat.
-          </div>
-          <div className="muted">
-            {runtimeSnapshot.world.slice.shopLocked
-              ? "Locked offers will carry into the next round."
-              : "Open shop will refresh on the next round start."}
-          </div>
-        </section>
-
-        <section className="panel" data-testid="bench-panel">
-          <div className="eyebrow">Bench</div>
-          <div className="formation-grid">
-            {Array.from({ length: runtimeSnapshot.world.slice.benchCapacity }).map((_, index) => {
-              const unit = benchUnits[index] ?? null;
-              return (
-                <button
-                  key={`bench-${index}`}
-                  type="button"
-                  className={`formation-card${unit ? "" : " empty"}${
-                    selectedBenchIndex === index ? " selected" : ""
-                  }`}
-                  onClick={() => handleSelectBenchUnit(index)}
-                  disabled={!canDraft || !unit}
-                  data-testid={`bench-slot-${index}`}
-                >
-                  <span className="slot-title">
-                    {unit ? unit.label : "Empty Bench Slot"}
-                  </span>
-                  <span className="slot-meta">
-                    {unit
-                      ? selectedBenchIndex === index
-                        ? "Selected for deployment"
-                        : "Click to select"
-                      : "Buy from the shop"}
-                  </span>
-                  {unit ? (
-                    <>
-                      <span className="slot-meta">{renderUnitMeta(unit)}</span>
-                      <span className="slot-meta">{unit.skill}</span>
-                      <span className="slot-meta">
-                        {unit.tempoLabel} {unit.castState}
-                      </span>
-                      <span className="slot-meta">{unit.targetRule}</span>
-                    </>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-          <div className="action-row">
-            <button
-              className="button secondary"
-              onClick={handleSellBenchUnit}
-              disabled={!hasBenchSelection}
-              data-testid="sell-bench"
-            >
-              Sell Bench Unit
-            </button>
-          </div>
-          <div className="muted">
-            {hasBenchSelection
-              ? "Bench unit selected. Click an empty deployment slot to place it."
-              : "Select a benched unit to prepare a deployment."}
-          </div>
-        </section>
-
-        <section className="panel" data-testid="deployment-panel">
-          <div className="eyebrow">Deployment</div>
-          <div className="formation-grid">
-            {playerBoard.map((unit, index) => {
-              const isEmpty = unit == null;
-              const canDeployIntoSlot = canDraft && isEmpty && hasBenchSelection;
-              const isSelected = selectedBoardIndex === index;
-              const canSelectSlot = canDraft && !isEmpty;
-
-              return (
-                <button
-                  key={`board-${index}`}
-                  type="button"
-                  className={`formation-card${isEmpty ? " empty" : ""}${
-                    isSelected ? " selected" : ""
-                  }`}
-                  onClick={() =>
-                    isEmpty ? handleDeployBenchUnit(index) : handleSelectBoardUnit(index)
-                  }
-                  disabled={!canDeployIntoSlot && !canSelectSlot}
-                  data-testid={`board-slot-${index}`}
-                >
-                  <span className="slot-title">
-                    {unit ? unit.label : `Empty Slot ${index + 1}`}
-                  </span>
-                  <span className="slot-meta">
-                    {unit
-                      ? isSelected
-                        ? "Selected for board actions"
-                        : "Click to select"
-                      : hasBenchSelection
-                        ? "Click to deploy selected unit"
-                        : "Select a bench unit first"}
-                  </span>
-                  {unit ? (
-                    <>
-                      <span className="slot-meta">{renderUnitMeta(unit)}</span>
-                      <span className="slot-meta">{unit.skill}</span>
-                      <span className="slot-meta">
-                        {unit.tempoLabel} {unit.castState}
-                      </span>
-                      <span className="slot-meta">{unit.targetRule}</span>
-                    </>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-          <div className="action-row">
-            <button
-              className="button secondary"
-              onClick={handleWithdrawBoardUnit}
-              disabled={!hasBoardSelection || !canWithdrawUnit}
-              data-testid="withdraw-board"
-            >
-              Withdraw To Bench
-            </button>
-            <button
-              className="button secondary"
-              onClick={handleSellBoardUnit}
-              disabled={!hasBoardSelection}
-              data-testid="sell-board"
-            >
-              Sell Deployed Unit
-            </button>
-          </div>
-          <div className="muted">
-            Active board: {playerBoard.filter(Boolean).length}/
-            {runtimeSnapshot.world.slice.boardCapacity} deployed units
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="eyebrow">Synergies</div>
-          <div className="trait-grid">
-            {activeTraits.map((trait) => (
-              <div
-                key={trait.key}
-                className={`trait-card${trait.active ? " active" : ""}`}
-              >
-                <span className="slot-title">{trait.label}</span>
-                <span className="slot-meta">
-                  {trait.count}/{trait.threshold}
-                </span>
-                <span className="slot-meta">{trait.description}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="eyebrow">Enemy Lineup</div>
-          <div className="stat-grid">
-            <div className="stat-card">
-              <span className="stat-label">Threat</span>
-              <strong>{runtimeSnapshot.world.slice.enemyThreat}</strong>
-            </div>
-            <div className="stat-card">
-              <span className="stat-label">Intent</span>
-              <strong>{runtimeSnapshot.world.slice.enemyIntent}</strong>
-            </div>
-          </div>
-          <div className="formation-grid enemy-grid">
-            {enemyBoard.map((unit, index) => (
-              <div
-                key={`enemy-${index}`}
-                className={`formation-card enemy-card${unit ? "" : " empty"}`}
-              >
-                <span className="slot-title">
-                  {unit ? unit.label : `Open Enemy Slot ${index + 1}`}
-                </span>
-                <span className="slot-meta">
-                  {unit
-                    ? `${formatFactionLabel(unit.faction)} · ${formatRoleLabel(unit.role)}`
-                    : "Unused this round"}
-                </span>
-                {unit ? (
-                  <>
-                    <span className="slot-meta">{renderUnitMeta(unit)}</span>
-                    <span className="slot-meta">{unit.skill}</span>
-                    <span className="slot-meta">
-                      {unit.tempoLabel} {unit.castState}
-                    </span>
-                    <span className="slot-meta">{unit.targetRule}</span>
-                  </>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="eyebrow">Status</div>
-          <div>{renderBootRecord(runtimeSnapshot.boot.current)}</div>
-          <div className="muted">
-            Current runtime now supports a lockable shop, richer enemy forecasts, unit
-            skills/targeting rules, visible cadence states, plus restartable run flow.
-          </div>
-          <div className="muted">
-            Runtime active: {runtimeSnapshot.runtimeActive ? "yes" : "no"}
-          </div>
-          <div className="muted">
-            Commander:{" "}
-            {runtimeSnapshot.world.player?.name ?? runtimeSnapshot.bootConfig.playerName}
-          </div>
-          <div className="muted">
-            Board Seed: {runtimeSnapshot.world.slice.captured}/
-            {runtimeSnapshot.world.slice.total || "?"} units active
-          </div>
-          <div className="muted">
-            Board objective: {runtimeSnapshot.world.slice.objective}
-          </div>
-          <div className="muted">
-            Round state: {runtimeSnapshot.world.slice.status}
-          </div>
-          <div className="muted">
-            Run {runtimeSnapshot.world.slice.runNumber}:{" "}
-            {formatRunResult(runtimeSnapshot.world.slice.runResult)}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="eyebrow">Active Run</div>
-          <div className="stat-grid">
-            <div className="stat-card">
-              <span className="stat-label">Status</span>
-              <strong>{currentSession?.status ?? "staging"}</strong>
-            </div>
-            <div className="stat-card">
-              <span className="stat-label">Round</span>
-              <strong>{currentSession?.round ?? runtimeSnapshot.world.slice.round}</strong>
-            </div>
-            <div className="stat-card">
-              <span className="stat-label">Result</span>
-              <strong>{formatRunResult(runtimeSnapshot.world.slice.runResult)}</strong>
-            </div>
-          </div>
-          <div className="muted">Session id: {currentSession?.id ?? "awaiting runtime"}</div>
-          <div className="muted">
-            Window: {formatTimestamp(currentSession?.startedAt)} to{" "}
-            {formatTimestamp(currentSession?.endedAt)}
-          </div>
-          <div className="muted">
-            HP: {runtimeSnapshot.world.slice.playerHealth} commander ·{" "}
-            {runtimeSnapshot.world.slice.enemyHealth} enemy
-          </div>
-          <div className="muted">
-            {runtimeSnapshot.world.slice.runOver
-              ? "The current run is closed. Restart to open a fresh session."
-              : runtimeSnapshot.world.slice.roundResolved
-                ? "Round resolved but the run is still live."
-                : "Current session is still progressing."}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="eyebrow">Run Meta</div>
-          <div className="stat-grid">
-            <div className="stat-card">
-              <span className="stat-label">Level</span>
-              <strong>{activeSlot.progression.level}</strong>
-            </div>
-            <div className="stat-card">
-              <span className="stat-label">XP</span>
-              <strong>{activeSlot.progression.xp}</strong>
-            </div>
-            <div className="stat-card">
-              <span className="stat-label">Battles</span>
-              <strong>{activeSlot.progression.totalSweeps}</strong>
-            </div>
-          </div>
-          <div className="muted">Runs launched: {activeSlot.progression.totalRuns}</div>
-          <div className="muted">Best board score: {activeSlot.profile.bestScore}</div>
-          <div className="badge-row">
-            {activeSlot.progression.unlockedBadges.length > 0 ? (
-              activeSlot.progression.unlockedBadges.map((badge) => (
-                <span className="badge-pill" key={badge}>
-                  {formatBadgeLabel(badge)}
-                </span>
-              ))
-            ) : (
-              <span className="muted">No milestones unlocked yet.</span>
-            )}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="eyebrow">Save Slots</div>
-          <div className="slot-grid">
-            {saveCollection.slots.map((slot) => (
-              <button
-                key={slot.id}
-                type="button"
-                className={`slot-card${slot.id === activeSlot.id ? " active" : ""}`}
-                onClick={() => handleSelectSlot(slot.id)}
-              >
-                <span className="slot-title">{slot.label}</span>
-                <span className="slot-meta">Best {slot.profile.bestScore}</span>
-                <span className="slot-meta">Round {slot.profile.bestRound}</span>
-              </button>
-            ))}
-          </div>
-
-          <label className="label">
-            Active Slot Label
-            <input
-              type="text"
-              value={activeSlot.label}
-              onChange={(event) => handleRenameSlot(event.target.value)}
-              maxLength={18}
-            />
-          </label>
-
-          <div className="muted">
-            Last run: {activeSlot.profile.lastScore} score, round {activeSlot.profile.lastRound},
-            staged units {activeSlot.profile.lastCaptured}
-          </div>
-
-          <div className="session-list">
-            {activeSlot.recentSessions.length > 0 ? (
-              activeSlot.recentSessions.map((session) => (
-                <div className="session-row" key={session.id}>
-                  <span>{session.id}</span>
-                  <span>{session.score} pts</span>
-                  <span>R{session.round}</span>
-                </div>
-              ))
-            ) : (
-              <div className="muted">No archived sessions yet.</div>
-            )}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="eyebrow">Run Snapshot</div>
-          <div className="action-row">
-            <button className="button secondary" onClick={() => void handleCopySaveMatrix()}>
-              Copy Snapshot
-            </button>
-            <button className="button secondary" onClick={handleImportSaveMatrix}>
-              Load Snapshot
-            </button>
-            <button className="button secondary" onClick={handleResetActiveSlot}>
-              Reset Active Slot
-            </button>
-            <button className="button secondary" onClick={handleResetAllSaves}>
-              Reset All Saves
-            </button>
-          </div>
-          <label className="label">
-            Snapshot JSON
-            <textarea
-              className="profile-textarea"
-              value={saveDraft}
-              onChange={(event) => setSaveDraft(event.target.value)}
-              placeholder="Exported Numeron run snapshot JSON appears here. Paste a payload to import."
-              rows={8}
-            />
-          </label>
-          {saveMessage ? <div className="muted">{saveMessage}</div> : null}
-        </section>
-
-        <section className="panel">
-          <div className="eyebrow">Boot History</div>
-          <ol className="history">
-            {[...runtimeSnapshot.boot.history].reverse().map((record) => (
-              <li key={record.id}>{renderBootRecord(record)}</li>
-            ))}
-          </ol>
-        </section>
-      </aside>
-
-      <section className="canvas-area">
-        <div className="canvas-frame">
-          <canvas id="bevy-runtime-canvas" />
-          <div className="hud">
-            <div className="hud-card">
-              <div className="eyebrow">Projection</div>
-              <div>{runtimeSnapshot.world.ready ? "ready" : "booting"}</div>
-            </div>
-
-            <div className="hud-card objective-card">
-              <div className="eyebrow">Board Slice</div>
-              <div className="objective-title">
-                {runtimeSnapshot.world.slice.captured}/{runtimeSnapshot.world.slice.total || "?"}{" "}
-                active units
-              </div>
-              <div className="muted">{runtimeSnapshot.world.slice.status}</div>
-            </div>
-
-            <div className="hud-card objective-card">
-              <div className="eyebrow">Active Slot</div>
-              <div className="objective-title">{activeSlot.label}</div>
-              <div className="muted">
-                L{activeSlot.progression.level} · {activeSlot.progression.xp} XP
-              </div>
-            </div>
-
-            {runtimeSnapshot.bootConfig.touchControls ? (
-              <div className="touch-card">
-                <div className="eyebrow">Quick Actions</div>
-                <div className="touch-grid">
-                  <button
-                    className="touch-button"
-                    onClick={handleStartCombat}
-                    disabled={!canStartCombat}
-                  >
-                    Start
-                  </button>
-                  <button
-                    className="touch-button"
-                    onClick={handleResetRound}
-                    disabled={!canAdvanceRound}
-                  >
-                    Next
-                  </button>
-                  <button
-                    className="touch-button"
-                    onClick={handleRerollShop}
-                    disabled={!canDraft || runtimeSnapshot.world.slice.gold < runtimeSnapshot.world.slice.rerollCost}
-                  >
-                    Roll
-                  </button>
-                  <button
-                    className="touch-button"
-                    onClick={() => handleBuyOffer(0)}
-                    disabled={!canBuyUnit || runtimeSnapshot.world.slice.shopOffers.length === 0}
-                  >
-                    Buy
-                  </button>
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
+        <div className="topbar-actions">
+          <div className="eyebrow">{copy.language}</div>
+          <div className="mode-toggle locale-toggle">
+            <button
+              type="button"
+              className={`mode-chip${locale === "en" ? " active" : ""}`}
+              onClick={() => setLocale("en")}
+            >
+              {copy.english}
+            </button>
+            <button
+              type="button"
+              className={`mode-chip${locale === "zh-CN" ? " active" : ""}`}
+              onClick={() => setLocale("zh-CN")}
+            >
+              {copy.chineseSimplified}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section className="game-layout">
+        <aside className="side-column">
+          <section className="panel">
+            <div className="eyebrow">{copy.dataMode}</div>
+            <div className="mode-toggle">
+              <button
+                type="button"
+                className={`mode-chip${dataMode === "local" ? " active" : ""}`}
+                onClick={() => setDataMode("local")}
+              >
+                {copy.local}
+              </button>
+              <button
+                type="button"
+                className={`mode-chip${dataMode === "remote" ? " active" : ""}`}
+                onClick={() => setDataMode("remote")}
+              >
+                {copy.remote}
+              </button>
+            </div>
+            <label className="label">
+              {copy.backendUrl}
+              <input
+                type="text"
+                value={backendUrl}
+                onChange={(event) => setBackendUrl(event.target.value)}
+                placeholder={DEFAULT_REMOTE_BACKEND_URL}
+              />
+            </label>
+            <div className="action-row">
+              <button className="button secondary" onClick={() => void handlePullRemote()}>
+                {copy.pullRemote}
+              </button>
+              <button className="button secondary" onClick={() => void handlePushRemote()}>
+                {copy.pushActiveSlot}
+              </button>
+            </div>
+            <div className="muted">
+              {dataMode === "local" ? copy.localModeHint : copy.remoteModeHint}
+            </div>
+            {backendMessage ? <div className="muted">{backendMessage}</div> : null}
+          </section>
+
+          <section className="panel">
+            <div className="eyebrow">{copy.launcher}</div>
+            <label className="label">
+              {copy.playerName}
+              <input
+                type="text"
+                value={runtimeSnapshot.bootConfig.playerName}
+                onChange={(event) => setLauncherConfig("playerName", event.target.value)}
+                maxLength={16}
+              />
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={runtimeSnapshot.bootConfig.touchControls}
+                onChange={(event) =>
+                  setLauncherConfig("touchControls", event.target.checked)
+                }
+              />
+              {copy.touchHudEnabled}
+            </label>
+            <button className="button" onClick={handleLaunch} disabled={!clientReady}>
+              {copy.launchRuntime}
+            </button>
+          </section>
+
+          <section className="panel">
+            <div className="eyebrow">{copy.battleControls}</div>
+            <div className="stat-grid">
+              <div className="stat-card">
+                <span className="stat-label">{copy.phase}</span>
+                <strong>{formatPhaseLabel(currentPhase, locale)}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.gold}</span>
+                <strong>{runtimeSnapshot.world.slice.gold}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.reroll}</span>
+                <strong>{runtimeSnapshot.world.slice.rerollCost}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.bench}</span>
+                <strong>
+                  {benchUnits.length}/{runtimeSnapshot.world.slice.benchCapacity}
+                </strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.shop}</span>
+                <strong>
+                  {runtimeSnapshot.world.slice.shopLocked
+                    ? copy.lockShop
+                    : locale === "zh-CN"
+                      ? "开放"
+                      : "Open"}
+                </strong>
+              </div>
+            </div>
+            <div className="action-row">
+              <button
+                className="button"
+                onClick={handleStartCombat}
+                disabled={!canStartCombat}
+                data-testid="start-combat"
+              >
+                {copy.startCombat}
+              </button>
+              <button
+                className="button secondary"
+                onClick={handleResetRound}
+                disabled={!canAdvanceRound}
+                data-testid="next-round"
+              >
+                {copy.nextRound}
+              </button>
+              <button
+                className="button secondary"
+                onClick={handleRestartRun}
+                disabled={!canRestartRun}
+                data-testid="restart-run"
+              >
+                {copy.restartRun}
+              </button>
+            </div>
+            <div className="muted">
+              {runtimeSnapshot.world.slice.runOver
+                ? copy.runClosedHint
+                : runtimeSnapshot.world.slice.roundResolved
+                  ? copy.roundResolvedHint
+                  : copy.prepHint}
+            </div>
+          </section>
+
+          <section className="panel" data-testid="draft-shop">
+            <div className="eyebrow">{copy.draftShop}</div>
+            <div className="offer-grid">
+              {runtimeSnapshot.world.slice.shopOffers.map((offer, index) => (
+                <button
+                  key={`${offer.archetype}-${offer.stars}-${index}`}
+                  type="button"
+                  className="offer-card"
+                  onClick={() => handleBuyOffer(index)}
+                  disabled={!canBuyUnit}
+                  data-testid={`shop-offer-${index}`}
+                >
+                  <span className="slot-title">{offer.label}</span>
+                  <span className="slot-meta">
+                    {formatFactionLabel(offer.faction, locale)} ·{" "}
+                    {formatRoleLabel(offer.role, locale)}
+                  </span>
+                  <span className="slot-meta">
+                    {renderUnitMeta(offer, locale)} · {copy.buy} {BUY_COST_LABEL}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="action-row">
+              <button
+                className="button secondary"
+                onClick={handleRerollShop}
+                disabled={!canRerollShop}
+                data-testid="reroll-shop"
+              >
+                {copy.rerollShop}
+              </button>
+              <button
+                className="button secondary"
+                onClick={handleToggleShopLock}
+                disabled={!canDraft}
+                data-testid="lock-shop"
+              >
+                {runtimeSnapshot.world.slice.shopLocked ? copy.unlockShop : copy.lockShop}
+              </button>
+            </div>
+            <div className="muted">{copy.draftHint}</div>
+            <div className="muted">
+              {runtimeSnapshot.world.slice.shopLocked
+                ? copy.lockedShopHint
+                : copy.openShopHint}
+            </div>
+          </section>
+
+          <section className="panel" data-testid="bench-panel">
+            <div className="eyebrow">{copy.benchPanel}</div>
+            <div className="formation-grid">
+              {Array.from({ length: runtimeSnapshot.world.slice.benchCapacity }).map(
+                (_, index) => {
+                  const unit = benchUnits[index] ?? null;
+                  return (
+                    <button
+                      key={`bench-${index}`}
+                      type="button"
+                      className={`formation-card${unit ? "" : " empty"}${
+                        selectedBenchIndex === index ? " selected" : ""
+                      }`}
+                      onClick={() => handleSelectBenchUnit(index)}
+                      disabled={!canDraft || !unit}
+                      data-testid={`bench-slot-${index}`}
+                    >
+                      <span className="slot-title">
+                        {unit
+                          ? unit.label
+                          : locale === "zh-CN"
+                            ? "空备战槽"
+                            : "Empty Bench Slot"}
+                      </span>
+                      <span className="slot-meta">
+                        {unit
+                          ? selectedBenchIndex === index
+                            ? locale === "zh-CN"
+                              ? "已选中，准备部署"
+                              : "Selected for deployment"
+                            : locale === "zh-CN"
+                              ? "点击选中"
+                              : "Click to select"
+                          : locale === "zh-CN"
+                            ? "从商店购买"
+                            : "Buy from the shop"}
+                      </span>
+                      {unit ? (
+                        <>
+                          <span className="slot-meta">{renderUnitMeta(unit, locale)}</span>
+                          <span className="slot-meta">
+                            {localizeSkillLabel(unit.skill, locale)}
+                          </span>
+                          <span className="slot-meta">
+                            {localizeTempoLabel(unit.tempoLabel, locale)}{" "}
+                            {localizeCastState(unit.castState, locale)}
+                          </span>
+                          <span className="slot-meta">
+                            {localizeTargetRule(unit.targetRule, locale)}
+                          </span>
+                        </>
+                      ) : null}
+                    </button>
+                  );
+                },
+              )}
+            </div>
+            <div className="action-row">
+              <button
+                className="button secondary"
+                onClick={handleSellBenchUnit}
+                disabled={!hasBenchSelection}
+                data-testid="sell-bench"
+              >
+                {copy.sellBenchUnit}
+              </button>
+            </div>
+            <div className="muted">
+              {hasBenchSelection ? copy.benchSelectedHint : copy.benchIdleHint}
+            </div>
+          </section>
+
+          <section className="panel" data-testid="deployment-panel">
+            <div className="eyebrow">{copy.deployment}</div>
+            <div className="formation-grid">
+              {playerBoard.map((unit, index) => {
+                const isEmpty = unit == null;
+                const canDeployIntoSlot = canDraft && isEmpty && hasBenchSelection;
+                const isSelected = selectedBoardIndex === index;
+                const canSelectSlot = canDraft && !isEmpty;
+
+                return (
+                  <button
+                    key={`board-${index}`}
+                    type="button"
+                    className={`formation-card${isEmpty ? " empty" : ""}${
+                      isSelected ? " selected" : ""
+                    }`}
+                    onClick={() =>
+                      isEmpty ? handleDeployBenchUnit(index) : handleSelectBoardUnit(index)
+                    }
+                    disabled={!canDeployIntoSlot && !canSelectSlot}
+                    data-testid={`board-slot-${index}`}
+                  >
+                    <span className="slot-title">
+                      {unit
+                        ? unit.label
+                        : locale === "zh-CN"
+                          ? `空槽位 ${index + 1}`
+                          : `Empty Slot ${index + 1}`}
+                    </span>
+                    <span className="slot-meta">
+                      {unit
+                        ? isSelected
+                          ? locale === "zh-CN"
+                            ? "已选中，可执行棋盘操作"
+                            : "Selected for board actions"
+                          : locale === "zh-CN"
+                            ? "点击选中"
+                            : "Click to select"
+                        : hasBenchSelection
+                          ? locale === "zh-CN"
+                            ? "点击部署选中单位"
+                            : "Click to deploy selected unit"
+                          : locale === "zh-CN"
+                            ? "先选择一个备战单位"
+                            : "Select a bench unit first"}
+                    </span>
+                    {unit ? (
+                      <>
+                        <span className="slot-meta">{renderUnitMeta(unit, locale)}</span>
+                        <span className="slot-meta">
+                          {localizeSkillLabel(unit.skill, locale)}
+                        </span>
+                        <span className="slot-meta">
+                          {localizeTempoLabel(unit.tempoLabel, locale)}{" "}
+                          {localizeCastState(unit.castState, locale)}
+                        </span>
+                        <span className="slot-meta">
+                          {localizeTargetRule(unit.targetRule, locale)}
+                        </span>
+                      </>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="action-row">
+              <button
+                className="button secondary"
+                onClick={handleWithdrawBoardUnit}
+                disabled={!hasBoardSelection || !canWithdrawUnit}
+                data-testid="withdraw-board"
+              >
+                {copy.withdrawToBench}
+              </button>
+              <button
+                className="button secondary"
+                onClick={handleSellBoardUnit}
+                disabled={!hasBoardSelection}
+                data-testid="sell-board"
+              >
+                {copy.sellDeployedUnit}
+              </button>
+            </div>
+            <div className="muted">
+              {copy.activeBoard}: {playerBoard.filter(Boolean).length}/
+              {runtimeSnapshot.world.slice.boardCapacity}
+            </div>
+          </section>
+        </aside>
+
+        <section className="stage-column">
+          <section className="canvas-area">
+            <div className="canvas-frame">
+              <canvas id="bevy-runtime-canvas" />
+              <div className="hud">
+                <div className="hud-card">
+                  <div className="eyebrow">{copy.projection}</div>
+                  <div>{runtimeSnapshot.world.ready ? copy.ready : copy.booting}</div>
+                </div>
+
+                <div className="hud-card objective-card">
+                  <div className="eyebrow">{copy.boardSlice}</div>
+                  <div className="objective-title">
+                    {runtimeSnapshot.world.slice.captured}/
+                    {runtimeSnapshot.world.slice.total || "?"} {copy.activeUnits}
+                  </div>
+                  <div className="muted">{localizedRoundState}</div>
+                </div>
+
+                <div className="hud-card objective-card">
+                  <div className="eyebrow">{copy.activeSlot}</div>
+                  <div className="objective-title">{activeSlot.label}</div>
+                  <div className="muted">
+                    {copy.level} {activeSlot.progression.level} · {activeSlot.progression.xp}{" "}
+                    {copy.xp}
+                  </div>
+                </div>
+
+                {runtimeSnapshot.bootConfig.touchControls ? (
+                  <div className="touch-card">
+                    <div className="eyebrow">{copy.quickActions}</div>
+                    <div className="touch-grid">
+                      <button
+                        className="touch-button"
+                        onClick={handleStartCombat}
+                        disabled={!canStartCombat}
+                      >
+                        {copy.startCombat}
+                      </button>
+                      <button
+                        className="touch-button"
+                        onClick={handleResetRound}
+                        disabled={!canAdvanceRound}
+                      >
+                        {copy.nextRound}
+                      </button>
+                      <button
+                        className="touch-button"
+                        onClick={handleRerollShop}
+                        disabled={
+                          !canDraft ||
+                          runtimeSnapshot.world.slice.gold <
+                            runtimeSnapshot.world.slice.rerollCost
+                        }
+                      >
+                        {copy.reroll}
+                      </button>
+                      <button
+                        className="touch-button"
+                        onClick={() => handleBuyOffer(0)}
+                        disabled={
+                          !canBuyUnit || runtimeSnapshot.world.slice.shopOffers.length === 0
+                        }
+                      >
+                        {copy.buy}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <aside className="side-column">
+          <section className="panel">
+            <div className="eyebrow">{copy.enemyLineup}</div>
+            <div className="stat-grid stat-grid-two">
+              <div className="stat-card">
+                <span className="stat-label">{copy.threat}</span>
+                <strong>{runtimeSnapshot.world.slice.enemyThreat}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.intent}</span>
+                <strong>{localizedEnemyIntent}</strong>
+              </div>
+            </div>
+            <div className="formation-grid enemy-grid">
+              {enemyBoard.map((unit, index) => (
+                <div
+                  key={`enemy-${index}`}
+                  className={`formation-card enemy-card${unit ? "" : " empty"}`}
+                >
+                  <span className="slot-title">
+                    {unit
+                      ? unit.label
+                      : locale === "zh-CN"
+                        ? `敌方空槽 ${index + 1}`
+                        : `Open Enemy Slot ${index + 1}`}
+                  </span>
+                  <span className="slot-meta">
+                    {unit
+                      ? `${formatFactionLabel(unit.faction, locale)} · ${formatRoleLabel(
+                          unit.role,
+                          locale,
+                        )}`
+                      : locale === "zh-CN"
+                        ? "本回合未使用"
+                        : "Unused this round"}
+                  </span>
+                  {unit ? (
+                    <>
+                      <span className="slot-meta">{renderUnitMeta(unit, locale)}</span>
+                      <span className="slot-meta">
+                        {localizeSkillLabel(unit.skill, locale)}
+                      </span>
+                      <span className="slot-meta">
+                        {localizeTempoLabel(unit.tempoLabel, locale)}{" "}
+                        {localizeCastState(unit.castState, locale)}
+                      </span>
+                      <span className="slot-meta">
+                        {localizeTargetRule(unit.targetRule, locale)}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="eyebrow">{copy.synergies}</div>
+            <div className="trait-grid">
+              {activeTraits.map((trait) => (
+                <div
+                  key={trait.key}
+                  className={`trait-card${trait.active ? " active" : ""}`}
+                >
+                  <span className="slot-title">
+                    {formatFactionLabel(trait.key, locale)}
+                  </span>
+                  <span className="slot-meta">
+                    {trait.count}/{trait.threshold}
+                  </span>
+                  <span className="slot-meta">
+                    {localizeRuntimeText(trait.description, locale)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="eyebrow">{copy.status}</div>
+            <div>{renderBootRecord(runtimeSnapshot.boot.current, locale)}</div>
+            <div className="muted">{copy.statusSummary}</div>
+            <div className="muted">
+              {copy.runtimeActive}: {runtimeSnapshot.runtimeActive ? copy.ready : copy.booting}
+            </div>
+            <div className="muted">
+              {copy.commander}:{" "}
+              {runtimeSnapshot.world.player?.name ?? runtimeSnapshot.bootConfig.playerName}
+            </div>
+            <div className="muted">
+              {copy.boardSeed}: {runtimeSnapshot.world.slice.captured}/
+              {runtimeSnapshot.world.slice.total || "?"} {copy.activeUnits}
+            </div>
+            <div className="muted">
+              {copy.boardObjective}: {localizedObjective}
+            </div>
+            <div className="muted">
+              {copy.roundState}: {localizedRoundState}
+            </div>
+            <div className="muted">
+              {copy.runLabel} {runtimeSnapshot.world.slice.runNumber}:{" "}
+              {formatRunResult(runtimeSnapshot.world.slice.runResult, locale)}
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="eyebrow">{copy.activeRun}</div>
+            <div className="stat-grid">
+              <div className="stat-card">
+                <span className="stat-label">{copy.status}</span>
+                <strong>
+                  {formatSessionStatus(currentSession?.status ?? "staging", locale)}
+                </strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.roundShort}</span>
+                <strong>{currentSession?.round ?? runtimeSnapshot.world.slice.round}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.result}</span>
+                <strong>{formatRunResult(runtimeSnapshot.world.slice.runResult, locale)}</strong>
+              </div>
+            </div>
+            <div className="muted">
+              {copy.sessionId}: {currentSession?.id ?? copy.bootAwaitingRuntime}
+            </div>
+            <div className="muted">
+              {copy.window}: {formatTimestamp(currentSession?.startedAt, locale)} to{" "}
+              {formatTimestamp(currentSession?.endedAt, locale)}
+            </div>
+            <div className="muted">
+              {copy.hp}: {runtimeSnapshot.world.slice.playerHealth} commander ·{" "}
+              {runtimeSnapshot.world.slice.enemyHealth} enemy
+            </div>
+            <div className="muted">
+              {runtimeSnapshot.world.slice.runOver
+                ? copy.sessionClosedHint
+                : runtimeSnapshot.world.slice.roundResolved
+                  ? copy.sessionRoundResolvedHint
+                  : copy.sessionProgressingHint}
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="eyebrow">{copy.runMeta}</div>
+            <div className="stat-grid">
+              <div className="stat-card">
+                <span className="stat-label">{copy.level}</span>
+                <strong>{activeSlot.progression.level}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.xp}</span>
+                <strong>{activeSlot.progression.xp}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.battles}</span>
+                <strong>{activeSlot.progression.totalSweeps}</strong>
+              </div>
+            </div>
+            <div className="muted">
+              {copy.runsLaunched}: {activeSlot.progression.totalRuns}
+            </div>
+            <div className="muted">
+              {copy.bestBoardScore}: {activeSlot.profile.bestScore}
+            </div>
+            <div className="badge-row">
+              {activeSlot.progression.unlockedBadges.length > 0 ? (
+                activeSlot.progression.unlockedBadges.map((badge) => (
+                  <span className="badge-pill" key={badge}>
+                    {formatBadgeLabel(badge, locale)}
+                  </span>
+                ))
+              ) : (
+                <span className="muted">{copy.noMilestones}</span>
+              )}
+            </div>
+          </section>
+        </aside>
       </section>
+
+      <details className="dev-drawer">
+        <summary>{copy.operationsAndSaves}</summary>
+        <div className="drawer-grid">
+          <section className="panel">
+            <div className="eyebrow">{copy.saveSlots}</div>
+            <div className="slot-grid">
+              {saveCollection.slots.map((slot) => (
+                <button
+                  key={slot.id}
+                  type="button"
+                  className={`slot-card${slot.id === activeSlot.id ? " active" : ""}`}
+                  onClick={() => handleSelectSlot(slot.id)}
+                >
+                  <span className="slot-title">{slot.label}</span>
+                  <span className="slot-meta">
+                    {copy.best} {slot.profile.bestScore}
+                  </span>
+                  <span className="slot-meta">
+                    {copy.roundShort} {slot.profile.bestRound}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <label className="label">
+              {copy.activeSlotLabel}
+              <input
+                type="text"
+                value={activeSlot.label}
+                onChange={(event) => handleRenameSlot(event.target.value)}
+                maxLength={18}
+              />
+            </label>
+
+            <div className="muted">
+              {copy.lastRun}: {activeSlot.profile.lastScore} {copy.pointsShort},{" "}
+              {copy.roundShort} {activeSlot.profile.lastRound}, {activeSlot.profile.lastCaptured}{" "}
+              {copy.activeUnits}
+            </div>
+
+            <div className="session-list">
+              {activeSlot.recentSessions.length > 0 ? (
+                activeSlot.recentSessions.map((session) => (
+                  <div className="session-row" key={session.id}>
+                    <span>{session.id}</span>
+                    <span>
+                      {session.score} {copy.pointsShort}
+                    </span>
+                    <span>
+                      {copy.roundShort}
+                      {session.round}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="muted">{copy.noArchivedSessions}</div>
+              )}
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="eyebrow">{copy.runSnapshot}</div>
+            <div className="action-row">
+              <button className="button secondary" onClick={() => void handleCopySaveMatrix()}>
+                {copy.copySnapshot}
+              </button>
+              <button className="button secondary" onClick={handleImportSaveMatrix}>
+                {copy.loadSnapshot}
+              </button>
+              <button className="button secondary" onClick={handleResetActiveSlot}>
+                {copy.resetActiveSlot}
+              </button>
+              <button className="button secondary" onClick={handleResetAllSaves}>
+                {copy.resetAllSaves}
+              </button>
+            </div>
+            <label className="label">
+              {copy.snapshotJson}
+              <textarea
+                className="profile-textarea"
+                value={saveDraft}
+                onChange={(event) => setSaveDraft(event.target.value)}
+                placeholder={copy.snapshotPlaceholder}
+                rows={8}
+              />
+            </label>
+            {saveMessage ? <div className="muted">{saveMessage}</div> : null}
+          </section>
+
+          <section className="panel">
+            <div className="eyebrow">{copy.bootHistory}</div>
+            <ol className="history">
+              {[...runtimeSnapshot.boot.history].reverse().map((record) => (
+                <li key={record.id}>{renderBootRecord(record, locale)}</li>
+              ))}
+            </ol>
+          </section>
+        </div>
+      </details>
     </main>
   );
 }
@@ -1511,8 +1670,8 @@ function controlKeyFromKeyboard(key: string): ControlKey | null {
   }
 }
 
-function renderBootRecord(record: RuntimeBootRecord) {
-  return `${record.phase} · ${record.message}`;
+function renderBootRecord(record: RuntimeBootRecord, locale: UiLocale) {
+  return `${record.phase} · ${localizeBootMessage(record.message, locale)}`;
 }
 
 function readStoredDataMode(): ShellDataMode {
@@ -1529,6 +1688,16 @@ function readStoredBackendUrl() {
     return normalizeBackendUrl(window.localStorage.getItem(BACKEND_URL_STORAGE_KEY));
   } catch {
     return DEFAULT_REMOTE_BACKEND_URL;
+  }
+}
+
+function readStoredLocale(): UiLocale {
+  try {
+    return window.localStorage.getItem(LOCALE_STORAGE_KEY) === "zh-CN"
+      ? "zh-CN"
+      : "en";
+  } catch {
+    return "en";
   }
 }
 
@@ -1621,75 +1790,22 @@ function unlockBadge(
   );
 }
 
-function formatTimestamp(value: string | null | undefined) {
+function formatTimestamp(value: string | null | undefined, locale: UiLocale) {
   if (!value) {
-    return "in-progress";
+    return locale === "zh-CN" ? "进行中" : "in-progress";
   }
 
-  return new Date(value).toLocaleTimeString();
+  return new Date(value).toLocaleTimeString(locale === "zh-CN" ? "zh-CN" : "en-US");
 }
 
-function formatBadgeLabel(badge: ProgressionBadge) {
-  switch (badge) {
-    case "first-launch":
-      return "First Launch";
-    case "first-sweep":
-      return "First Battle";
-    case "score-300":
-      return "Score 300";
-    case "loop-3":
-      return "Loop 3";
-  }
-}
-
-function formatPhaseLabel(phase: RuntimeSnapshot["world"]["slice"]["phase"]) {
-  switch (phase) {
-    case "preparation":
-      return "Prep";
-    case "combat":
-      return "Combat";
-    case "resolution":
-      return "Resolution";
-  }
-}
-
-function renderUnitMeta(unit: RuntimeUnitView) {
-  return `${formatFactionLabel(unit.faction)} · ${formatRoleLabel(unit.role)} · ${unit.attack} atk · ${unit.health} hp · Sell ${unit.sellValue}`;
-}
-
-function formatRunResult(
-  result: RuntimeSnapshot["world"]["slice"]["runResult"],
-) {
-  switch (result) {
-    case "victory":
-      return "Victory";
-    case "defeat":
-      return "Defeat";
-    default:
-      return "Active";
-  }
-}
-
-function formatFactionLabel(faction: RuntimeUnitView["faction"] | RuntimeTraitView["key"]) {
-  switch (faction) {
-    case "dawn":
-      return "Dawn";
-    case "dusk":
-      return "Dusk";
-    case "vanguard":
-      return "Vanguard";
-    case "skirmisher":
-      return "Skirmisher";
-  }
-}
-
-function formatRoleLabel(role: RuntimeUnitView["role"]) {
-  switch (role) {
-    case "vanguard":
-      return "Vanguard";
-    case "skirmisher":
-      return "Skirmisher";
-  }
+function renderUnitMeta(unit: RuntimeUnitView, locale: UiLocale) {
+  const sellLabel = locale === "zh-CN" ? "卖价" : "Sell";
+  const attackLabel = locale === "zh-CN" ? "攻" : "atk";
+  const healthLabel = locale === "zh-CN" ? "血" : "hp";
+  return `${formatFactionLabel(unit.faction, locale)} · ${formatRoleLabel(
+    unit.role,
+    locale,
+  )} · ${unit.attack} ${attackLabel} · ${unit.health} ${healthLabel} · ${sellLabel} ${unit.sellValue}`;
 }
 
 function formatErrorMessage(error: unknown, fallback: string) {

@@ -211,11 +211,11 @@ async function runSmoke(url) {
       .first();
     const dataModeText = await dataModePanel.innerText();
 
-    if (!/Runtime active:\s+yes/i.test(statusText)) {
+    if (!/Runtime active:\s+ready/i.test(statusText)) {
       throw new Error(`Smoke failed: runtime never became active.\n${statusText}`);
     }
 
-    if (!/Board Seed:\s+\d+\/\d+ units active/i.test(statusText)) {
+    if (!/Board Seed:\s+\d+\/\d+\s+active units/i.test(statusText)) {
       throw new Error(`Smoke failed: board state did not materialize.\n${statusText}`);
     }
 
@@ -240,7 +240,7 @@ async function runSmoke(url) {
       throw new Error("Smoke failed: shop lock state did not toggle.");
     }
 
-    if (!/Dawn Circuit|Dusk Bastion|Vanguard Line|Skirmisher Line/i.test(synergyText)) {
+    if (!/Dawn|Dusk|Vanguard|Skirmisher/i.test(synergyText)) {
       throw new Error(`Smoke failed: synergy panel did not materialize.\n${synergyText}`);
     }
 
@@ -256,7 +256,7 @@ async function runSmoke(url) {
       throw new Error(`Smoke failed: progression panel did not update.\n${progressionText}`);
     }
 
-    if (!/Status/i.test(sessionText) || !/slot-1-run-1/i.test(sessionText) || !/Round\s+2/i.test(sessionText)) {
+    if (!/Status/i.test(sessionText) || !/slot-1-run-1/i.test(sessionText) || !/\b2\b/i.test(sessionText)) {
       throw new Error(`Smoke failed: session contract did not materialize.\n${sessionText}`);
     }
 
@@ -264,6 +264,7 @@ async function runSmoke(url) {
       throw new Error(`Smoke failed: remote mode did not stay active.\n${dataModeText}`);
     }
 
+    await page.locator("summary").filter({ hasText: "Operations & Saves" }).click();
     await page.getByRole("button", { name: "Copy Snapshot" }).click();
     const profileJson = await page.locator("textarea.profile-textarea").inputValue();
 

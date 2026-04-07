@@ -33,18 +33,77 @@ textarea {
 
 .shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-}
-
-.sidebar {
-  border-right: 1px solid var(--line);
-  background: var(--panel);
-  backdrop-filter: blur(18px);
-  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  padding: 16px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 22px 24px;
+}
+
+.topbar-main,
+.topbar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.topbar-actions {
+  align-items: flex-end;
+  min-width: 220px;
+}
+
+.topbar-copy {
+  max-width: 720px;
+}
+
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.status-pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.game-layout {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr) minmax(280px, 340px);
+  gap: 16px;
+}
+
+.side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.stage-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .eyebrow {
@@ -125,6 +184,10 @@ textarea {
   gap: 10px;
 }
 
+.stat-grid-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .stat-card {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -158,6 +221,10 @@ textarea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.locale-toggle {
+  min-width: 220px;
 }
 
 .mode-chip {
@@ -329,16 +396,22 @@ textarea {
 
 .canvas-area {
   position: relative;
-  min-height: 100vh;
+  min-height: 720px;
   display: flex;
   align-items: stretch;
   justify-content: stretch;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(76, 154, 120, 0.15), transparent 48%),
+    linear-gradient(180deg, rgba(7, 14, 20, 0.96), rgba(6, 10, 16, 0.98));
 }
 
 .canvas-frame {
   flex: 1;
   display: flex;
-  min-height: 100vh;
+  min-height: 720px;
   position: relative;
 }
 
@@ -350,11 +423,9 @@ textarea {
 
 .hud {
   position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 24px;
-  display: flex;
-  justify-content: space-between;
+  inset: 20px 20px auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   pointer-events: none;
 }
@@ -407,21 +478,53 @@ textarea {
   color: var(--muted);
 }
 
+.dev-drawer {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  border-radius: 24px;
+  padding: 16px 18px;
+}
+
+.dev-drawer summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+}
+
+.dev-drawer summary::-webkit-details-marker {
+  display: none;
+}
+
+.drawer-grid {
+  padding-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
 @media (max-width: 960px) {
-  .shell {
+  .topbar {
+    flex-direction: column;
+  }
+
+  .topbar-actions {
+    align-items: stretch;
+  }
+
+  .game-layout {
     grid-template-columns: 1fr;
   }
 
-  .sidebar {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
+  .side-column {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .hud {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    flex-direction: column;
+    inset: auto 12px 12px;
+    grid-template-columns: 1fr;
   }
 
   .stat-grid {
@@ -445,6 +548,44 @@ textarea {
   }
 
   .enemy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .drawer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1320px) {
+  .game-layout {
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  }
+
+  .game-layout > .side-column:last-child {
+    grid-column: 1 / -1;
+    max-height: none;
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .hud {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding: 12px;
+  }
+
+  .canvas-area,
+  .canvas-frame {
+    min-height: 520px;
+  }
+
+  .game-layout > .side-column:last-child {
     grid-template-columns: 1fr;
   }
 }
