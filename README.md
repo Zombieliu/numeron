@@ -11,9 +11,7 @@
 <p align="center">
   <a href="https://github.com/Zombieliu/numeron">GitHub Repo</a>
   ·
-  <a href="./TEMPLATE_SETUP.md">Template Setup</a>
-  ·
-  <a href="./docs/COMMERCIAL_TEMPLATE_GUIDE.md">Commercial Guide</a>
+  <a href="./docs/MILESTONES.md">Milestones</a>
   ·
   <a href="./apps/web">Web Shell</a>
   ·
@@ -24,7 +22,7 @@
   <img src="./docs/smoke-preview.png" alt="Numeron live shell preview" width="100%" />
 </p>
 
-Reusable game starter for teams that want one Rust gameplay/runtime crate shared
+Hybrid auto-battler project built on one Rust gameplay/runtime crate shared
 across:
 
 - native Bevy builds
@@ -32,6 +30,17 @@ across:
 - `Bevy WASM` embedded into a web or PWA surface
 
 ## What It Is
+
+`Numeron` is no longer just a generic template copy. It is the working game repo
+for a small auto-battler that targets:
+
+- native desktop via Bevy
+- web/PWA via Next.js + Bevy WASM
+- an optional future headless backend path for remote authority
+
+The first concrete target is [`v0.0.1`](./docs/MILESTONES.md): a playable
+single-player vertical slice with shop, board deployment, auto-battle, round
+resolution, and local save or resume.
 
 This template is opinionated about ownership boundaries:
 
@@ -42,22 +51,17 @@ This template is opinionated about ownership boundaries:
 The web build targets static export, so the shell can be deployed to GitHub
 Pages, Netlify, Cloudflare Pages, or any other static host after `pnpm build`.
 
-If you plan to publish this repo as your own GitHub template, follow the rename
-and packaging checklist in [`TEMPLATE_SETUP.md`](./TEMPLATE_SETUP.md).
-
-## Product Read
-
-This repo is now packaged as a starter kit, not just a runtime spike. It ships
-three layers:
+This repo keeps the original hybrid architecture because it matches the intended
+product split:
 
 - `runtime core`
-  shared Bevy bootstrap, wasm bridge, scene, input, and native/web runtime path
+  shared Bevy combat simulation, board state, and native/web runtime path
 - `product shell`
-  Next.js launcher, HUD, save slots, match/session panel, progression meta
-- `shipping path`
-  static export, native packaging scaffolding, and smoke-tested browser CI
+  Next.js launcher, HUD, shop chrome, save flow, and progression surfaces
+- `authority path`
+  optional headless runtime for later cloud save, room orchestration, or remote combat authority
 
-See the visual map in [`docs/capability-map.svg`](./docs/capability-map.svg).
+See [`docs/MILESTONES.md`](./docs/MILESTONES.md) for the first execution plan.
 
 ## Snapshot
 
@@ -66,34 +70,33 @@ See the visual map in [`docs/capability-map.svg`](./docs/capability-map.svg).
 - `pnpm build` exports a static web artifact from `apps/web/out`
 - `pnpm smoke:web` boots the shell, launches the runtime, and validates scene/input flow
 - `SMOKE_REMOTE_BACKEND_URL=http://127.0.0.1:8787 pnpm smoke:web` also validates the shell's remote data-mode path against the optional backend
-- `pnpm rename:template -- ...` rewrites the default template identity across core files
 - `pnpm backend:dev` starts the optional headless Bevy backend reference
 - `src/runtime_app.rs` keeps native and web bootstrap logic on one contract
-- `src/starter_scene.rs` gives every new project a visible first slice with objectives, score, and shell-visible runtime state
-- the web shell now includes a local-first save matrix with slots, match/session state, progression meta, and JSON export/import
+- `src/starter_scene.rs` is still temporary and will be replaced by the first Numeron board slice
+- the web shell currently carries the reusable save, session, and progression scaffolding that Numeron will adapt for run state
 
-## Why This Template
+## v0.0.1 Focus
 
-Use this when you want:
+The first playable milestone is intentionally narrow:
 
-- a browser-first game shell without giving up native builds
-- React-owned menus and product UX around a Bevy runtime
-- one reusable runtime bootstrap instead of separate native and web app setup
-- a visible starter scene that proves the runtime is alive on first launch
+- one board
+- one shop row
+- four unit archetypes
+- simple economy
+- auto-battle round flow
+- local run persistence
 
-If you only need a pure Bevy web build with no React/PWA shell, use a simpler
-web-first setup elsewhere. This repo is specifically for `Next.js + embedded
-Bevy runtime`.
+The point of `v0.0.1` is not content breadth. It is to prove that Numeron feels
+good on this architecture before expanding the roster or meta.
 
-## What You Get
+## Current Base
 
 - native Bevy runner with `cargo run`
 - `wasm-pack` build path for the Bevy runtime
 - `Next.js` app shell in [`apps/web`](./apps/web)
 - shared Rust bootstrap for both native and web entrypoints
-- a visible starter scene that proves the runtime is live on first launch
-- a small gameplay loop with uplink capture progress, score, and repeating rounds
-- local save-slot persistence for preferences, last run, best run, progression meta, and recent sessions
+- a visible starter scene that still needs replacement by Numeron gameplay
+- local save-slot persistence that can be adapted into run-state persistence
 - optional headless Bevy backend reference for remote profile/session authority
 - minimal shell-to-runtime bridge:
   - boot status sink
@@ -101,7 +104,7 @@ Bevy runtime`.
   - runtime session config
   - virtual input forwarding
   - runtime projection data for shell HUDs
-- mobile/release packaging scaffolding from the original Bevy template
+- mobile and release packaging scaffolding from the original hybrid base
 
 ## Quick Start
 
