@@ -95,7 +95,11 @@ export function GameShell() {
     currentPhase === "preparation" &&
     runtimeSnapshot.world.slice.captured > 0;
   const canAdvanceRound =
-    runtimeSnapshot.world.ready && currentPhase === "resolution";
+    runtimeSnapshot.world.ready &&
+    runtimeSnapshot.world.slice.roundResolved &&
+    !runtimeSnapshot.world.slice.runOver;
+  const canRestartRun =
+    runtimeSnapshot.world.ready && runtimeSnapshot.world.slice.runOver;
   const benchUnits = runtimeSnapshot.world.slice.benchUnits;
   const playerBoard = runtimeSnapshot.world.slice.playerBoard;
   const enemyBoard = runtimeSnapshot.world.slice.enemyBoard;
@@ -303,18 +307,17 @@ export function GameShell() {
 
     const nextSessionId = buildSessionId(
       activeSlot.id,
-      activeSlot.profile.runsLaunched,
-      runtimeSnapshot.world.slice.round,
+      runtimeSnapshot.world.slice.runNumber,
     );
 
     setCurrentSession((current) => {
       const now = new Date().toISOString();
       const nextStatus =
-        runtimeSnapshot.world.slice.completed
+        runtimeSnapshot.world.slice.runOver
           ? "completed"
-          : runtimeSnapshot.world.slice.phase === "preparation"
-            ? "staging"
-            : "live";
+          : runtimeSnapshot.world.slice.phase === "combat"
+            ? "live"
+            : "staging";
 
       if (!current || current.id !== nextSessionId) {
         return {
@@ -332,7 +335,7 @@ export function GameShell() {
           total: runtimeSnapshot.world.slice.total,
           startedAt: now,
           updatedAt: now,
-          endedAt: runtimeSnapshot.world.slice.completed ? now : null,
+          endedAt: runtimeSnapshot.world.slice.runOver ? now : null,
         };
       }
 
@@ -342,30 +345,63 @@ export function GameShell() {
           runtimeSnapshot.world.player?.name ??
           runtimeSnapshot.bootConfig.playerName,
         status: nextStatus,
+        round: runtimeSnapshot.world.slice.round,
         objective: runtimeSnapshot.world.slice.objective,
         score: runtimeSnapshot.world.slice.score,
         captured: runtimeSnapshot.world.slice.captured,
         total: runtimeSnapshot.world.slice.total,
         updatedAt: now,
         endedAt:
-          runtimeSnapshot.world.slice.completed && !current.endedAt
+          runtimeSnapshot.world.slice.runOver && !current.endedAt
             ? now
             : current.endedAt,
       };
     });
   }, [
     activeSlot.id,
-    activeSlot.profile.runsLaunched,
     runtimeSnapshot.bootConfig.playerName,
     runtimeSnapshot.world.player?.name,
     runtimeSnapshot.world.ready,
     runtimeSnapshot.world.slice.captured,
-    runtimeSnapshot.world.slice.completed,
     runtimeSnapshot.world.slice.objective,
     runtimeSnapshot.world.slice.round,
+    runtimeSnapshot.world.slice.runNumber,
+    runtimeSnapshot.world.slice.runOver,
     runtimeSnapshot.world.slice.score,
     runtimeSnapshot.world.slice.total,
+    runtimeSnapshot.world.slice.phase,
   ]);
+
+  useEffect(() => {
+    if (!currentSession) {
+      return;
+    }
+
+    updateSlot(currentSession.slotId, (slot) => {
+      const currentIndex = slot.recentSessions.findIndex(
+        (session) => session.id === currentSession.id,
+      );
+      const nextRecentSessions =
+        currentIndex >= 0
+          ? slot.recentSessions.map((session, index) =>
+              index === currentIndex ? currentSession : session,
+            )
+          : [currentSession, ...slot.recentSessions].slice(0, 6);
+
+      if (
+        currentIndex >= 0 &&
+        slot.recentSessions[currentIndex] === currentSession
+      ) {
+        return slot;
+      }
+
+      return {
+        ...slot,
+        recentSessions: nextRecentSessions,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+  }, [currentSession]);
 
   useEffect(() => {
     if (!currentSession || currentSession.status !== "completed") {
@@ -379,15 +415,10 @@ export function GameShell() {
     lastArchivedSessionId.current = currentSession.id;
 
     updateSlot(currentSession.slotId, (slot) => {
-      if (slot.recentSessions.some((session) => session.id === currentSession.id)) {
-        return slot;
-      }
-
       const now = new Date().toISOString();
       return {
         ...slot,
         progression: awardSweepProgression(slot.progression, now),
-        recentSessions: [currentSession, ...slot.recentSessions].slice(0, 6),
         updatedAt: now,
       };
     });
@@ -568,6 +599,26 @@ export function GameShell() {
   function handleResetRound() {
     void dispatchUiIntent({
       type: "runtime.round.reset",
+    });
+  }
+
+  function handleRestartRun() {
+    updateSlot(activeSlot.id, (slot) => {
+      const now = new Date().toISOString();
+      return {
+        ...slot,
+        profile: {
+          ...slot.profile,
+          runsLaunched: slot.profile.runsLaunched + 1,
+          updatedAt: now,
+        },
+        progression: awardLaunchProgression(slot.progression, now),
+        updatedAt: now,
+      };
+    });
+
+    void dispatchUiIntent({
+      type: "runtime.run.restart",
     });
   }
 
@@ -916,6 +967,21 @@ export function GameShell() {
             >
               Next Round
             </button>
+            <button
+              className="button secondary"
+              onClick={handleRestartRun}
+              disabled={!canRestartRun}
+              data-testid="restart-run"
+            >
+              Restart Run
+            </button>
+          </div>
+          <div className="muted">
+            {runtimeSnapshot.world.slice.runOver
+              ? formatRunResult(runtimeSnapshot.world.slice.runResult)
+              : runtimeSnapshot.world.slice.roundResolved
+                ? "Round resolved. Advance when you are ready."
+                : "Build during prep, then hand the board to combat."}
           </div>
         </section>
 
@@ -999,6 +1065,10 @@ export function GameShell() {
                     <>
                       <span className="slot-meta">{renderUnitMeta(unit)}</span>
                       <span className="slot-meta">{unit.skill}</span>
+                      <span className="slot-meta">
+                        {unit.tempoLabel} {unit.castState}
+                      </span>
+                      <span className="slot-meta">{unit.targetRule}</span>
                     </>
                   ) : null}
                 </button>
@@ -1060,6 +1130,10 @@ export function GameShell() {
                     <>
                       <span className="slot-meta">{renderUnitMeta(unit)}</span>
                       <span className="slot-meta">{unit.skill}</span>
+                      <span className="slot-meta">
+                        {unit.tempoLabel} {unit.castState}
+                      </span>
+                      <span className="slot-meta">{unit.targetRule}</span>
                     </>
                   ) : null}
                 </button>
@@ -1138,6 +1212,10 @@ export function GameShell() {
                   <>
                     <span className="slot-meta">{renderUnitMeta(unit)}</span>
                     <span className="slot-meta">{unit.skill}</span>
+                    <span className="slot-meta">
+                      {unit.tempoLabel} {unit.castState}
+                    </span>
+                    <span className="slot-meta">{unit.targetRule}</span>
                   </>
                 ) : null}
               </div>
@@ -1150,7 +1228,7 @@ export function GameShell() {
           <div>{renderBootRecord(runtimeSnapshot.boot.current)}</div>
           <div className="muted">
             Current runtime now supports a lockable shop, richer enemy forecasts, unit
-            skills/targeting rules, plus selling and merge-based roster growth.
+            skills/targeting rules, visible cadence states, plus restartable run flow.
           </div>
           <div className="muted">
             Runtime active: {runtimeSnapshot.runtimeActive ? "yes" : "no"}
@@ -1169,6 +1247,10 @@ export function GameShell() {
           <div className="muted">
             Round state: {runtimeSnapshot.world.slice.status}
           </div>
+          <div className="muted">
+            Run {runtimeSnapshot.world.slice.runNumber}:{" "}
+            {formatRunResult(runtimeSnapshot.world.slice.runResult)}
+          </div>
         </section>
 
         <section className="panel">
@@ -1183,8 +1265,8 @@ export function GameShell() {
               <strong>{currentSession?.round ?? runtimeSnapshot.world.slice.round}</strong>
             </div>
             <div className="stat-card">
-              <span className="stat-label">Gold</span>
-              <strong>{runtimeSnapshot.world.slice.gold}</strong>
+              <span className="stat-label">Result</span>
+              <strong>{formatRunResult(runtimeSnapshot.world.slice.runResult)}</strong>
             </div>
           </div>
           <div className="muted">Session id: {currentSession?.id ?? "awaiting runtime"}</div>
@@ -1195,6 +1277,13 @@ export function GameShell() {
           <div className="muted">
             HP: {runtimeSnapshot.world.slice.playerHealth} commander ·{" "}
             {runtimeSnapshot.world.slice.enemyHealth} enemy
+          </div>
+          <div className="muted">
+            {runtimeSnapshot.world.slice.runOver
+              ? "The current run is closed. Restart to open a fresh session."
+              : runtimeSnapshot.world.slice.roundResolved
+                ? "Round resolved but the run is still live."
+                : "Current session is still progressing."}
           </div>
         </section>
 
@@ -1443,9 +1532,8 @@ function readStoredBackendUrl() {
   }
 }
 
-function buildSessionId(slotId: SaveSlotId, runsLaunched: number, round: number) {
-  const runNumber = Math.max(1, runsLaunched);
-  return `${slotId}-run-${runNumber}-round-${round}`;
+function buildSessionId(slotId: SaveSlotId, runNumber: number) {
+  return `${slotId}-run-${Math.max(1, runNumber)}`;
 }
 
 function awardLaunchProgression(
@@ -1566,7 +1654,20 @@ function formatPhaseLabel(phase: RuntimeSnapshot["world"]["slice"]["phase"]) {
 }
 
 function renderUnitMeta(unit: RuntimeUnitView) {
-  return `${formatFactionLabel(unit.faction)} · ${formatRoleLabel(unit.role)} · ${unit.attack} atk · ${unit.health} hp · Sell ${unit.sellValue} · ${unit.targetRule}`;
+  return `${formatFactionLabel(unit.faction)} · ${formatRoleLabel(unit.role)} · ${unit.attack} atk · ${unit.health} hp · Sell ${unit.sellValue}`;
+}
+
+function formatRunResult(
+  result: RuntimeSnapshot["world"]["slice"]["runResult"],
+) {
+  switch (result) {
+    case "victory":
+      return "Victory";
+    case "defeat":
+      return "Defeat";
+    default:
+      return "Active";
+  }
 }
 
 function formatFactionLabel(faction: RuntimeUnitView["faction"] | RuntimeTraitView["key"]) {

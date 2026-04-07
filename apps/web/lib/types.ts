@@ -35,6 +35,8 @@ export type RuntimeUnitView = {
   faction: "dawn" | "dusk";
   role: "vanguard" | "skirmisher";
   skill: string;
+  tempoLabel: string;
+  castState: string;
   targetRule: string;
   stars: number;
   attack: number;
@@ -70,6 +72,7 @@ export type RuntimeProjection = {
     captured: number;
     total: number;
     round: number;
+    runNumber: number;
     rerollCost: number;
     shopLocked: boolean;
     shopOffers: RuntimeUnitView[];
@@ -81,6 +84,9 @@ export type RuntimeProjection = {
     enemyIntent: string;
     benchCapacity: number;
     boardCapacity: number;
+    roundResolved: boolean;
+    runOver: boolean;
+    runResult: "active" | "victory" | "defeat";
     completed: boolean;
   };
 };
@@ -213,6 +219,9 @@ export type UiIntent =
       type: "runtime.round.reset";
     }
   | {
+      type: "runtime.run.restart";
+    }
+  | {
       type: "runtime.shop.reroll";
     }
   | {
@@ -292,6 +301,7 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     captured: 0,
     total: 0,
     round: 1,
+    runNumber: 1,
     rerollCost: 1,
     shopLocked: false,
     shopOffers: [],
@@ -303,6 +313,9 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     enemyIntent: "Awaiting board allocation.",
     benchCapacity: 4,
     boardCapacity: 4,
+    roundResolved: false,
+    runOver: false,
+    runResult: "active",
     completed: false,
   },
 };

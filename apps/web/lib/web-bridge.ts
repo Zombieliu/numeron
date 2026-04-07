@@ -18,6 +18,7 @@ import {
   launchRuntime,
   rerollRuntimeShop,
   resetRuntimeRound,
+  restartRuntimeRun,
   toggleRuntimeShopLock,
   sellRuntimeBenchUnit,
   sellRuntimeBoardUnit,
@@ -125,6 +126,10 @@ export async function dispatchUiIntent(intent: UiIntent): Promise<RuntimeSnapsho
     }
     case "runtime.round.reset": {
       resetRuntimeRound();
+      return currentSnapshot;
+    }
+    case "runtime.run.restart": {
+      restartRuntimeRun();
       return currentSnapshot;
     }
     case "runtime.shop.reroll": {
@@ -274,6 +279,9 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       round: Number(
         projection.slice?.round ?? DEFAULT_RUNTIME_PROJECTION.slice.round,
       ),
+      runNumber: Number(
+        projection.slice?.runNumber ?? DEFAULT_RUNTIME_PROJECTION.slice.runNumber,
+      ),
       rerollCost: Number(
         projection.slice?.rerollCost ??
           DEFAULT_RUNTIME_PROJECTION.slice.rerollCost,
@@ -317,7 +325,21 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
         projection.slice?.boardCapacity ??
           DEFAULT_RUNTIME_PROJECTION.slice.boardCapacity,
       ),
-      completed: Boolean(projection.slice?.completed),
+      roundResolved: Boolean(
+        projection.slice?.roundResolved ??
+          DEFAULT_RUNTIME_PROJECTION.slice.roundResolved,
+      ),
+      runOver: Boolean(
+        projection.slice?.runOver ?? DEFAULT_RUNTIME_PROJECTION.slice.runOver,
+      ),
+      runResult:
+        projection.slice?.runResult === "victory" ||
+        projection.slice?.runResult === "defeat"
+          ? projection.slice.runResult
+          : DEFAULT_RUNTIME_PROJECTION.slice.runResult,
+      completed: Boolean(
+        projection.slice?.completed ?? projection.slice?.runOver,
+      ),
     },
   };
 }
@@ -338,6 +360,8 @@ function normalizeRuntimeUnitView(value: unknown) {
     faction: normalizeFaction(record.faction),
     role: normalizeRole(record.role),
     skill: String(record.skill ?? "Basic strike"),
+    tempoLabel: String(record.tempoLabel ?? "Basic attack cadence"),
+    castState: String(record.castState ?? "Ready"),
     targetRule: String(record.targetRule ?? "Targets the front line."),
     stars: normalizeNumber(record.stars, 1),
     attack: normalizeNumber(record.attack, 1),

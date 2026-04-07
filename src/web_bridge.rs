@@ -64,6 +64,7 @@ struct PendingVirtualInput {
 pub enum RuntimeCommand {
     StartCombat,
     ResetRound,
+    RestartRun,
     RerollShop,
     ToggleShopLock,
     BuyOffer(usize),
@@ -148,6 +149,14 @@ pub fn start_runtime_combat() {
 pub fn reset_runtime_round() {
     COMMAND_QUEUE.with(|queue| {
         queue.borrow_mut().push(RuntimeCommand::ResetRound);
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = restartRuntimeRun)]
+pub fn restart_runtime_run() {
+    COMMAND_QUEUE.with(|queue| {
+        queue.borrow_mut().push(RuntimeCommand::RestartRun);
     });
 }
 
@@ -321,6 +330,7 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         captured: slice.captured,
         total: slice.total,
         round: slice.round,
+        run_number: slice.run_number,
         reroll_cost: slice.reroll_cost,
         shop_locked: slice.shop_locked,
         shop_offers: slice.shop_offers,
@@ -332,6 +342,9 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         enemy_intent: slice.enemy_intent,
         bench_capacity: slice.bench_capacity,
         board_capacity: slice.board_capacity,
+        round_resolved: slice.round_resolved,
+        run_over: slice.run_over,
+        run_result: slice.run_result,
         completed: slice.completed,
     }
 }
@@ -353,6 +366,7 @@ struct ProjectionPayload {
     captured: usize,
     total: usize,
     round: u32,
+    run_number: u32,
     reroll_cost: u32,
     shop_locked: bool,
     shop_offers: Vec<RuntimeUnitView>,
@@ -364,6 +378,9 @@ struct ProjectionPayload {
     enemy_intent: String,
     bench_capacity: usize,
     board_capacity: usize,
+    round_resolved: bool,
+    run_over: bool,
+    run_result: String,
     completed: bool,
 }
 
@@ -434,6 +451,7 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
             let _ = Reflect::set(&slice, &"captured".into(), &projection.captured.into());
             let _ = Reflect::set(&slice, &"total".into(), &projection.total.into());
             let _ = Reflect::set(&slice, &"round".into(), &projection.round.into());
+            let _ = Reflect::set(&slice, &"runNumber".into(), &projection.run_number.into());
             let _ = Reflect::set(&slice, &"rerollCost".into(), &projection.reroll_cost.into());
             let _ = Reflect::set(&slice, &"shopLocked".into(), &projection.shop_locked.into());
             let offers = js_sys::Array::new();
@@ -487,6 +505,17 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 &"boardCapacity".into(),
                 &projection.board_capacity.into(),
             );
+            let _ = Reflect::set(
+                &slice,
+                &"roundResolved".into(),
+                &projection.round_resolved.into(),
+            );
+            let _ = Reflect::set(&slice, &"runOver".into(), &projection.run_over.into());
+            let _ = Reflect::set(
+                &slice,
+                &"runResult".into(),
+                &projection.run_result.clone().into(),
+            );
             let _ = Reflect::set(&slice, &"completed".into(), &projection.completed.into());
             let _ = Reflect::set(&projection_object, &"slice".into(), &slice);
             let _ = Reflect::set(&payload, &"projection".into(), &projection_object);
@@ -510,6 +539,16 @@ fn runtime_unit_view_object(view: &RuntimeUnitView) -> JsValue {
     let _ = Reflect::set(&payload, &"faction".into(), &view.faction.clone().into());
     let _ = Reflect::set(&payload, &"role".into(), &view.role.clone().into());
     let _ = Reflect::set(&payload, &"skill".into(), &view.skill.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"tempoLabel".into(),
+        &view.tempo_label.clone().into(),
+    );
+    let _ = Reflect::set(
+        &payload,
+        &"castState".into(),
+        &view.cast_state.clone().into(),
+    );
     let _ = Reflect::set(
         &payload,
         &"targetRule".into(),

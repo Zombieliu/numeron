@@ -186,6 +186,12 @@ async function runSmoke(url) {
       const status = panels.find((panel) => panel.textContent?.includes("Round state:"));
       return /Resolution phase|Victory|Defeat/i.test(status?.textContent ?? "");
     }, null, { timeout: 15_000 });
+    await page.getByTestId("next-round").click();
+    await page.waitForFunction(() => {
+      const panels = Array.from(document.querySelectorAll("section.panel"));
+      const status = panels.find((panel) => panel.textContent?.includes("Round state:"));
+      return /Round 2 ready|Round 2/i.test(status?.textContent ?? "");
+    }, null, { timeout: 10_000 });
 
     const statusPanel = page.locator("section.panel").filter({ hasText: "Status" }).first();
     const statusText = await statusPanel.innerText();
@@ -242,15 +248,15 @@ async function runSmoke(url) {
       throw new Error(`Smoke failed: enemy preview panel did not materialize.\n${enemyText}`);
     }
 
-    if (!/Round state:\s+Resolution phase|Round state:\s+Victory|Round state:\s+Defeat/i.test(statusText)) {
-      throw new Error(`Smoke failed: combat never resolved.\n${statusText}`);
+    if (!/Round state:\s+Round 2 ready|Round state:\s+Round 2/i.test(statusText)) {
+      throw new Error(`Smoke failed: next-round flow never returned to preparation.\n${statusText}`);
     }
 
     if (!/Runs launched:\s+1/i.test(progressionText) || !/Level/i.test(progressionText)) {
       throw new Error(`Smoke failed: progression panel did not update.\n${progressionText}`);
     }
 
-    if (!/Status/i.test(sessionText) || !/slot-1-run-1-round-1/i.test(sessionText)) {
+    if (!/Status/i.test(sessionText) || !/slot-1-run-1/i.test(sessionText) || !/Round\s+2/i.test(sessionText)) {
       throw new Error(`Smoke failed: session contract did not materialize.\n${sessionText}`);
     }
 

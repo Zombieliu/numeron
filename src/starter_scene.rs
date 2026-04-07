@@ -21,6 +21,7 @@ const ROUND_INCOME: u32 = 4;
 const COMBAT_INTERVAL: f32 = 0.7;
 const TRAIT_THRESHOLD: usize = 2;
 const MAX_STARS: u8 = 3;
+const FINAL_ROUND: u32 = 6;
 
 const PLAYER_SLOTS: [(usize, usize); 4] = [(0, 1), (1, 1), (2, 1), (3, 1)];
 const ENEMY_SLOTS: [(usize, usize); 3] = [(0, 4), (1, 4), (2, 4)];
@@ -54,6 +55,9 @@ impl Default for BoardConfig {
 pub struct CombatState {
     pub phase: CombatPhase,
     pub round: u32,
+    pub run_number: u32,
+    pub run_over: bool,
+    pub run_result: RunResult,
     pub player_health: u32,
     pub enemy_health: u32,
     pub gold: u32,
@@ -68,6 +72,9 @@ impl Default for CombatState {
         Self {
             phase: CombatPhase::Preparation,
             round: 1,
+            run_number: 1,
+            run_over: false,
+            run_result: RunResult::Active,
             player_health: STARTING_HEALTH,
             enemy_health: STARTING_HEALTH,
             gold: STARTING_GOLD,
@@ -87,6 +94,8 @@ pub struct RuntimeUnitView {
     pub faction: String,
     pub role: String,
     pub skill: String,
+    pub tempo_label: String,
+    pub cast_state: String,
     pub target_rule: String,
     pub stars: u8,
     pub attack: u32,
@@ -117,6 +126,7 @@ pub struct StarterSliceProjection {
     pub captured: usize,
     pub total: usize,
     pub round: u32,
+    pub run_number: u32,
     pub reroll_cost: u32,
     pub shop_locked: bool,
     pub shop_offers: Vec<RuntimeUnitView>,
@@ -128,6 +138,9 @@ pub struct StarterSliceProjection {
     pub enemy_intent: String,
     pub bench_capacity: usize,
     pub board_capacity: usize,
+    pub round_resolved: bool,
+    pub run_over: bool,
+    pub run_result: String,
     pub completed: bool,
 }
 
@@ -145,6 +158,7 @@ impl Default for StarterSliceProjection {
             captured: 0,
             total: 0,
             round: 1,
+            run_number: 1,
             reroll_cost: REROLL_COST,
             shop_locked: false,
             shop_offers: Vec::new(),
@@ -156,6 +170,9 @@ impl Default for StarterSliceProjection {
             enemy_intent: "Awaiting board allocation.".to_owned(),
             bench_capacity: BENCH_CAPACITY,
             board_capacity: PLAYER_SLOTS.len(),
+            round_resolved: false,
+            run_over: false,
+            run_result: RunResult::Active.as_str().to_owned(),
             completed: false,
         }
     }
@@ -197,7 +214,9 @@ struct BoardTile;
 #[derive(Component)]
 struct UnitEntity {
     owner: UnitOwner,
+    slot_index: usize,
     archetype: UnitArchetype,
+    stars: u8,
     action_counter: u32,
     health: i32,
     max_health: i32,
@@ -223,6 +242,23 @@ impl CombatPhase {
             CombatPhase::Preparation => "preparation",
             CombatPhase::Combat => "combat",
             CombatPhase::Resolution => "resolution",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RunResult {
+    Active,
+    Victory,
+    Defeat,
+}
+
+impl RunResult {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Victory => "victory",
+            Self::Defeat => "defeat",
         }
     }
 }
@@ -336,6 +372,28 @@ impl UnitArchetype {
         }
     }
 
+    fn tempo_label(self) -> &'static str {
+        match self {
+            Self::VerdantBruiser => "Empowers every second swing.",
+            Self::SignalRanger => "Fires a stronger volley every second shot.",
+            Self::AshDuelist => "Always primed to punish weakened targets.",
+            Self::IronVanguard => "Blocks 1 damage on every hit and spikes every second strike.",
+        }
+    }
+
+    fn cast_state(self, action_counter: u32) -> &'static str {
+        match self {
+            Self::VerdantBruiser | Self::SignalRanger | Self::IronVanguard => {
+                if (action_counter + 1) % 2 == 0 {
+                    "Next attack is empowered."
+                } else {
+                    "One swing until the empowered cast."
+                }
+            }
+            Self::AshDuelist => "Bonus damage is live against targets below half health.",
+        }
+    }
+
     fn target_rule(self) -> &'static str {
         match self {
             Self::VerdantBruiser => "Targets the healthiest enemy and surges every second swing.",
@@ -425,6 +483,8 @@ impl UnitInstance {
             faction: self.archetype.faction().key().to_owned(),
             role: self.archetype.role().key().to_owned(),
             skill: self.archetype.skill_label().to_owned(),
+            tempo_label: self.archetype.tempo_label().to_owned(),
+            cast_state: self.archetype.cast_state(0).to_owned(),
             target_rule: self.archetype.target_rule().to_owned(),
             stars: self.stars,
             attack: stats.attack,
@@ -467,7 +527,9 @@ enum UnitLocation {
 struct CombatUnitSnapshot {
     entity: Entity,
     owner: UnitOwner,
+    slot_index: usize,
     archetype: UnitArchetype,
+    stars: u8,
     health: i32,
     max_health: i32,
     attack: u32,
@@ -558,23 +620,54 @@ fn setup_board_scene(
         }
     }
 
+    reset_run_state(
+        &mut commands,
+        &board,
+        &mut combat,
+        &mut shop,
+        &mut player_squad,
+        &mut enemy_squad,
+        &mut combat_timer,
+        false,
+    );
+    update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
+}
+
+fn reset_run_state(
+    commands: &mut Commands,
+    board: &BoardConfig,
+    combat: &mut CombatState,
+    shop: &mut ShopState,
+    player_squad: &mut PlayerSquad,
+    enemy_squad: &mut EnemySquad,
+    combat_timer: &mut CombatTickTimer,
+    increment_run_number: bool,
+) {
+    let next_run_number = if increment_run_number {
+        combat.run_number + 1
+    } else {
+        combat.run_number.max(1)
+    };
+
     *combat = CombatState::default();
+    combat.run_number = next_run_number;
     combat_timer.0.reset();
 
     shop.locked = false;
+    shop.offers.clear();
     player_squad.board = [None; PLAYER_SLOTS.len()];
     player_squad.bench = vec![UnitInstance::new(UnitArchetype::VerdantBruiser)];
     enemy_squad.units = seed_enemy_squad(1);
-    reroll_shop(&mut shop, combat.round);
-    combat.status = "Bench primed. Deploy a unit before opening combat.".to_owned();
-    spawn_round_units(
-        &mut commands,
-        &board,
-        &player_squad,
-        &enemy_squad,
-        &mut combat,
-    );
-    update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
+    reroll_shop(shop, combat.round);
+    combat.status = if increment_run_number {
+        format!(
+            "Run {} restarted. Bench primed. Deploy a unit before opening combat.",
+            combat.run_number
+        )
+    } else {
+        "Bench primed. Deploy a unit before opening combat.".to_owned()
+    };
+    spawn_round_units(commands, board, player_squad, enemy_squad, combat);
 }
 
 fn handle_runtime_commands(
@@ -599,6 +692,7 @@ fn handle_runtime_commands(
         match runtime_command {
             RuntimeCommand::StartCombat => {
                 if combat.phase == CombatPhase::Preparation
+                    && !combat.run_over
                     && combat.player_units > 0
                     && combat.enemy_units > 0
                 {
@@ -611,9 +705,10 @@ fn handle_runtime_commands(
                 }
             }
             RuntimeCommand::ResetRound => {
-                if combat.phase == CombatPhase::Resolution {
+                if combat.phase == CombatPhase::Resolution && !combat.run_over {
                     combat.round += 1;
                     combat.phase = CombatPhase::Preparation;
+                    combat.run_result = RunResult::Active;
                     combat.gold += ROUND_INCOME;
                     enemy_squad.units = seed_enemy_squad(combat.round);
                     if shop.locked {
@@ -631,15 +726,31 @@ fn handle_runtime_commands(
                     needs_respawn = true;
                 }
             }
+            RuntimeCommand::RestartRun => {
+                despawn_units(&mut commands, units.iter());
+                reset_run_state(
+                    &mut commands,
+                    &board,
+                    &mut combat,
+                    &mut shop,
+                    &mut player_squad,
+                    &mut enemy_squad,
+                    &mut combat_timer,
+                    true,
+                );
+            }
             RuntimeCommand::RerollShop => {
-                if combat.phase == CombatPhase::Preparation && combat.gold >= REROLL_COST {
+                if combat.phase == CombatPhase::Preparation
+                    && !combat.run_over
+                    && combat.gold >= REROLL_COST
+                {
                     combat.gold -= REROLL_COST;
                     reroll_shop(&mut shop, combat.round + 1);
                     combat.status = "Shop rerolled. Draft before combat starts.".to_owned();
                 }
             }
             RuntimeCommand::ToggleShopLock => {
-                if combat.phase != CombatPhase::Preparation {
+                if combat.phase != CombatPhase::Preparation || combat.run_over {
                     continue;
                 }
 
@@ -652,6 +763,7 @@ fn handle_runtime_commands(
             }
             RuntimeCommand::BuyOffer(index) => {
                 if combat.phase != CombatPhase::Preparation
+                    || combat.run_over
                     || combat.gold < BUY_COST
                     || player_squad.bench.len() >= BENCH_CAPACITY
                     || index >= shop.offers.len()
@@ -679,6 +791,7 @@ fn handle_runtime_commands(
                 slot_index,
             } => {
                 if combat.phase != CombatPhase::Preparation
+                    || combat.run_over
                     || slot_index >= player_squad.board.len()
                     || bench_index >= player_squad.bench.len()
                     || player_squad.board[slot_index].is_some()
@@ -701,6 +814,7 @@ fn handle_runtime_commands(
             }
             RuntimeCommand::WithdrawBoardUnit(slot_index) => {
                 if combat.phase != CombatPhase::Preparation
+                    || combat.run_over
                     || slot_index >= player_squad.board.len()
                     || player_squad.bench.len() >= BENCH_CAPACITY
                 {
@@ -725,6 +839,7 @@ fn handle_runtime_commands(
             }
             RuntimeCommand::SellBenchUnit(bench_index) => {
                 if combat.phase != CombatPhase::Preparation
+                    || combat.run_over
                     || bench_index >= player_squad.bench.len()
                 {
                     continue;
@@ -736,6 +851,7 @@ fn handle_runtime_commands(
             }
             RuntimeCommand::SellBoardUnit(slot_index) => {
                 if combat.phase != CombatPhase::Preparation
+                    || combat.run_over
                     || slot_index >= player_squad.board.len()
                 {
                     continue;
@@ -798,7 +914,9 @@ fn run_combat_tick(
         .map(|(entity, unit)| CombatUnitSnapshot {
             entity,
             owner: unit.owner,
+            slot_index: unit.slot_index,
             archetype: unit.archetype,
+            stars: unit.stars,
             health: unit.health,
             max_health: unit.max_health,
             attack: unit.attack,
@@ -888,33 +1006,54 @@ fn run_combat_tick(
             combat.score += 80;
             combat.gold += 2;
             combat.enemy_health = combat.enemy_health.saturating_sub(2);
-            combat.status = format!(
-                "Victory. Enemy board collapsed. Click Next Round to continue to round {}.",
-                combat.round + 1
-            );
+            if combat.round >= FINAL_ROUND {
+                combat.run_over = true;
+                combat.run_result = RunResult::Victory;
+                combat.status = format!(
+                    "Run clear. Round {} collapsed the final enemy squad. Restart to begin a new climb.",
+                    combat.round
+                );
+            } else {
+                combat.run_result = RunResult::Active;
+                combat.status = format!(
+                    "Victory. Enemy board collapsed. Click Next Round to continue to round {}.",
+                    combat.round + 1
+                );
+            }
         } else {
-            combat.player_health = combat
-                .player_health
-                .saturating_sub(combat.enemy_units.max(1) as u32 * 2);
-            combat.status = format!(
-                "Defeat. {} enemies survived. Click Next Round to rebuild.",
-                combat.enemy_units
-            );
+            let defeat_damage = combat.enemy_units.max(1) as u32 * 2;
+            combat.player_health = combat.player_health.saturating_sub(defeat_damage);
+            if combat.player_health == 0 {
+                combat.run_over = true;
+                combat.run_result = RunResult::Defeat;
+                combat.status = format!(
+                    "Run over. {} enemies survived the last fight and the commander fell. Restart to try again.",
+                    combat.enemy_units
+                );
+            } else {
+                combat.run_result = RunResult::Active;
+                combat.status = format!(
+                    "Defeat. {} enemies survived. Click Next Round to rebuild.",
+                    combat.enemy_units
+                );
+            }
         }
 
-        let entities = unit_queries
-            .p0()
-            .iter()
-            .map(|(entity, _)| entity)
-            .collect::<Vec<_>>();
-        despawn_units(&mut commands, entities.into_iter());
-        spawn_round_units(
-            &mut commands,
-            &board,
-            &player_squad,
-            &enemy_squad,
-            &mut combat,
-        );
+        if !combat.run_over {
+            let entities = unit_queries
+                .p0()
+                .iter()
+                .map(|(entity, _)| entity)
+                .collect::<Vec<_>>();
+            despawn_units(&mut commands, entities.into_iter());
+            spawn_round_units(
+                &mut commands,
+                &board,
+                &player_squad,
+                &enemy_squad,
+                &mut combat,
+            );
+        }
     } else {
         combat.status = if combat_highlights.is_empty() {
             format!(
@@ -935,7 +1074,34 @@ fn run_combat_tick(
         };
     }
 
-    update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
+    let live_snapshots = unit_queries
+        .p0()
+        .iter()
+        .map(|(entity, unit)| CombatUnitSnapshot {
+            entity,
+            owner: unit.owner,
+            slot_index: unit.slot_index,
+            archetype: unit.archetype,
+            stars: unit.stars,
+            health: unit.health,
+            max_health: unit.max_health,
+            attack: unit.attack,
+            action_counter: unit.action_counter,
+        })
+        .collect::<Vec<_>>();
+
+    if combat.phase == CombatPhase::Combat || combat.run_over {
+        update_projection_from_live_state(
+            &combat,
+            &shop,
+            &player_squad,
+            &enemy_squad,
+            &live_snapshots,
+            &mut projection,
+        );
+    } else {
+        update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
+    }
 }
 
 fn resolve_attack(
@@ -1039,6 +1205,44 @@ fn update_unit_health_bars(
     }
 }
 
+fn board_views_from_live_units(
+    live_snapshots: &[CombatUnitSnapshot],
+    owner: UnitOwner,
+    slots: usize,
+) -> Vec<Option<RuntimeUnitView>> {
+    let mut board = vec![None; slots];
+
+    for snapshot in live_snapshots.iter().filter(|snapshot| snapshot.owner == owner) {
+        if snapshot.slot_index >= board.len() {
+            continue;
+        }
+
+        board[snapshot.slot_index] = Some(RuntimeUnitView {
+            label: format!(
+                "{} {}",
+                snapshot.archetype.label(),
+                star_badge(snapshot.stars)
+            ),
+            archetype: snapshot.archetype.key().to_owned(),
+            faction: snapshot.archetype.faction().key().to_owned(),
+            role: snapshot.archetype.role().key().to_owned(),
+            skill: snapshot.archetype.skill_label().to_owned(),
+            tempo_label: snapshot.archetype.tempo_label().to_owned(),
+            cast_state: snapshot
+                .archetype
+                .cast_state(snapshot.action_counter)
+                .to_owned(),
+            target_rule: snapshot.archetype.target_rule().to_owned(),
+            stars: snapshot.stars,
+            attack: snapshot.attack,
+            health: snapshot.health.max(1) as u32,
+            sell_value: SELL_VALUE_BASE * snapshot.stars as u32,
+        });
+    }
+
+    board
+}
+
 fn update_projection_from_state(
     combat: &CombatState,
     shop: &ShopState,
@@ -1049,31 +1253,7 @@ fn update_projection_from_state(
     let player_buffs = trait_buffs_for(player_squad.board.iter().flatten().copied());
     let enemy_buffs = trait_buffs_for(enemy_squad.units.iter().copied());
 
-    projection.phase = combat.phase.as_str().to_owned();
-    projection.objective = "Draft a compact squad, manage a lockable shop, and survive scaling enemy rounds with unit skills."
-        .to_owned();
-    projection.status = combat.status.clone();
-    projection.score = combat.score;
-    projection.gold = combat.gold;
-    projection.player_health = combat.player_health;
-    projection.enemy_health = combat.enemy_health;
-    projection.captured = combat.player_units;
-    projection.total = combat.player_units + combat.enemy_units;
-    projection.round = combat.round;
-    projection.reroll_cost = REROLL_COST;
-    projection.shop_locked = shop.locked;
-    projection.shop_offers = shop
-        .offers
-        .iter()
-        .copied()
-        .map(UnitInstance::base_view)
-        .collect();
-    projection.bench_units = player_squad
-        .bench
-        .iter()
-        .copied()
-        .map(UnitInstance::base_view)
-        .collect();
+    apply_common_projection_fields(combat, shop, player_squad, enemy_squad, projection);
     projection.player_board = player_squad
         .board
         .iter()
@@ -1088,13 +1268,69 @@ fn update_projection_from_state(
         .chain(std::iter::repeat(None::<RuntimeUnitView>))
         .take(ENEMY_SLOTS.len())
         .collect();
+}
+
+fn update_projection_from_live_state(
+    combat: &CombatState,
+    shop: &ShopState,
+    player_squad: &PlayerSquad,
+    enemy_squad: &EnemySquad,
+    live_snapshots: &[CombatUnitSnapshot],
+    projection: &mut ResMut<StarterSliceProjection>,
+) {
+    apply_common_projection_fields(combat, shop, player_squad, enemy_squad, projection);
+    projection.player_board = board_views_from_live_units(
+        live_snapshots,
+        UnitOwner::Player,
+        PLAYER_SLOTS.len(),
+    );
+    projection.enemy_board =
+        board_views_from_live_units(live_snapshots, UnitOwner::Enemy, ENEMY_SLOTS.len());
+}
+
+fn apply_common_projection_fields(
+    combat: &CombatState,
+    shop: &ShopState,
+    player_squad: &PlayerSquad,
+    enemy_squad: &EnemySquad,
+    projection: &mut ResMut<StarterSliceProjection>,
+) {
+    projection.phase = combat.phase.as_str().to_owned();
+    projection.objective = "Draft a compact squad, manage a lockable shop, and survive scaling enemy rounds with readable skill cadence."
+        .to_owned();
+    projection.status = combat.status.clone();
+    projection.score = combat.score;
+    projection.gold = combat.gold;
+    projection.player_health = combat.player_health;
+    projection.enemy_health = combat.enemy_health;
+    projection.captured = combat.player_units;
+    projection.total = combat.player_units + combat.enemy_units;
+    projection.round = combat.round;
+    projection.run_number = combat.run_number;
+    projection.reroll_cost = REROLL_COST;
+    projection.shop_locked = shop.locked;
+    projection.shop_offers = shop
+        .offers
+        .iter()
+        .copied()
+        .map(UnitInstance::base_view)
+        .collect();
+    projection.bench_units = player_squad
+        .bench
+        .iter()
+        .copied()
+        .map(UnitInstance::base_view)
+        .collect();
     projection.active_traits =
         trait_views_for(player_squad.board.iter().flatten().copied()).collect();
     projection.enemy_threat = enemy_threat(enemy_squad.units.iter().copied());
     projection.enemy_intent = enemy_intent_for_round(combat.round);
     projection.bench_capacity = BENCH_CAPACITY;
     projection.board_capacity = PLAYER_SLOTS.len();
-    projection.completed = combat.phase == CombatPhase::Resolution;
+    projection.round_resolved = combat.phase == CombatPhase::Resolution;
+    projection.run_over = combat.run_over;
+    projection.run_result = combat.run_result.as_str().to_owned();
+    projection.completed = combat.run_over;
 }
 
 fn spawn_round_units(
@@ -1120,6 +1356,7 @@ fn spawn_round_units(
                 commands,
                 board,
                 UnitOwner::Player,
+                index,
                 unit,
                 resolved_stats(unit, player_buffs),
                 row,
@@ -1135,6 +1372,7 @@ fn spawn_round_units(
                 commands,
                 board,
                 UnitOwner::Enemy,
+                index,
                 unit,
                 resolved_stats(unit, enemy_buffs),
                 row,
@@ -1149,6 +1387,7 @@ fn spawn_unit(
     commands: &mut Commands,
     board: &BoardConfig,
     owner: UnitOwner,
+    slot_index: usize,
     unit: UnitInstance,
     stats: UnitStats,
     row: usize,
@@ -1165,7 +1404,9 @@ fn spawn_unit(
             Transform::from_translation(translation.extend(2.0)),
             UnitEntity {
                 owner,
+                slot_index,
                 archetype: unit.archetype,
+                stars: unit.stars,
                 action_counter: 0,
                 health: stats.max_health,
                 max_health: stats.max_health,
