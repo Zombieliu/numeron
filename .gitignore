@@ -11,3 +11,4 @@ apps/web/public/bevy-runtime/pkg/
 apps/web/tsconfig.tsbuildinfo
 out/
 output/playwright/
+_incoming_assets/

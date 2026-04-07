@@ -62,6 +62,12 @@ const LAUNCHER_STORAGE_KEY = "numeron.launcher.v1";
 const DATA_MODE_STORAGE_KEY = "numeron.data-mode.v1";
 const BACKEND_URL_STORAGE_KEY = "numeron.backend-url.v1";
 const BUY_COST_LABEL = 3;
+const UNIT_ART_BY_ARCHETYPE: Record<RuntimeUnitView["archetype"], string> = {
+  "verdant-bruiser": "/assets/numeron/shell/unit_verdant_bruiser.png",
+  "signal-ranger": "/assets/numeron/shell/unit_signal_ranger.png",
+  "ash-duelist": "/assets/numeron/shell/unit_ash_duelist.png",
+  "iron-vanguard": "/assets/numeron/shell/unit_iron_vanguard.png",
+};
 
 type ControlKey = "up" | "down" | "left" | "right";
 
@@ -1074,6 +1080,7 @@ export function GameShell() {
                   disabled={!canBuyUnit}
                   data-testid={`shop-offer-${index}`}
                 >
+                  <UnitPortrait unit={offer} />
                   <span className="slot-title">{offer.label}</span>
                   <span className="slot-meta">
                     {formatFactionLabel(offer.faction, locale)} ·{" "}
@@ -1128,6 +1135,7 @@ export function GameShell() {
                       disabled={!canDraft || !unit}
                       data-testid={`bench-slot-${index}`}
                     >
+                      {unit ? <UnitPortrait unit={unit} compact /> : null}
                       <span className="slot-title">
                         {unit
                           ? unit.label
@@ -1200,6 +1208,7 @@ export function GameShell() {
                     disabled={!canDeployIntoSlot && !canSelectSlot}
                     data-testid={`board-slot-${index}`}
                   >
+                    {unit ? <UnitPortrait unit={unit} compact /> : null}
                     <span className="slot-title">
                       {unit
                         ? unit.label
@@ -1356,6 +1365,7 @@ export function GameShell() {
                   key={`enemy-${index}`}
                   className={`formation-card enemy-card${unit ? "" : " empty"}`}
                 >
+                  {unit ? <UnitPortrait unit={unit} compact /> : null}
                   <span className="slot-title">
                     {unit
                       ? unit.label
@@ -1807,4 +1817,23 @@ function formatErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function UnitPortrait({
+  unit,
+  compact = false,
+}: {
+  unit: RuntimeUnitView;
+  compact?: boolean;
+}) {
+  return (
+    <div className={`unit-art-frame${compact ? " compact" : ""}`}>
+      <img
+        className="unit-art"
+        src={UNIT_ART_BY_ARCHETYPE[unit.archetype]}
+        alt={unit.label}
+        loading="lazy"
+      />
+    </div>
+  );
 }

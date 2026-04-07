@@ -305,6 +305,31 @@ textarea {
   min-height: 92px;
 }
 
+.unit-art-frame {
+  width: 100%;
+  min-height: 112px;
+  border-radius: 14px;
+  border: 1px solid rgba(126, 162, 191, 0.18);
+  background:
+    radial-gradient(circle at top, rgba(110, 211, 183, 0.16), transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.unit-art-frame.compact {
+  min-height: 88px;
+}
+
+.unit-art {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
 .formation-card.empty {
   background: rgba(255, 255, 255, 0.025);
 }
@@ -404,7 +429,9 @@ textarea {
   border-radius: 28px;
   overflow: hidden;
   background:
-    radial-gradient(circle at top, rgba(76, 154, 120, 0.15), transparent 48%),
+    linear-gradient(180deg, rgba(7, 14, 20, 0.72), rgba(6, 10, 16, 0.84)),
+    radial-gradient(circle at top, rgba(76, 154, 120, 0.14), transparent 48%),
+    url("/assets/numeron/shell/board_bg.png") center/cover no-repeat,
     linear-gradient(180deg, rgba(7, 14, 20, 0.96), rgba(6, 10, 16, 0.98));
 }
 
