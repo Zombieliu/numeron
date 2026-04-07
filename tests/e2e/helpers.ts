@@ -79,9 +79,10 @@ export async function waitForRoundResolution(page: Page) {
     .toBe(true);
 }
 
-export async function advanceToNextRound(page: Page, round: number) {
+export async function advanceToNextRound(page: Page, round?: number) {
+  const previousRound = await readVisibleRound(page);
   await page.getByTestId("next-round").click();
-  await waitForRoundReady(page, round);
+  await waitForRoundReady(page, round ?? previousRound + 1);
 }
 
 export async function waitForRoundReady(page: Page, round: number) {
@@ -95,11 +96,17 @@ export async function playUntilRunEnds(
   options: { startRound?: number; maxRounds?: number } = {},
 ) {
   const startRound = options.startRound ?? 2;
-  const maxRounds = options.maxRounds ?? 8;
+  const maxRounds = options.maxRounds ?? 10;
+  let roundCursor = startRound;
 
-  for (let round = startRound; round <= maxRounds; round += 1) {
+  while (roundCursor <= maxRounds) {
     if (await page.getByTestId("restart-run").isEnabled()) {
       return;
+    }
+
+    const augmentChoices = page.locator('[data-testid^="augment-choice-"]');
+    if ((await augmentChoices.count()) > 0) {
+      await augmentChoices.first().click();
     }
 
     if (await page.getByTestId("start-combat").isEnabled()) {
@@ -112,9 +119,30 @@ export async function playUntilRunEnds(
     }
 
     if (await page.getByTestId("next-round").isEnabled()) {
-      await advanceToNextRound(page, round);
+      await advanceToNextRound(page);
+      roundCursor += 1;
+    } else {
+      roundCursor += 1;
     }
   }
+}
+
+async function readVisibleRound(page: Page) {
+  const statusText = await page.getByTestId("status-panel").innerText();
+  const statusMatch = statusText.match(/Round\s+(\d+)|第\s+(\d+)\s+回合/i);
+  if (statusMatch) {
+    return Number(statusMatch[1] ?? statusMatch[2]);
+  }
+
+  const sessionText = await page.getByTestId("session-panel").innerText();
+  const sessionMatch = sessionText.match(/(?:^|\n)R\s+(\d+)|回合\s+(\d+)/im);
+  if (sessionMatch) {
+    return Number(sessionMatch[1] ?? sessionMatch[2]);
+  }
+
+  throw new Error(
+    `Failed to parse current round from panels:\nSTATUS:\n${statusText}\nSESSION:\n${sessionText}`,
+  );
 }
 
 export async function setRemoteMode(page: Page, backendUrl = REMOTE_BACKEND_URL) {

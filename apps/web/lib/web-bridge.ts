@@ -14,6 +14,7 @@ import {
 import {
   buyRuntimeXp,
   buyRuntimeShopOffer,
+  chooseRuntimeAugment,
   deployRuntimeBenchUnit,
   getRuntimeBootSnapshot,
   launchRuntime,
@@ -139,6 +140,10 @@ export async function dispatchUiIntent(intent: UiIntent): Promise<RuntimeSnapsho
     }
     case "runtime.shop.buy-xp": {
       buyRuntimeXp();
+      return currentSnapshot;
+    }
+    case "runtime.augment.choose": {
+      chooseRuntimeAugment(intent.index);
       return currentSnapshot;
     }
     case "runtime.shop.lock.toggle": {
@@ -332,6 +337,16 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       activeTraits: Array.isArray(projection.slice?.activeTraits)
         ? projection.slice.activeTraits.map(normalizeRuntimeTraitView)
         : DEFAULT_RUNTIME_PROJECTION.slice.activeTraits,
+      selectedAugments: Array.isArray(projection.slice?.selectedAugments)
+        ? projection.slice.selectedAugments.map(normalizeRuntimeAugmentView)
+        : DEFAULT_RUNTIME_PROJECTION.slice.selectedAugments,
+      pendingAugments: Array.isArray(projection.slice?.pendingAugments)
+        ? projection.slice.pendingAugments.map(normalizeRuntimeAugmentView)
+        : DEFAULT_RUNTIME_PROJECTION.slice.pendingAugments,
+      augmentDraftRound: normalizeNumber(
+        projection.slice?.augmentDraftRound,
+        DEFAULT_RUNTIME_PROJECTION.slice.augmentDraftRound,
+      ),
       enemyThreat: normalizeNumber(
         projection.slice?.enemyThreat,
         DEFAULT_RUNTIME_PROJECTION.slice.enemyThreat,
@@ -425,6 +440,17 @@ function normalizeRuntimeTraitView(value: unknown) {
   } as const;
 }
 
+function normalizeRuntimeAugmentView(value: unknown) {
+  const augment = typeof value === "object" && value ? value : {};
+  const record = augment as Record<string, unknown>;
+
+  return {
+    key: normalizeAugmentKey(record.key),
+    label: String(record.label ?? "Augment"),
+    description: String(record.description ?? ""),
+  } as const;
+}
+
 function normalizeNumber(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
@@ -463,5 +489,19 @@ function normalizeTraitKey(value: unknown) {
       return value;
     default:
       return "dawn";
+  }
+}
+
+function normalizeAugmentKey(value: unknown) {
+  switch (value) {
+    case "compound-interest":
+    case "vanguard-doctrine":
+    case "skirmisher-drive":
+    case "dawn-pulse":
+    case "dusk-pact":
+    case "emergency-hull":
+      return value;
+    default:
+      return "compound-interest";
   }
 }

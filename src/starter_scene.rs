@@ -135,6 +135,14 @@ pub struct RuntimeTraitView {
     pub active: bool,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[derive(Clone, Debug)]
+pub struct RuntimeAugmentView {
+    pub key: String,
+    pub label: String,
+    pub description: String,
+}
+
 #[derive(Resource, Clone, Debug)]
 pub struct StarterSliceProjection {
     pub phase: String,
@@ -161,6 +169,9 @@ pub struct StarterSliceProjection {
     pub enemy_board: Vec<Option<RuntimeUnitView>>,
     pub unit_roster: Vec<RuntimeUnitView>,
     pub active_traits: Vec<RuntimeTraitView>,
+    pub selected_augments: Vec<RuntimeAugmentView>,
+    pub pending_augments: Vec<RuntimeAugmentView>,
+    pub augment_draft_round: u32,
     pub enemy_threat: u32,
     pub enemy_intent: String,
     pub bench_capacity: usize,
@@ -204,6 +215,9 @@ impl Default for StarterSliceProjection {
             enemy_board: vec![None; ENEMY_SLOTS.len()],
             unit_roster: Vec::new(),
             active_traits: Vec::new(),
+            selected_augments: Vec::new(),
+            pending_augments: Vec::new(),
+            augment_draft_round: 0,
             enemy_threat: 0,
             enemy_intent: "Awaiting board allocation.".to_owned(),
             bench_capacity: BENCH_CAPACITY,
@@ -237,6 +251,14 @@ struct PlayerSquad {
 #[derive(Resource, Default)]
 struct EnemySquad {
     units: Vec<UnitInstance>,
+}
+
+#[derive(Resource, Default)]
+struct AugmentState {
+    selected: Vec<AugmentKind>,
+    pending_choices: Vec<AugmentKind>,
+    pending_round: Option<u32>,
+    draft_cursor: usize,
 }
 
 #[derive(Resource)]
@@ -310,6 +332,94 @@ impl RunResult {
 enum UnitOwner {
     Player,
     Enemy,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AugmentKind {
+    CompoundInterest,
+    VanguardDoctrine,
+    SkirmisherDrive,
+    DawnPulse,
+    DuskPact,
+    EmergencyHull,
+}
+
+impl AugmentKind {
+    fn all() -> [Self; 6] {
+        [
+            Self::CompoundInterest,
+            Self::VanguardDoctrine,
+            Self::SkirmisherDrive,
+            Self::DawnPulse,
+            Self::DuskPact,
+            Self::EmergencyHull,
+        ]
+    }
+
+    fn key(self) -> &'static str {
+        match self {
+            Self::CompoundInterest => "compound-interest",
+            Self::VanguardDoctrine => "vanguard-doctrine",
+            Self::SkirmisherDrive => "skirmisher-drive",
+            Self::DawnPulse => "dawn-pulse",
+            Self::DuskPact => "dusk-pact",
+            Self::EmergencyHull => "emergency-hull",
+        }
+    }
+
+    fn label(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::CompoundInterest => localized(locale, "Compound Interest", "复利协议"),
+            Self::VanguardDoctrine => localized(locale, "Vanguard Doctrine", "前线教范"),
+            Self::SkirmisherDrive => localized(locale, "Skirmisher Drive", "游击驱动"),
+            Self::DawnPulse => localized(locale, "Dawn Pulse", "黎明脉冲"),
+            Self::DuskPact => localized(locale, "Dusk Pact", "黄昏契约"),
+            Self::EmergencyHull => localized(locale, "Emergency Hull", "紧急加固"),
+        }
+    }
+
+    fn description(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::CompoundInterest => localized(
+                locale,
+                "Gain 6 gold now and raise max interest income by 1.",
+                "立刻获得 6 金币，并让利息上限额外 +1。",
+            ),
+            Self::VanguardDoctrine => localized(
+                locale,
+                "Your Vanguard units gain +3 health.",
+                "你的前排单位获得 +3 生命。",
+            ),
+            Self::SkirmisherDrive => localized(
+                locale,
+                "Your Skirmisher units gain +1 attack.",
+                "你的游击单位获得 +1 攻击。",
+            ),
+            Self::DawnPulse => localized(
+                locale,
+                "Your Dawn units gain +1 attack.",
+                "你的黎明单位获得 +1 攻击。",
+            ),
+            Self::DuskPact => localized(
+                locale,
+                "Your Dusk units gain +3 health.",
+                "你的黄昏单位获得 +3 生命。",
+            ),
+            Self::EmergencyHull => localized(
+                locale,
+                "Restore 6 commander health immediately, up to 30.",
+                "立刻回复 6 点指挥官生命，上限 30。",
+            ),
+        }
+    }
+
+    fn as_view(self, locale: RuntimeLocale) -> RuntimeAugmentView {
+        RuntimeAugmentView {
+            key: self.key().to_owned(),
+            label: self.label(locale).to_owned(),
+            description: self.description(locale).to_owned(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -686,8 +796,13 @@ impl UnitInstance {
         }
     }
 
-    fn resolved_view(self, buffs: TraitBuffs, locale: RuntimeLocale) -> RuntimeUnitView {
-        let stats = resolved_stats(self, buffs);
+    fn resolved_view(
+        self,
+        buffs: TraitBuffs,
+        augments: &[AugmentKind],
+        locale: RuntimeLocale,
+    ) -> RuntimeUnitView {
+        let stats = resolved_stats(self, buffs, augments);
         RuntimeUnitView {
             attack: stats.attack,
             health: stats.max_health.max(1) as u32,
@@ -744,6 +859,7 @@ impl Plugin for StarterScenePlugin {
             .init_resource::<ShopState>()
             .init_resource::<PlayerSquad>()
             .init_resource::<EnemySquad>()
+            .init_resource::<AugmentState>()
             .init_resource::<CombatTickTimer>()
             .add_systems(OnEnter(GameState::Playing), setup_board_scene)
             .add_systems(
@@ -767,6 +883,7 @@ fn setup_board_scene(
     mut shop: ResMut<ShopState>,
     mut player_squad: ResMut<PlayerSquad>,
     mut enemy_squad: ResMut<EnemySquad>,
+    mut augments: ResMut<AugmentState>,
     mut combat_timer: ResMut<CombatTickTimer>,
 ) {
     commands.spawn((Camera2d, Name::new("RuntimeCamera")));
@@ -829,6 +946,7 @@ fn setup_board_scene(
         &mut shop,
         &mut player_squad,
         &mut enemy_squad,
+        &mut augments,
         &mut combat_timer,
         false,
     );
@@ -837,6 +955,7 @@ fn setup_board_scene(
         &shop,
         &player_squad,
         &enemy_squad,
+        &augments,
         config.locale,
         &mut projection,
     );
@@ -850,6 +969,7 @@ fn reset_run_state(
     shop: &mut ShopState,
     player_squad: &mut PlayerSquad,
     enemy_squad: &mut EnemySquad,
+    augments: &mut AugmentState,
     combat_timer: &mut CombatTickTimer,
     increment_run_number: bool,
 ) {
@@ -865,6 +985,7 @@ fn reset_run_state(
 
     shop.locked = false;
     shop.offers.clear();
+    *augments = AugmentState::default();
     player_squad.board = [None; PLAYER_SLOTS.len()];
     player_squad.bench = vec![
         UnitInstance::new(UnitArchetype::VerdantBruiser),
@@ -891,7 +1012,15 @@ fn reset_run_state(
         )
         .to_owned()
     };
-    spawn_round_units(commands, board, player_squad, enemy_squad, locale, combat);
+    spawn_round_units(
+        commands,
+        board,
+        player_squad,
+        enemy_squad,
+        augments,
+        locale,
+        combat,
+    );
 }
 
 fn handle_runtime_commands(
@@ -903,6 +1032,7 @@ fn handle_runtime_commands(
     mut shop: ResMut<ShopState>,
     mut player_squad: ResMut<PlayerSquad>,
     mut enemy_squad: ResMut<EnemySquad>,
+    mut augments: ResMut<AugmentState>,
     units: Query<Entity, With<UnitEntity>>,
     mut combat_timer: ResMut<CombatTickTimer>,
 ) {
@@ -921,6 +1051,7 @@ fn handle_runtime_commands(
                     && !combat.run_over
                     && combat.player_units > 0
                     && combat.enemy_units > 0
+                    && augments.pending_choices.is_empty()
                 {
                     combat.phase = CombatPhase::Combat;
                     combat.status = match locale {
@@ -938,8 +1069,11 @@ fn handle_runtime_commands(
             }
             RuntimeCommand::ResetRound => {
                 if combat.phase == CombatPhase::Resolution && !combat.run_over {
-                    let (base_income, interest_income, streak_income) =
-                        round_income_preview(combat.gold, current_streak(&combat));
+                    let (base_income, interest_income, streak_income) = round_income_preview(
+                        combat.gold,
+                        current_streak(&combat),
+                        &augments.selected,
+                    );
                     let total_income = base_income + interest_income + streak_income;
                     combat.round += 1;
                     combat.phase = CombatPhase::Preparation;
@@ -947,6 +1081,7 @@ fn handle_runtime_commands(
                     combat.gold += total_income;
                     let levels_gained = grant_xp(&mut combat, PASSIVE_ROUND_XP);
                     enemy_squad.units = seed_enemy_squad(combat.round);
+                    maybe_prepare_augment_draft(&mut augments, combat.round);
                     if shop.locked {
                         combat.status = match locale {
                             RuntimeLocale::En => format!(
@@ -999,6 +1134,18 @@ fn handle_runtime_commands(
                             ),
                         };
                     }
+                    if !augments.pending_choices.is_empty() {
+                        combat.status = match locale {
+                            RuntimeLocale::En => format!(
+                                "Round {} augment draft ready. Pick one upgrade before combat.",
+                                combat.round
+                            ),
+                            RuntimeLocale::ZhCn => format!(
+                                "第 {} 回合强化已出现。先选择一个升级，再进入战斗。",
+                                combat.round
+                            ),
+                        };
+                    }
                     needs_respawn = true;
                 }
             }
@@ -1012,6 +1159,7 @@ fn handle_runtime_commands(
                     &mut shop,
                     &mut player_squad,
                     &mut enemy_squad,
+                    &mut augments,
                     &mut combat_timer,
                     true,
                 );
@@ -1077,6 +1225,34 @@ fn handle_runtime_commands(
                         }
                     }
                 };
+            }
+            RuntimeCommand::ChooseAugment(index) => {
+                if combat.phase != CombatPhase::Preparation || combat.run_over {
+                    continue;
+                }
+
+                let Some(chosen) = augments.pending_choices.get(index).copied() else {
+                    continue;
+                };
+                augments.pending_choices.clear();
+                augments.pending_round = None;
+                if !augments.selected.contains(&chosen) {
+                    augments.selected.push(chosen);
+                }
+                apply_augment_pick(chosen, &mut combat);
+                combat.status = match locale {
+                    RuntimeLocale::En => format!(
+                        "Augment locked: {}. {}",
+                        chosen.label(locale),
+                        chosen.description(locale)
+                    ),
+                    RuntimeLocale::ZhCn => format!(
+                        "已选择强化：{}。{}",
+                        chosen.label(locale),
+                        chosen.description(locale)
+                    ),
+                };
+                needs_respawn = true;
             }
             RuntimeCommand::ToggleShopLock => {
                 if combat.phase != CombatPhase::Preparation || combat.run_over {
@@ -1255,6 +1431,7 @@ fn handle_runtime_commands(
             &board,
             &player_squad,
             &enemy_squad,
+            &augments,
             locale,
             &mut combat,
         );
@@ -1265,6 +1442,7 @@ fn handle_runtime_commands(
         &shop,
         &player_squad,
         &enemy_squad,
+        &augments,
         locale,
         &mut projection,
     );
@@ -1278,6 +1456,7 @@ fn run_combat_tick(
     mut combat: ResMut<CombatState>,
     player_squad: Res<PlayerSquad>,
     enemy_squad: Res<EnemySquad>,
+    augments: Res<AugmentState>,
     mut projection: ResMut<StarterSliceProjection>,
     shop: Res<ShopState>,
     mut timer: ResMut<CombatTickTimer>,
@@ -1478,6 +1657,7 @@ fn run_combat_tick(
                 &board,
                 &player_squad,
                 &enemy_squad,
+                &augments,
                 locale,
                 &mut combat,
             );
@@ -1542,6 +1722,7 @@ fn run_combat_tick(
             &shop,
             &player_squad,
             &enemy_squad,
+            &augments,
             &live_snapshots,
             locale,
             &mut projection,
@@ -1552,6 +1733,7 @@ fn run_combat_tick(
             &shop,
             &player_squad,
             &enemy_squad,
+            &augments,
             locale,
             &mut projection,
         );
@@ -1823,24 +2005,33 @@ fn update_projection_from_state(
     shop: &ShopState,
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
+    augments: &AugmentState,
     locale: RuntimeLocale,
     projection: &mut ResMut<StarterSliceProjection>,
 ) {
     let player_buffs = trait_buffs_for(player_squad.board.iter().flatten().copied());
     let enemy_buffs = trait_buffs_for(enemy_squad.units.iter().copied());
 
-    apply_common_projection_fields(combat, shop, player_squad, enemy_squad, locale, projection);
+    apply_common_projection_fields(
+        combat,
+        shop,
+        player_squad,
+        enemy_squad,
+        augments,
+        locale,
+        projection,
+    );
     projection.player_board = player_squad
         .board
         .iter()
         .copied()
-        .map(|unit| unit.map(|unit| unit.resolved_view(player_buffs, locale)))
+        .map(|unit| unit.map(|unit| unit.resolved_view(player_buffs, &augments.selected, locale)))
         .collect();
     projection.enemy_board = enemy_squad
         .units
         .iter()
         .copied()
-        .map(|unit| Some(unit.resolved_view(enemy_buffs, locale)))
+        .map(|unit| Some(unit.resolved_view(enemy_buffs, &[], locale)))
         .chain(std::iter::repeat(None::<RuntimeUnitView>))
         .take(ENEMY_SLOTS.len())
         .collect();
@@ -1851,11 +2042,20 @@ fn update_projection_from_live_state(
     shop: &ShopState,
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
+    augments: &AugmentState,
     live_snapshots: &[CombatUnitSnapshot],
     locale: RuntimeLocale,
     projection: &mut ResMut<StarterSliceProjection>,
 ) {
-    apply_common_projection_fields(combat, shop, player_squad, enemy_squad, locale, projection);
+    apply_common_projection_fields(
+        combat,
+        shop,
+        player_squad,
+        enemy_squad,
+        augments,
+        locale,
+        projection,
+    );
     projection.player_board = board_views_from_live_units(
         live_snapshots,
         UnitOwner::Player,
@@ -1875,6 +2075,7 @@ fn apply_common_projection_fields(
     shop: &ShopState,
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
+    augments: &AugmentState,
     locale: RuntimeLocale,
     projection: &mut ResMut<StarterSliceProjection>,
 ) {
@@ -1920,6 +2121,19 @@ fn apply_common_projection_fields(
         .collect();
     projection.active_traits =
         trait_views_for(player_squad.board.iter().flatten().copied(), locale).collect();
+    projection.selected_augments = augments
+        .selected
+        .iter()
+        .copied()
+        .map(|augment| augment.as_view(locale))
+        .collect();
+    projection.pending_augments = augments
+        .pending_choices
+        .iter()
+        .copied()
+        .map(|augment| augment.as_view(locale))
+        .collect();
+    projection.augment_draft_round = augments.pending_round.unwrap_or(0);
     projection.enemy_threat = enemy_threat(enemy_squad.units.iter().copied());
     projection.enemy_intent = enemy_intent_for_round(combat.round, locale);
     projection.bench_capacity = BENCH_CAPACITY;
@@ -1927,7 +2141,7 @@ fn apply_common_projection_fields(
     projection.deployment_cap = combat.deployment_cap;
     projection.streak = current_streak(combat);
     let (base_income, interest_income, streak_income) =
-        round_income_preview(combat.gold, projection.streak);
+        round_income_preview(combat.gold, projection.streak, &augments.selected);
     projection.base_income = base_income;
     projection.interest_income = interest_income;
     projection.streak_income = streak_income;
@@ -1942,6 +2156,7 @@ fn spawn_round_units(
     board: &BoardConfig,
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
+    augments: &AugmentState,
     locale: RuntimeLocale,
     combat: &mut CombatState,
 ) {
@@ -1963,7 +2178,7 @@ fn spawn_round_units(
                 UnitOwner::Player,
                 index,
                 unit,
-                resolved_stats(unit, player_buffs),
+                resolved_stats(unit, player_buffs, &augments.selected),
                 locale,
                 row,
                 col,
@@ -1980,7 +2195,7 @@ fn spawn_round_units(
                 UnitOwner::Enemy,
                 index,
                 unit,
-                resolved_stats(unit, enemy_buffs),
+                resolved_stats(unit, enemy_buffs, &[]),
                 locale,
                 row,
                 col,
@@ -2213,6 +2428,40 @@ fn enemy_intent_for_round(round: u32, locale: RuntimeLocale) -> String {
             "最终战帮：五个威胁全开的升级混编阵容。",
         )
         .to_owned(),
+    }
+}
+
+fn maybe_prepare_augment_draft(augments: &mut AugmentState, round: u32) {
+    let draft_rounds = [2, 5];
+    if !draft_rounds.contains(&round) || augments.pending_round == Some(round) {
+        return;
+    }
+
+    let mut available = AugmentKind::all()
+        .into_iter()
+        .filter(|augment| !augments.selected.contains(augment))
+        .collect::<Vec<_>>();
+
+    if available.is_empty() {
+        return;
+    }
+
+    let start = (augments.draft_cursor + round as usize) % available.len();
+    available.rotate_left(start);
+    augments.pending_choices = available.into_iter().take(3).collect();
+    augments.pending_round = Some(round);
+    augments.draft_cursor += 1;
+}
+
+fn apply_augment_pick(augment: AugmentKind, combat: &mut CombatState) {
+    match augment {
+        AugmentKind::CompoundInterest => {
+            combat.gold += 6;
+        }
+        AugmentKind::EmergencyHull => {
+            combat.player_health = (combat.player_health + 6).min(30);
+        }
+        _ => {}
     }
 }
 
@@ -2478,8 +2727,13 @@ fn current_streak(combat: &CombatState) -> i32 {
     }
 }
 
-fn round_income_preview(gold: u32, streak: i32) -> (u32, u32, u32) {
-    let interest_income = (gold / 5).min(MAX_INTEREST_INCOME);
+fn round_income_preview(gold: u32, streak: i32, augments: &[AugmentKind]) -> (u32, u32, u32) {
+    let interest_cap = if augments.contains(&AugmentKind::CompoundInterest) {
+        MAX_INTEREST_INCOME + 1
+    } else {
+        MAX_INTEREST_INCOME
+    };
+    let interest_income = (gold / 5).min(interest_cap);
     let streak_income = streak_bonus(streak);
     (ROUND_BASE_INCOME, interest_income, streak_income)
 }
@@ -2497,7 +2751,7 @@ fn scaled_stats(unit: UnitInstance) -> UnitStats {
     }
 }
 
-fn resolved_stats(unit: UnitInstance, buffs: TraitBuffs) -> UnitStats {
+fn resolved_stats(unit: UnitInstance, buffs: TraitBuffs, augments: &[AugmentKind]) -> UnitStats {
     let mut stats = scaled_stats(unit);
 
     if buffs.vanguard_active {
@@ -2512,6 +2766,30 @@ fn resolved_stats(unit: UnitInstance, buffs: TraitBuffs) -> UnitStats {
         UnitFaction::Dawn if buffs.dawn_active => stats.attack += 1,
         UnitFaction::Dusk if buffs.dusk_active => stats.max_health += 2,
         _ => {}
+    }
+
+    if augments.contains(&AugmentKind::VanguardDoctrine)
+        && matches!(unit.archetype.role(), UnitRole::Vanguard)
+    {
+        stats.max_health += 3;
+    }
+
+    if augments.contains(&AugmentKind::SkirmisherDrive)
+        && matches!(unit.archetype.role(), UnitRole::Skirmisher)
+    {
+        stats.attack += 1;
+    }
+
+    if augments.contains(&AugmentKind::DawnPulse)
+        && matches!(unit.archetype.faction(), UnitFaction::Dawn)
+    {
+        stats.attack += 1;
+    }
+
+    if augments.contains(&AugmentKind::DuskPact)
+        && matches!(unit.archetype.faction(), UnitFaction::Dusk)
+    {
+        stats.max_health += 3;
     }
 
     stats

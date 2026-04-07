@@ -1,5 +1,5 @@
 use crate::starter_scene::{
-    BoardAnchor, RuntimeTraitView, RuntimeUnitView, StarterSliceProjection,
+    BoardAnchor, RuntimeAugmentView, RuntimeTraitView, RuntimeUnitView, StarterSliceProjection,
 };
 use bevy::prelude::*;
 
@@ -69,6 +69,7 @@ pub enum RuntimeCommand {
     RestartRun,
     RerollShop,
     BuyXp,
+    ChooseAugment(usize),
     ToggleShopLock,
     BuyOffer(usize),
     DeployBenchToBoard {
@@ -181,6 +182,16 @@ pub fn reroll_runtime_shop() {
 pub fn buy_runtime_xp() {
     COMMAND_QUEUE.with(|queue| {
         queue.borrow_mut().push(RuntimeCommand::BuyXp);
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = chooseRuntimeAugment)]
+pub fn choose_runtime_augment(index: u32) {
+    COMMAND_QUEUE.with(|queue| {
+        queue
+            .borrow_mut()
+            .push(RuntimeCommand::ChooseAugment(index as usize));
     });
 }
 
@@ -361,6 +372,9 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         enemy_board: slice.enemy_board,
         unit_roster: slice.unit_roster,
         active_traits: slice.active_traits,
+        selected_augments: slice.selected_augments,
+        pending_augments: slice.pending_augments,
+        augment_draft_round: slice.augment_draft_round,
         enemy_threat: slice.enemy_threat,
         enemy_intent: slice.enemy_intent,
         bench_capacity: slice.bench_capacity,
@@ -408,6 +422,9 @@ struct ProjectionPayload {
     enemy_board: Vec<Option<RuntimeUnitView>>,
     unit_roster: Vec<RuntimeUnitView>,
     active_traits: Vec<RuntimeTraitView>,
+    selected_augments: Vec<RuntimeAugmentView>,
+    pending_augments: Vec<RuntimeAugmentView>,
+    augment_draft_round: u32,
     enemy_threat: u32,
     enemy_intent: String,
     bench_capacity: usize,
@@ -542,6 +559,29 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 active_traits.push(&runtime_trait_view_object(trait_view));
             }
             let _ = Reflect::set(&slice, &"activeTraits".into(), &active_traits);
+            let selected_augments = js_sys::Array::new();
+            for augment in &projection.selected_augments {
+                selected_augments.push(&runtime_augment_view_object(augment));
+            }
+            let _ = Reflect::set(
+                &slice,
+                &"selectedAugments".into(),
+                &selected_augments,
+            );
+            let pending_augments = js_sys::Array::new();
+            for augment in &projection.pending_augments {
+                pending_augments.push(&runtime_augment_view_object(augment));
+            }
+            let _ = Reflect::set(
+                &slice,
+                &"pendingAugments".into(),
+                &pending_augments,
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"augmentDraftRound".into(),
+                &projection.augment_draft_round.into(),
+            );
             let _ = Reflect::set(
                 &slice,
                 &"enemyThreat".into(),
@@ -652,5 +692,18 @@ fn runtime_trait_view_object(view: &RuntimeTraitView) -> JsValue {
         &view.description.clone().into(),
     );
     let _ = Reflect::set(&payload, &"active".into(), &view.active.into());
+    payload.into()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn runtime_augment_view_object(view: &RuntimeAugmentView) -> JsValue {
+    let payload = Object::new();
+    let _ = Reflect::set(&payload, &"key".into(), &view.key.clone().into());
+    let _ = Reflect::set(&payload, &"label".into(), &view.label.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"description".into(),
+        &view.description.clone().into(),
+    );
     payload.into()
 }

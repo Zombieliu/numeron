@@ -40,6 +40,9 @@ textarea {
 }
 
 .topbar {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -68,11 +71,19 @@ textarea {
 
 .status-strip {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.status-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .status-pill {
+  flex: 0 0 auto;
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 10px 14px;
@@ -180,12 +191,12 @@ textarea {
 
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   gap: 10px;
 }
 
 .stat-grid-two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
 }
 
 .stat-card {
@@ -243,25 +254,25 @@ textarea {
 
 .slot-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
 }
 
 .offer-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
   gap: 10px;
 }
 
 .formation-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
   gap: 10px;
 }
 
 .trait-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
   gap: 10px;
 }
 
@@ -354,10 +365,6 @@ textarea {
   background: rgba(110, 211, 183, 0.12);
 }
 
-.enemy-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .enemy-card {
   cursor: default;
 }
@@ -421,7 +428,7 @@ textarea {
 
 .canvas-area {
   position: relative;
-  min-height: 720px;
+  min-height: clamp(380px, 58vh, 720px);
   display: flex;
   align-items: stretch;
   justify-content: stretch;
@@ -438,7 +445,7 @@ textarea {
 .canvas-frame {
   flex: 1;
   display: flex;
-  min-height: 720px;
+  min-height: inherit;
   position: relative;
 }
 
@@ -533,6 +540,8 @@ textarea {
 @media (max-width: 960px) {
   .topbar {
     flex-direction: column;
+    top: 8px;
+    padding: 18px;
   }
 
   .topbar-actions {
@@ -540,42 +549,38 @@ textarea {
   }
 
   .game-layout {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stage-column {
+    order: 1;
+  }
+
+  .game-layout > .side-column:first-child {
+    order: 2;
+  }
+
+  .game-layout > .side-column:last-child {
+    order: 3;
   }
 
   .side-column {
     max-height: none;
     overflow: visible;
     padding-right: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
   }
 
   .hud {
     inset: auto 12px 12px;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .stat-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .slot-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .offer-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .formation-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .trait-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .enemy-grid {
-    grid-template-columns: 1fr;
+  .side-column > * {
+    min-width: 0;
   }
 
   .drawer-grid {
@@ -609,10 +614,57 @@ textarea {
 
   .canvas-area,
   .canvas-frame {
-    min-height: 520px;
+    min-height: clamp(340px, 46vh, 520px);
+  }
+
+  .side-column {
+    grid-template-columns: 1fr;
   }
 
   .game-layout > .side-column:last-child {
+    grid-template-columns: 1fr;
+  }
+
+  .hud {
+    grid-template-columns: 1fr;
+  }
+
+  .touch-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+
+  .touch-button.attack {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .shell {
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .panel,
+  .dev-drawer {
+    border-radius: 18px;
+    padding: 14px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+
+  .locale-toggle,
+  .mode-toggle {
+    min-width: 0;
+  }
+
+  .offer-grid,
+  .formation-grid,
+  .trait-grid,
+  .slot-grid {
     grid-template-columns: 1fr;
   }
 }

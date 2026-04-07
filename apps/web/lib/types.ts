@@ -62,6 +62,18 @@ export type RuntimeTraitView = {
   active: boolean;
 };
 
+export type RuntimeAugmentView = {
+  key:
+    | "compound-interest"
+    | "vanguard-doctrine"
+    | "skirmisher-drive"
+    | "dawn-pulse"
+    | "dusk-pact"
+    | "emergency-hull";
+  label: string;
+  description: string;
+};
+
 export type RuntimeProjection = {
   ready: boolean;
   touchControls: boolean;
@@ -95,6 +107,9 @@ export type RuntimeProjection = {
     enemyBoard: Array<RuntimeUnitView | null>;
     unitRoster: RuntimeUnitView[];
     activeTraits: RuntimeTraitView[];
+    selectedAugments: RuntimeAugmentView[];
+    pendingAugments: RuntimeAugmentView[];
+    augmentDraftRound: number;
     enemyThreat: number;
     enemyIntent: string;
     benchCapacity: number;
@@ -252,6 +267,10 @@ export type UiIntent =
       type: "runtime.shop.buy-xp";
     }
   | {
+      type: "runtime.augment.choose";
+      index: number;
+    }
+  | {
       type: "runtime.shop.lock.toggle";
     }
   | {
@@ -343,6 +362,9 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     enemyBoard: [null, null, null, null, null],
     unitRoster: [],
     activeTraits: [],
+    selectedAugments: [],
+    pendingAugments: [],
+    augmentDraftRound: 0,
     enemyThreat: 0,
     enemyIntent: "Awaiting board allocation.",
     benchCapacity: 6,

@@ -48,6 +48,7 @@ import type {
   MatchSessionRecord,
   ProgressionBadge,
   ShellDataMode,
+  RuntimeAugmentView,
   RuntimeBootConfig,
   RuntimeBootRecord,
   RuntimeProgression,
@@ -110,12 +111,22 @@ export function GameShell() {
   const copy = getUiCopy(locale);
 
   const activeSlot = getActiveSlot(saveCollection);
+  const remoteProfileSlot: RuntimeSaveSlot = {
+    ...activeSlot,
+    profile: {
+      ...activeSlot.profile,
+      preferredPlayerName: runtimeSnapshot.bootConfig.playerName,
+      preferredTouchControls: runtimeSnapshot.bootConfig.touchControls,
+      preferredLocale: runtimeSnapshot.bootConfig.locale,
+    },
+  };
   const currentPhase = runtimeSnapshot.world.slice.phase;
   const canDraft = runtimeSnapshot.world.ready && currentPhase === "preparation";
   const canStartCombat =
     runtimeSnapshot.world.ready &&
     currentPhase === "preparation" &&
-    runtimeSnapshot.world.slice.captured > 0;
+    runtimeSnapshot.world.slice.captured > 0 &&
+    runtimeSnapshot.world.slice.pendingAugments.length === 0;
   const canAdvanceRound =
     runtimeSnapshot.world.ready &&
     runtimeSnapshot.world.slice.roundResolved &&
@@ -127,6 +138,8 @@ export function GameShell() {
   const enemyBoard = runtimeSnapshot.world.slice.enemyBoard;
   const unitRoster = runtimeSnapshot.world.slice.unitRoster;
   const activeTraits = runtimeSnapshot.world.slice.activeTraits;
+  const selectedAugments = runtimeSnapshot.world.slice.selectedAugments;
+  const pendingAugments = runtimeSnapshot.world.slice.pendingAugments;
   const deployedUnits = playerBoard.filter(Boolean).length;
   const deploymentCap = runtimeSnapshot.world.slice.deploymentCap;
   const deploymentCapReached = deployedUnits >= deploymentCap;
@@ -481,9 +494,9 @@ export function GameShell() {
 
     const signature = [
       activeSlot.id,
-      activeSlot.profile.preferredPlayerName,
-      activeSlot.profile.preferredTouchControls ? "1" : "0",
-      activeSlot.profile.preferredLocale,
+      remoteProfileSlot.profile.preferredPlayerName,
+      remoteProfileSlot.profile.preferredTouchControls ? "1" : "0",
+      remoteProfileSlot.profile.preferredLocale,
       activeSlot.profile.bestScore,
       activeSlot.profile.bestRound,
     ].join(":");
@@ -494,7 +507,7 @@ export function GameShell() {
 
     remoteProfileSignature.current = signature;
 
-    void pushBackendProfile(normalizeBackendUrl(backendUrl), activeSlot)
+    void pushBackendProfile(normalizeBackendUrl(backendUrl), remoteProfileSlot)
       .then(() => {
         setBackendMessage(copy.remoteProfileSynced(activeSlot.label));
       })
@@ -506,13 +519,14 @@ export function GameShell() {
     activeSlot.label,
     activeSlot.profile.bestRound,
     activeSlot.profile.bestScore,
-    activeSlot.profile.preferredLocale,
-    activeSlot.profile.preferredPlayerName,
-    activeSlot.profile.preferredTouchControls,
+    remoteProfileSlot.profile.preferredLocale,
+    remoteProfileSlot.profile.preferredPlayerName,
+    remoteProfileSlot.profile.preferredTouchControls,
     backendUrl,
     clientReady,
     copy,
     dataMode,
+    remoteProfileSlot,
   ]);
 
   useEffect(() => {
@@ -684,6 +698,13 @@ export function GameShell() {
     });
   }
 
+  function handleChooseAugment(index: number) {
+    void dispatchUiIntent({
+      type: "runtime.augment.choose",
+      index,
+    });
+  }
+
   function handleBuyOffer(index: number) {
     void dispatchUiIntent({
       type: "runtime.shop.buy",
@@ -777,7 +798,7 @@ export function GameShell() {
 
   async function handlePushRemote() {
     try {
-      await pushBackendProfile(normalizeBackendUrl(backendUrl), activeSlot);
+      await pushBackendProfile(normalizeBackendUrl(backendUrl), remoteProfileSlot);
       if (currentSession) {
         await syncCurrentSessionToRemote(currentSession, backendUrl);
       }
@@ -1405,6 +1426,55 @@ export function GameShell() {
         </section>
 
         <aside className="side-column">
+          <section className="panel" data-testid="augment-panel">
+            <div className="eyebrow">{copy.augmentDraft}</div>
+            {pendingAugments.length > 0 ? (
+              <>
+                <div className="muted">
+                  {copy.augmentDraftHint}{" "}
+                  {runtimeSnapshot.world.slice.augmentDraftRound > 0
+                    ? locale === "zh-CN"
+                      ? `当前为第 ${runtimeSnapshot.world.slice.augmentDraftRound} 回合。`
+                      : `Current trigger: round ${runtimeSnapshot.world.slice.augmentDraftRound}.`
+                    : null}
+                </div>
+                <div className="offer-grid">
+                  {pendingAugments.map((augment, index) => (
+                    <button
+                      key={`${augment.key}-${index}`}
+                      type="button"
+                      className="offer-card"
+                      onClick={() => handleChooseAugment(index)}
+                      data-testid={`augment-choice-${index}`}
+                    >
+                      <span className="slot-title">{augment.label}</span>
+                      <span className="slot-meta">{augment.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="muted">{copy.lockedAugments}</div>
+                <div className="trait-grid">
+                  {selectedAugments.length > 0 ? (
+                    selectedAugments.map((augment) => (
+                      <AugmentCard key={augment.key} augment={augment} />
+                    ))
+                  ) : (
+                    <div className="trait-card">
+                      <span className="slot-meta">
+                        {locale === "zh-CN"
+                          ? "本局还没有锁定强化。"
+                          : "No augments locked yet this run."}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+
           <section className="panel" data-testid="enemy-panel">
             <div className="eyebrow">{copy.enemyLineup}</div>
             <div className="stat-grid stat-grid-two">
@@ -1954,6 +2024,15 @@ function UnitPortrait({
         alt={unit.label}
         loading="lazy"
       />
+    </div>
+  );
+}
+
+function AugmentCard({ augment }: { augment: RuntimeAugmentView }) {
+  return (
+    <div className="trait-card active">
+      <span className="slot-title">{augment.label}</span>
+      <span className="slot-meta">{augment.description}</span>
     </div>
   );
 }

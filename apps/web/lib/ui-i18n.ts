@@ -71,6 +71,9 @@ type UiCopy = {
   intent: string;
   roster: string;
   rosterHint: string;
+  augmentDraft: string;
+  augmentDraftHint: string;
+  lockedAugments: string;
   status: string;
   statusSummary: string;
   runtimeActive: string;
@@ -207,6 +210,9 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     roster: "Roster",
     rosterHint:
       "Numeron now runs an eight-unit opening pool so real shop and composition decisions show up early.",
+    augmentDraft: "Augment Draft",
+    augmentDraftHint: "Pick one augment before combat resumes.",
+    lockedAugments: "Locked Augments",
     status: "Status",
     statusSummary:
       "Current runtime supports lockable shops, leveling, streak/interest economy, visible skill cadence, and restartable runs.",
@@ -340,6 +346,9 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     intent: "意图",
     roster: "单位池",
     rosterHint: "Numeron 现在有 8 个起始单位，可以开始测试真正的商店与阵容决策。",
+    augmentDraft: "强化选择",
+    augmentDraftHint: "先选一个强化，再继续进入战斗。",
+    lockedAugments: "已锁定强化",
     status: "状态",
     statusSummary:
       "当前 runtime 已支持锁店、等级与经济层、敌方预判、技能节奏显示，以及可重开的 run。",

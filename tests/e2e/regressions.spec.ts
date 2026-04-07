@@ -76,9 +76,13 @@ test("buying the third matching copy merges into a two-star unit", async ({ page
 
   expect(boughtCopies).toBe(2);
 
-  await expect(page.getByTestId("board-slot-0")).toContainText(
-    /Verdant Bruiser II|翠卫斗士 II/,
-  );
+  await expect
+    .poll(async () => {
+      return `${await page.getByTestId("deployment-panel").innerText()}\n${await page
+        .getByTestId("bench-panel")
+        .innerText()}`;
+    })
+    .toMatch(/Verdant Bruiser II|翠卫斗士 II/);
   await expect(page.getByTestId("status-panel")).toContainText(/Merged three|已将三个/);
 });
 
@@ -100,6 +104,25 @@ test("buying xp unlocks an extra deployment slot", async ({ page }) => {
   await expect(page.getByTestId("board-slot-2")).toBeEnabled();
   await page.getByTestId("board-slot-2").click();
   await expect(page.getByTestId("board-slot-2")).not.toContainText(/Empty Slot|空槽位/);
+});
+
+test("augment draft blocks combat until a choice is locked", async ({ page }) => {
+  await openShell(page);
+  await launchRuntime(page);
+
+  await deployBenchUnitAtIndex(page, 0, 0);
+  await page.getByTestId("start-combat").click();
+  await waitForRoundResolution(page);
+  await advanceToNextRound(page, 2);
+
+  await expect(page.getByTestId("augment-panel")).toContainText(/Augment Draft|强化选择/);
+  await expect(page.getByTestId("augment-choice-0")).toBeVisible();
+  await expect(page.getByTestId("start-combat")).toBeDisabled();
+
+  await page.getByTestId("augment-choice-0").click();
+
+  await expect(page.getByTestId("augment-panel")).toContainText(/Locked Augments|已锁定强化/);
+  await expect(page.getByTestId("start-combat")).toBeEnabled();
 });
 
 test("switching save slots restores slot-scoped locale and player profile", async ({
