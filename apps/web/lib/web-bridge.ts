@@ -12,9 +12,13 @@ import {
   type VirtualInputState,
 } from "@/lib/types";
 import {
+  buyRuntimeShopOffer,
   getRuntimeBootSnapshot,
   launchRuntime,
+  rerollRuntimeShop,
+  resetRuntimeRound,
   setRuntimeSessionConfig,
+  startRuntimeCombat,
   setRuntimeVirtualInput,
   subscribeToRuntimeBootStatus,
   subscribeToRuntimeEvents,
@@ -108,6 +112,22 @@ export async function dispatchUiIntent(intent: UiIntent): Promise<RuntimeSnapsho
       }
 
       await launchRuntime(bootConfig);
+      return currentSnapshot;
+    }
+    case "runtime.round.start": {
+      startRuntimeCombat();
+      return currentSnapshot;
+    }
+    case "runtime.round.reset": {
+      resetRuntimeRound();
+      return currentSnapshot;
+    }
+    case "runtime.shop.reroll": {
+      rerollRuntimeShop();
+      return currentSnapshot;
+    }
+    case "runtime.shop.buy": {
+      buyRuntimeShopOffer(intent.index);
       return currentSnapshot;
     }
   }
@@ -205,10 +225,23 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
         }
       : null,
     slice: {
+      phase:
+        projection.slice?.phase || DEFAULT_RUNTIME_PROJECTION.slice.phase,
       objective:
         projection.slice?.objective || DEFAULT_RUNTIME_PROJECTION.slice.objective,
       status: projection.slice?.status || DEFAULT_RUNTIME_PROJECTION.slice.status,
       score: Number(projection.slice?.score ?? 0),
+      gold: Number(
+        projection.slice?.gold ?? DEFAULT_RUNTIME_PROJECTION.slice.gold,
+      ),
+      playerHealth: Number(
+        projection.slice?.playerHealth ??
+          DEFAULT_RUNTIME_PROJECTION.slice.playerHealth,
+      ),
+      enemyHealth: Number(
+        projection.slice?.enemyHealth ??
+          DEFAULT_RUNTIME_PROJECTION.slice.enemyHealth,
+      ),
       captured: Number(projection.slice?.captured ?? 0),
       total: Number(
         projection.slice?.total ?? DEFAULT_RUNTIME_PROJECTION.slice.total,
@@ -216,6 +249,13 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       round: Number(
         projection.slice?.round ?? DEFAULT_RUNTIME_PROJECTION.slice.round,
       ),
+      rerollCost: Number(
+        projection.slice?.rerollCost ??
+          DEFAULT_RUNTIME_PROJECTION.slice.rerollCost,
+      ),
+      shopOffers: Array.isArray(projection.slice?.shopOffers)
+        ? projection.slice.shopOffers.map((offer) => String(offer))
+        : DEFAULT_RUNTIME_PROJECTION.slice.shopOffers,
       completed: Boolean(projection.slice?.completed),
     },
   };

@@ -1,9 +1,10 @@
-use crate::RuntimeConfig;
 use crate::starter_scene::{BoardAnchor, StarterSliceProjection};
 use bevy::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
 use js_sys::{Function, Object, Reflect};
+#[cfg(target_arch = "wasm32")]
+use crate::RuntimeConfig;
 #[cfg(target_arch = "wasm32")]
 use std::cell::RefCell;
 #[cfg(target_arch = "wasm32")]
@@ -29,6 +30,7 @@ thread_local! {
     static RUNTIME_EVENT_SINK: RefCell<Option<Function>> = const { RefCell::new(None) };
     static SESSION_CONFIG: RefCell<PendingSessionConfig> = RefCell::new(PendingSessionConfig::default());
     static VIRTUAL_INPUT: RefCell<PendingVirtualInput> = const { RefCell::new(PendingVirtualInput { x: 0.0, y: 0.0 }) };
+    static COMMAND_QUEUE: RefCell<Vec<RuntimeCommand>> = const { RefCell::new(Vec::new()) };
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -53,6 +55,15 @@ impl Default for PendingSessionConfig {
 struct PendingVirtualInput {
     x: f32,
     y: f32,
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[derive(Clone, Debug)]
+pub enum RuntimeCommand {
+    StartCombat,
+    ResetRound,
+    RerollShop,
+    BuyOffer(usize),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -115,6 +126,40 @@ pub fn set_runtime_virtual_input(x: f32, y: f32) {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = startRuntimeCombat)]
+pub fn start_runtime_combat() {
+    COMMAND_QUEUE.with(|queue| {
+        queue.borrow_mut().push(RuntimeCommand::StartCombat);
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = resetRuntimeRound)]
+pub fn reset_runtime_round() {
+    COMMAND_QUEUE.with(|queue| {
+        queue.borrow_mut().push(RuntimeCommand::ResetRound);
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = rerollRuntimeShop)]
+pub fn reroll_runtime_shop() {
+    COMMAND_QUEUE.with(|queue| {
+        queue.borrow_mut().push(RuntimeCommand::RerollShop);
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = buyRuntimeShopOffer)]
+pub fn buy_runtime_shop_offer(index: u32) {
+    COMMAND_QUEUE.with(|queue| {
+        queue
+            .borrow_mut()
+            .push(RuntimeCommand::BuyOffer(index as usize));
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = bootRuntime)]
 pub fn boot_runtime() {
     console_error_panic_hook::set_once();
@@ -156,6 +201,18 @@ pub fn read_runtime_virtual_input() -> Option<Vec2> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         None
+    }
+}
+
+pub fn take_runtime_commands() -> Vec<RuntimeCommand> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        return COMMAND_QUEUE.with(|queue| queue.take());
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        Vec::new()
     }
 }
 
@@ -203,12 +260,18 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         x: 0.0,
         y: 0.0,
         touch_controls: false,
+        phase: slice.phase,
         objective: slice.objective,
         status: slice.status,
         score: slice.score,
+        gold: slice.gold,
+        player_health: slice.player_health,
+        enemy_health: slice.enemy_health,
         captured: slice.captured,
         total: slice.total,
         round: slice.round,
+        reroll_cost: slice.reroll_cost,
+        shop_offers: slice.shop_offers,
         completed: slice.completed,
     }
 }
@@ -220,12 +283,18 @@ struct ProjectionPayload {
     x: f32,
     y: f32,
     touch_controls: bool,
+    phase: String,
     objective: String,
     status: String,
     score: u32,
+    gold: u32,
+    player_health: u32,
+    enemy_health: u32,
     captured: usize,
     total: usize,
     round: u32,
+    reroll_cost: u32,
+    shop_offers: Vec<String>,
     completed: bool,
 }
 
@@ -276,14 +345,40 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
             let _ = Reflect::set(&projection_object, &"player".into(), &player);
             let _ = Reflect::set(
                 &slice,
+                &"phase".into(),
+                &projection.phase.clone().into(),
+            );
+            let _ = Reflect::set(
+                &slice,
                 &"objective".into(),
                 &projection.objective.clone().into(),
             );
             let _ = Reflect::set(&slice, &"status".into(), &projection.status.clone().into());
             let _ = Reflect::set(&slice, &"score".into(), &projection.score.into());
+            let _ = Reflect::set(&slice, &"gold".into(), &projection.gold.into());
+            let _ = Reflect::set(
+                &slice,
+                &"playerHealth".into(),
+                &projection.player_health.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"enemyHealth".into(),
+                &projection.enemy_health.into(),
+            );
             let _ = Reflect::set(&slice, &"captured".into(), &projection.captured.into());
             let _ = Reflect::set(&slice, &"total".into(), &projection.total.into());
             let _ = Reflect::set(&slice, &"round".into(), &projection.round.into());
+            let _ = Reflect::set(
+                &slice,
+                &"rerollCost".into(),
+                &projection.reroll_cost.into(),
+            );
+            let offers = js_sys::Array::new();
+            for offer in &projection.shop_offers {
+                offers.push(&offer.clone().into());
+            }
+            let _ = Reflect::set(&slice, &"shopOffers".into(), &offers);
             let _ = Reflect::set(&slice, &"completed".into(), &projection.completed.into());
             let _ = Reflect::set(&projection_object, &"slice".into(), &slice);
             let _ = Reflect::set(&payload, &"projection".into(), &projection_object);

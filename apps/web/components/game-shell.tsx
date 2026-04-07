@@ -83,6 +83,14 @@ export function GameShell() {
   const remoteHydrated = useRef(false);
 
   const activeSlot = getActiveSlot(saveCollection);
+  const currentPhase = runtimeSnapshot.world.slice.phase;
+  const canDraft = runtimeSnapshot.world.ready && currentPhase === "preparation";
+  const canStartCombat =
+    runtimeSnapshot.world.ready &&
+    currentPhase === "preparation" &&
+    runtimeSnapshot.world.slice.captured > 0;
+  const canAdvanceRound =
+    runtimeSnapshot.world.ready && currentPhase === "resolution";
 
   useEffect(() => {
     const storedCollection = loadStoredSaveCollection();
@@ -256,7 +264,12 @@ export function GameShell() {
 
     setCurrentSession((current) => {
       const now = new Date().toISOString();
-      const nextStatus = runtimeSnapshot.world.slice.completed ? "completed" : "live";
+      const nextStatus =
+        runtimeSnapshot.world.slice.completed
+          ? "completed"
+          : runtimeSnapshot.world.slice.phase === "preparation"
+            ? "staging"
+            : "live";
 
       if (!current || current.id !== nextSessionId) {
         return {
@@ -501,6 +514,31 @@ export function GameShell() {
     });
   }
 
+  function handleStartCombat() {
+    void dispatchUiIntent({
+      type: "runtime.round.start",
+    });
+  }
+
+  function handleResetRound() {
+    void dispatchUiIntent({
+      type: "runtime.round.reset",
+    });
+  }
+
+  function handleRerollShop() {
+    void dispatchUiIntent({
+      type: "runtime.shop.reroll",
+    });
+  }
+
+  function handleBuyOffer(index: number) {
+    void dispatchUiIntent({
+      type: "runtime.shop.buy",
+      index,
+    });
+  }
+
   async function handlePullRemote() {
     try {
       const snapshot = await fetchBackendSnapshot(normalizeBackendUrl(backendUrl));
@@ -724,6 +762,74 @@ export function GameShell() {
         </section>
 
         <section className="panel">
+          <div className="eyebrow">Battle Controls</div>
+          <div className="stat-grid">
+            <div className="stat-card">
+              <span className="stat-label">Phase</span>
+              <strong>{formatPhaseLabel(currentPhase)}</strong>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Gold</span>
+              <strong>{runtimeSnapshot.world.slice.gold}</strong>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Reroll</span>
+              <strong>{runtimeSnapshot.world.slice.rerollCost}</strong>
+            </div>
+          </div>
+          <div className="action-row">
+            <button
+              className="button"
+              onClick={handleStartCombat}
+              disabled={!canStartCombat}
+              data-testid="start-combat"
+            >
+              Start Combat
+            </button>
+            <button
+              className="button secondary"
+              onClick={handleResetRound}
+              disabled={!canAdvanceRound}
+              data-testid="next-round"
+            >
+              Next Round
+            </button>
+          </div>
+        </section>
+
+        <section className="panel" data-testid="draft-shop">
+          <div className="eyebrow">Draft Shop</div>
+          <div className="offer-grid">
+            {runtimeSnapshot.world.slice.shopOffers.map((offer, index) => (
+              <button
+                key={`${offer}-${index}`}
+                type="button"
+                className="offer-card"
+                onClick={() => handleBuyOffer(index)}
+                disabled={!canDraft || runtimeSnapshot.world.slice.gold < 3}
+                data-testid={`shop-offer-${index}`}
+              >
+                <span className="slot-title">{offer}</span>
+                <span className="slot-meta">Cost 3</span>
+              </button>
+            ))}
+          </div>
+          <div className="action-row">
+            <button
+              className="button secondary"
+              onClick={handleRerollShop}
+              disabled={!canDraft || runtimeSnapshot.world.slice.gold < runtimeSnapshot.world.slice.rerollCost}
+              data-testid="reroll-shop"
+            >
+              Reroll Shop
+            </button>
+          </div>
+          <div className="muted">
+            Drafted units deploy straight into the allied lane for this vertical slice.
+          </div>
+        </section>
+
+        <section className="panel">
           <div className="eyebrow">Status</div>
           <div>{renderBootRecord(runtimeSnapshot.boot.current)}</div>
           <div className="muted">
@@ -739,7 +845,7 @@ export function GameShell() {
           </div>
           <div className="muted">
             Board Seed: {runtimeSnapshot.world.slice.captured}/
-            {runtimeSnapshot.world.slice.total || "?"} units staged
+            {runtimeSnapshot.world.slice.total || "?"} units active
           </div>
           <div className="muted">
             Board objective: {runtimeSnapshot.world.slice.objective}
@@ -761,8 +867,8 @@ export function GameShell() {
               <strong>{currentSession?.round ?? runtimeSnapshot.world.slice.round}</strong>
             </div>
             <div className="stat-card">
-              <span className="stat-label">Board Score</span>
-              <strong>{currentSession?.score ?? runtimeSnapshot.world.slice.score}</strong>
+              <span className="stat-label">Gold</span>
+              <strong>{runtimeSnapshot.world.slice.gold}</strong>
             </div>
           </div>
           <div className="muted">Session id: {currentSession?.id ?? "awaiting runtime"}</div>
@@ -771,8 +877,8 @@ export function GameShell() {
             {formatTimestamp(currentSession?.endedAt)}
           </div>
           <div className="muted">
-            Seeded Units: {runtimeSnapshot.world.slice.captured}/
-            {runtimeSnapshot.world.slice.total || "?"}
+            HP: {runtimeSnapshot.world.slice.playerHealth} commander ·{" "}
+            {runtimeSnapshot.world.slice.enemyHealth} enemy
           </div>
         </section>
 
@@ -906,7 +1012,7 @@ export function GameShell() {
               <div className="eyebrow">Board Slice</div>
               <div className="objective-title">
                 {runtimeSnapshot.world.slice.captured}/{runtimeSnapshot.world.slice.total || "?"}{" "}
-                seeded units
+                active units
               </div>
               <div className="muted">{runtimeSnapshot.world.slice.status}</div>
             </div>
@@ -921,55 +1027,35 @@ export function GameShell() {
 
             {runtimeSnapshot.bootConfig.touchControls ? (
               <div className="touch-card">
-                <div className="eyebrow">Touch Controls</div>
+                <div className="eyebrow">Quick Actions</div>
                 <div className="touch-grid">
                   <button
                     className="touch-button"
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                      setControlPressed("up", true);
-                    }}
-                    onPointerUp={() => setControlPressed("up", false)}
-                    onPointerCancel={() => setControlPressed("up", false)}
-                    onPointerLeave={() => setControlPressed("up", false)}
+                    onClick={handleStartCombat}
+                    disabled={!canStartCombat}
                   >
-                    Up
+                    Start
                   </button>
                   <button
                     className="touch-button"
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                      setControlPressed("left", true);
-                    }}
-                    onPointerUp={() => setControlPressed("left", false)}
-                    onPointerCancel={() => setControlPressed("left", false)}
-                    onPointerLeave={() => setControlPressed("left", false)}
+                    onClick={handleResetRound}
+                    disabled={!canAdvanceRound}
                   >
-                    Left
+                    Next
                   </button>
                   <button
                     className="touch-button"
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                      setControlPressed("right", true);
-                    }}
-                    onPointerUp={() => setControlPressed("right", false)}
-                    onPointerCancel={() => setControlPressed("right", false)}
-                    onPointerLeave={() => setControlPressed("right", false)}
+                    onClick={handleRerollShop}
+                    disabled={!canDraft || runtimeSnapshot.world.slice.gold < runtimeSnapshot.world.slice.rerollCost}
                   >
-                    Right
+                    Roll
                   </button>
                   <button
                     className="touch-button"
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                      setControlPressed("down", true);
-                    }}
-                    onPointerUp={() => setControlPressed("down", false)}
-                    onPointerCancel={() => setControlPressed("down", false)}
-                    onPointerLeave={() => setControlPressed("down", false)}
+                    onClick={() => handleBuyOffer(0)}
+                    disabled={!canDraft || runtimeSnapshot.world.slice.gold < 3 || runtimeSnapshot.world.slice.shopOffers.length === 0}
                   >
-                    Down
+                    Draft
                   </button>
                 </div>
               </div>
@@ -1149,6 +1235,17 @@ function formatBadgeLabel(badge: ProgressionBadge) {
       return "Score 300";
     case "loop-3":
       return "Loop 3";
+  }
+}
+
+function formatPhaseLabel(phase: RuntimeSnapshot["world"]["slice"]["phase"]) {
+  switch (phase) {
+    case "preparation":
+      return "Prep";
+    case "combat":
+      return "Combat";
+    case "resolution":
+      return "Resolution";
   }
 }
 

@@ -180,6 +180,12 @@ textarea {
   gap: 10px;
 }
 
+.offer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .slot-card {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -191,6 +197,26 @@ textarea {
   align-items: flex-start;
   gap: 6px;
   text-align: left;
+}
+
+.offer-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+}
+
+.offer-card:disabled,
+.button:disabled,
+.touch-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .slot-card.active {
@@ -344,6 +370,10 @@ textarea {
   }
 
   .slot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .offer-grid {
     grid-template-columns: 1fr;
   }
 }

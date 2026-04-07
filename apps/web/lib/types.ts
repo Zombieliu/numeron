@@ -38,12 +38,18 @@ export type RuntimeProjection = {
     y: number;
   } | null;
   slice: {
+    phase: "preparation" | "combat" | "resolution";
     objective: string;
     status: string;
     score: number;
+    gold: number;
+    playerHealth: number;
+    enemyHealth: number;
     captured: number;
     total: number;
     round: number;
+    rerollCost: number;
+    shopOffers: string[];
     completed: boolean;
   };
 };
@@ -168,6 +174,19 @@ export type UiIntent =
   | {
       type: "runtime.virtual-input.set";
       input: VirtualInputState;
+    }
+  | {
+      type: "runtime.round.start";
+    }
+  | {
+      type: "runtime.round.reset";
+    }
+  | {
+      type: "runtime.shop.reroll";
+    }
+  | {
+      type: "runtime.shop.buy";
+      index: number;
     };
 
 export type RuntimeEvent =
@@ -212,12 +231,18 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
   touchControls: true,
   player: null,
   slice: {
+    phase: "preparation",
     objective: "Stand up the first Numeron board slice.",
     status: "Waiting for board allocation.",
     score: 0,
+    gold: 0,
+    playerHealth: 30,
+    enemyHealth: 30,
     captured: 0,
     total: 0,
     round: 1,
+    rerollCost: 1,
+    shopOffers: [],
     completed: false,
   },
 };

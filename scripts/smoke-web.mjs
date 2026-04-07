@@ -171,6 +171,15 @@ async function runSmoke(url) {
 
     await page.locator("text=/scene-ready/i").first().waitFor({ timeout: 30_000 });
 
+    const firstOffer = page.getByTestId("shop-offer-0");
+    await firstOffer.click();
+    await page.getByTestId("start-combat").click();
+    await page.waitForFunction(() => {
+      const panels = Array.from(document.querySelectorAll("section.panel"));
+      const status = panels.find((panel) => panel.textContent?.includes("Round state:"));
+      return /Resolution phase|Victory|Defeat/i.test(status?.textContent ?? "");
+    }, null, { timeout: 15_000 });
+
     const statusPanel = page.locator("section.panel").filter({ hasText: "Status" }).first();
     const statusText = await statusPanel.innerText();
     const progressionPanel = page
@@ -193,8 +202,12 @@ async function runSmoke(url) {
       throw new Error(`Smoke failed: runtime never became active.\n${statusText}`);
     }
 
-    if (!/Board Seed:\s+2\/4 units staged/i.test(statusText)) {
-      throw new Error(`Smoke failed: board seed state did not materialize.\n${statusText}`);
+    if (!/Board Seed:\s+\d+\/\d+ units active/i.test(statusText)) {
+      throw new Error(`Smoke failed: board state did not materialize.\n${statusText}`);
+    }
+
+    if (!/Round state:\s+Resolution phase|Round state:\s+Victory|Round state:\s+Defeat/i.test(statusText)) {
+      throw new Error(`Smoke failed: combat never resolved.\n${statusText}`);
     }
 
     if (!/Runs launched:\s+1/i.test(progressionText) || !/Level/i.test(progressionText)) {
@@ -215,7 +228,8 @@ async function runSmoke(url) {
     if (
       !/"activeSlotId": "slot-1"/.test(profileJson) ||
       !/"runsLaunched": 1/.test(profileJson) ||
-      !/"totalRuns": 1/.test(profileJson)
+      !/"totalRuns": 1/.test(profileJson) ||
+      !/"template": "numeron-run"/.test(profileJson)
     ) {
       throw new Error(`Smoke failed: save export payload is incomplete.\n${profileJson}`);
     }

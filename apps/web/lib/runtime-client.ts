@@ -30,6 +30,10 @@ type RuntimeModule = {
   clearRuntimeEventSink?: () => void;
   setRuntimeSessionConfig?: (playerName: string, touchControls: boolean) => void;
   setRuntimeVirtualInput?: (x: number, y: number) => void;
+  startRuntimeCombat?: () => void;
+  resetRuntimeRound?: () => void;
+  rerollRuntimeShop?: () => void;
+  buyRuntimeShopOffer?: (index: number) => void;
 };
 
 const listeners = new Set<(snapshot: RuntimeBootSnapshot) => void>();
@@ -99,6 +103,22 @@ export function setRuntimeVirtualInput(input: VirtualInputState) {
 export function launchRuntime(config: RuntimeBootConfig) {
   setRuntimeSessionConfig(config);
   return ensureRuntimeBoot();
+}
+
+export function startRuntimeCombat() {
+  runtimeModule?.startRuntimeCombat?.();
+}
+
+export function resetRuntimeRound() {
+  runtimeModule?.resetRuntimeRound?.();
+}
+
+export function rerollRuntimeShop() {
+  runtimeModule?.rerollRuntimeShop?.();
+}
+
+export function buyRuntimeShopOffer(index: number) {
+  runtimeModule?.buyRuntimeShopOffer?.(index);
 }
 
 function ensureRuntimeBoot() {
@@ -232,10 +252,23 @@ function normalizeRuntimeEventPayload(
           }
         : null,
       slice: {
+        phase:
+          projection.slice?.phase || DEFAULT_RUNTIME_PROJECTION.slice.phase,
         objective:
           projection.slice?.objective || DEFAULT_RUNTIME_PROJECTION.slice.objective,
         status: projection.slice?.status || DEFAULT_RUNTIME_PROJECTION.slice.status,
         score: Number(projection.slice?.score ?? 0),
+        gold: Number(
+          projection.slice?.gold ?? DEFAULT_RUNTIME_PROJECTION.slice.gold,
+        ),
+        playerHealth: Number(
+          projection.slice?.playerHealth ??
+            DEFAULT_RUNTIME_PROJECTION.slice.playerHealth,
+        ),
+        enemyHealth: Number(
+          projection.slice?.enemyHealth ??
+            DEFAULT_RUNTIME_PROJECTION.slice.enemyHealth,
+        ),
         captured: Number(projection.slice?.captured ?? 0),
         total: Number(
           projection.slice?.total ?? DEFAULT_RUNTIME_PROJECTION.slice.total,
@@ -243,6 +276,13 @@ function normalizeRuntimeEventPayload(
         round: Number(
           projection.slice?.round ?? DEFAULT_RUNTIME_PROJECTION.slice.round,
         ),
+        rerollCost: Number(
+          projection.slice?.rerollCost ??
+            DEFAULT_RUNTIME_PROJECTION.slice.rerollCost,
+        ),
+        shopOffers: Array.isArray(projection.slice?.shopOffers)
+          ? projection.slice.shopOffers.map((offer) => String(offer))
+          : DEFAULT_RUNTIME_PROJECTION.slice.shopOffers,
         completed: Boolean(projection.slice?.completed),
       },
     },
