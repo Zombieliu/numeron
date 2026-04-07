@@ -171,8 +171,13 @@ async function runSmoke(url) {
 
     await page.locator("text=/scene-ready/i").first().waitFor({ timeout: 30_000 });
 
-    const firstOffer = page.getByTestId("shop-offer-0");
-    await firstOffer.click();
+    await page.getByTestId("shop-offer-0").click();
+    await page.getByTestId("bench-slot-1").click();
+    await page.getByTestId("board-slot-0").click();
+    await page.waitForFunction(() => {
+      const boardSlot = document.querySelector('[data-testid="board-slot-0"]');
+      return Boolean(boardSlot?.textContent && !/Empty Slot/i.test(boardSlot.textContent));
+    }, null, { timeout: 10_000 });
     await page.getByTestId("start-combat").click();
     await page.waitForFunction(() => {
       const panels = Array.from(document.querySelectorAll("section.panel"));
@@ -204,6 +209,13 @@ async function runSmoke(url) {
 
     if (!/Board Seed:\s+\d+\/\d+ units active/i.test(statusText)) {
       throw new Error(`Smoke failed: board state did not materialize.\n${statusText}`);
+    }
+
+    const benchPanel = page.getByTestId("bench-panel");
+    const benchText = await benchPanel.innerText();
+
+    if (!/Bench/i.test(benchText) || !/Click to select|Selected for deployment|Buy from the shop/i.test(benchText)) {
+      throw new Error(`Smoke failed: bench panel did not materialize.\n${benchText}`);
     }
 
     if (!/Round state:\s+Resolution phase|Round state:\s+Victory|Round state:\s+Defeat/i.test(statusText)) {

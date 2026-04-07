@@ -13,6 +13,7 @@ import {
 } from "@/lib/types";
 import {
   buyRuntimeShopOffer,
+  deployRuntimeBenchUnit,
   getRuntimeBootSnapshot,
   launchRuntime,
   rerollRuntimeShop,
@@ -22,6 +23,7 @@ import {
   setRuntimeVirtualInput,
   subscribeToRuntimeBootStatus,
   subscribeToRuntimeEvents,
+  withdrawRuntimeBoardUnit,
 } from "@/lib/runtime-client";
 
 type BootRuntimeBridgeOptions = {
@@ -128,6 +130,14 @@ export async function dispatchUiIntent(intent: UiIntent): Promise<RuntimeSnapsho
     }
     case "runtime.shop.buy": {
       buyRuntimeShopOffer(intent.index);
+      return currentSnapshot;
+    }
+    case "runtime.board.deploy": {
+      deployRuntimeBenchUnit(intent.benchIndex, intent.slotIndex);
+      return currentSnapshot;
+    }
+    case "runtime.board.withdraw": {
+      withdrawRuntimeBoardUnit(intent.slotIndex);
       return currentSnapshot;
     }
   }
@@ -256,6 +266,27 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       shopOffers: Array.isArray(projection.slice?.shopOffers)
         ? projection.slice.shopOffers.map((offer) => String(offer))
         : DEFAULT_RUNTIME_PROJECTION.slice.shopOffers,
+      benchUnits: Array.isArray(projection.slice?.benchUnits)
+        ? projection.slice.benchUnits.map((unit) => String(unit))
+        : DEFAULT_RUNTIME_PROJECTION.slice.benchUnits,
+      playerBoard: Array.isArray(projection.slice?.playerBoard)
+        ? projection.slice.playerBoard.map((unit) =>
+            unit == null ? null : String(unit),
+          )
+        : DEFAULT_RUNTIME_PROJECTION.slice.playerBoard,
+      enemyBoard: Array.isArray(projection.slice?.enemyBoard)
+        ? projection.slice.enemyBoard.map((unit) =>
+            unit == null ? null : String(unit),
+          )
+        : DEFAULT_RUNTIME_PROJECTION.slice.enemyBoard,
+      benchCapacity: Number(
+        projection.slice?.benchCapacity ??
+          DEFAULT_RUNTIME_PROJECTION.slice.benchCapacity,
+      ),
+      boardCapacity: Number(
+        projection.slice?.boardCapacity ??
+          DEFAULT_RUNTIME_PROJECTION.slice.boardCapacity,
+      ),
       completed: Boolean(projection.slice?.completed),
     },
   };

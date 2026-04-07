@@ -2,9 +2,9 @@ use crate::starter_scene::{BoardAnchor, StarterSliceProjection};
 use bevy::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use js_sys::{Function, Object, Reflect};
-#[cfg(target_arch = "wasm32")]
 use crate::RuntimeConfig;
+#[cfg(target_arch = "wasm32")]
+use js_sys::{Function, Object, Reflect};
 #[cfg(target_arch = "wasm32")]
 use std::cell::RefCell;
 #[cfg(target_arch = "wasm32")]
@@ -64,6 +64,11 @@ pub enum RuntimeCommand {
     ResetRound,
     RerollShop,
     BuyOffer(usize),
+    DeployBenchToBoard {
+        bench_index: usize,
+        slot_index: usize,
+    },
+    WithdrawBoardUnit(usize),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -160,6 +165,27 @@ pub fn buy_runtime_shop_offer(index: u32) {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = deployRuntimeBenchUnit)]
+pub fn deploy_runtime_bench_unit(bench_index: u32, slot_index: u32) {
+    COMMAND_QUEUE.with(|queue| {
+        queue.borrow_mut().push(RuntimeCommand::DeployBenchToBoard {
+            bench_index: bench_index as usize,
+            slot_index: slot_index as usize,
+        });
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = withdrawRuntimeBoardUnit)]
+pub fn withdraw_runtime_board_unit(slot_index: u32) {
+    COMMAND_QUEUE.with(|queue| {
+        queue
+            .borrow_mut()
+            .push(RuntimeCommand::WithdrawBoardUnit(slot_index as usize));
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = bootRuntime)]
 pub fn boot_runtime() {
     console_error_panic_hook::set_once();
@@ -226,21 +252,13 @@ fn publish_runtime_ready(
     }
 
     if board.single().is_ok() {
-        publish_status(
-            "scene-ready",
-            "Numeron board slice allocated",
-        );
-        publish_runtime_event(
-            "runtime.ready",
-            &projection_object(slice.as_deref()),
-        );
+        publish_status("scene-ready", "Numeron board slice allocated");
+        publish_runtime_event("runtime.ready", &projection_object(slice.as_deref()));
         state.ready_emitted = true;
     }
 }
 
-fn publish_runtime_projection(
-    slice: Option<Res<StarterSliceProjection>>,
-) {
+fn publish_runtime_projection(slice: Option<Res<StarterSliceProjection>>) {
     let slice_changed = slice.as_ref().is_some_and(|value| value.is_changed());
 
     if slice_changed {
@@ -272,6 +290,11 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         round: slice.round,
         reroll_cost: slice.reroll_cost,
         shop_offers: slice.shop_offers,
+        bench_units: slice.bench_units,
+        player_board: slice.player_board,
+        enemy_board: slice.enemy_board,
+        bench_capacity: slice.bench_capacity,
+        board_capacity: slice.board_capacity,
         completed: slice.completed,
     }
 }
@@ -295,6 +318,11 @@ struct ProjectionPayload {
     round: u32,
     reroll_cost: u32,
     shop_offers: Vec<String>,
+    bench_units: Vec<String>,
+    player_board: Vec<Option<String>>,
+    enemy_board: Vec<Option<String>>,
+    bench_capacity: usize,
+    board_capacity: usize,
     completed: bool,
 }
 
@@ -343,11 +371,7 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
             let _ = Reflect::set(&player, &"x".into(), &projection.x.into());
             let _ = Reflect::set(&player, &"y".into(), &projection.y.into());
             let _ = Reflect::set(&projection_object, &"player".into(), &player);
-            let _ = Reflect::set(
-                &slice,
-                &"phase".into(),
-                &projection.phase.clone().into(),
-            );
+            let _ = Reflect::set(&slice, &"phase".into(), &projection.phase.clone().into());
             let _ = Reflect::set(
                 &slice,
                 &"objective".into(),
@@ -369,16 +393,43 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
             let _ = Reflect::set(&slice, &"captured".into(), &projection.captured.into());
             let _ = Reflect::set(&slice, &"total".into(), &projection.total.into());
             let _ = Reflect::set(&slice, &"round".into(), &projection.round.into());
-            let _ = Reflect::set(
-                &slice,
-                &"rerollCost".into(),
-                &projection.reroll_cost.into(),
-            );
+            let _ = Reflect::set(&slice, &"rerollCost".into(), &projection.reroll_cost.into());
             let offers = js_sys::Array::new();
             for offer in &projection.shop_offers {
                 offers.push(&offer.clone().into());
             }
             let _ = Reflect::set(&slice, &"shopOffers".into(), &offers);
+            let bench_units = js_sys::Array::new();
+            for unit in &projection.bench_units {
+                bench_units.push(&unit.clone().into());
+            }
+            let _ = Reflect::set(&slice, &"benchUnits".into(), &bench_units);
+            let player_board = js_sys::Array::new();
+            for unit in &projection.player_board {
+                match unit {
+                    Some(unit) => player_board.push(&unit.clone().into()),
+                    None => player_board.push(&JsValue::NULL),
+                };
+            }
+            let _ = Reflect::set(&slice, &"playerBoard".into(), &player_board);
+            let enemy_board = js_sys::Array::new();
+            for unit in &projection.enemy_board {
+                match unit {
+                    Some(unit) => enemy_board.push(&unit.clone().into()),
+                    None => enemy_board.push(&JsValue::NULL),
+                };
+            }
+            let _ = Reflect::set(&slice, &"enemyBoard".into(), &enemy_board);
+            let _ = Reflect::set(
+                &slice,
+                &"benchCapacity".into(),
+                &projection.bench_capacity.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"boardCapacity".into(),
+                &projection.board_capacity.into(),
+            );
             let _ = Reflect::set(&slice, &"completed".into(), &projection.completed.into());
             let _ = Reflect::set(&projection_object, &"slice".into(), &slice);
             let _ = Reflect::set(&payload, &"projection".into(), &projection_object);

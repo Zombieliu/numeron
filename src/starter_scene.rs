@@ -10,6 +10,7 @@ const CELL_SIZE: f32 = 140.0;
 const CELL_PADDING: f32 = 16.0;
 const UNIT_SIZE_RATIO: f32 = 0.64;
 const SHOP_SIZE: usize = 3;
+const BENCH_CAPACITY: usize = 4;
 const BUY_COST: u32 = 3;
 const REROLL_COST: u32 = 1;
 const STARTING_GOLD: u32 = 6;
@@ -88,6 +89,11 @@ pub struct StarterSliceProjection {
     pub round: u32,
     pub reroll_cost: u32,
     pub shop_offers: Vec<String>,
+    pub bench_units: Vec<String>,
+    pub player_board: Vec<Option<String>>,
+    pub enemy_board: Vec<Option<String>>,
+    pub bench_capacity: usize,
+    pub board_capacity: usize,
     pub completed: bool,
 }
 
@@ -107,6 +113,11 @@ impl Default for StarterSliceProjection {
             round: 1,
             reroll_cost: REROLL_COST,
             shop_offers: Vec::new(),
+            bench_units: Vec::new(),
+            player_board: vec![None; PLAYER_SLOTS.len()],
+            enemy_board: vec![None; ENEMY_SLOTS.len()],
+            bench_capacity: BENCH_CAPACITY,
+            board_capacity: PLAYER_SLOTS.len(),
             completed: false,
         }
     }
@@ -120,7 +131,8 @@ struct ShopState {
 
 #[derive(Resource, Default)]
 struct PlayerSquad {
-    units: Vec<UnitArchetype>,
+    board: [Option<UnitArchetype>; PLAYER_SLOTS.len()],
+    bench: Vec<UnitArchetype>,
 }
 
 #[derive(Resource, Default)]
@@ -209,18 +221,10 @@ impl UnitArchetype {
 
     fn color(self, owner: UnitOwner) -> Color {
         match (self, owner) {
-            (Self::VerdantBruiser, UnitOwner::Player) => {
-                Color::linear_rgba(0.30, 0.83, 0.79, 0.98)
-            }
-            (Self::SignalRanger, UnitOwner::Player) => {
-                Color::linear_rgba(0.32, 0.62, 0.93, 0.98)
-            }
-            (Self::AshDuelist, UnitOwner::Enemy) => {
-                Color::linear_rgba(0.94, 0.41, 0.58, 0.98)
-            }
-            (Self::IronVanguard, UnitOwner::Enemy) => {
-                Color::linear_rgba(0.82, 0.30, 0.35, 0.98)
-            }
+            (Self::VerdantBruiser, UnitOwner::Player) => Color::linear_rgba(0.30, 0.83, 0.79, 0.98),
+            (Self::SignalRanger, UnitOwner::Player) => Color::linear_rgba(0.32, 0.62, 0.93, 0.98),
+            (Self::AshDuelist, UnitOwner::Enemy) => Color::linear_rgba(0.94, 0.41, 0.58, 0.98),
+            (Self::IronVanguard, UnitOwner::Enemy) => Color::linear_rgba(0.82, 0.30, 0.35, 0.98),
             (archetype, UnitOwner::Player) => archetype.color(UnitOwner::Enemy),
             (archetype, UnitOwner::Enemy) => archetype.color(UnitOwner::Player),
         }
@@ -332,11 +336,19 @@ fn setup_board_scene(
     *combat = CombatState::default();
     combat_timer.0.reset();
 
-    player_squad.units = vec![UnitArchetype::VerdantBruiser];
+    player_squad.board = [None; PLAYER_SLOTS.len()];
+    player_squad.bench = vec![UnitArchetype::VerdantBruiser];
     enemy_squad.units = vec![UnitArchetype::AshDuelist, UnitArchetype::IronVanguard];
     reroll_shop(&mut shop, combat.round);
-    spawn_round_units(&mut commands, &board, &player_squad, &enemy_squad, &mut combat);
-    update_projection_from_state(&combat, &shop, &mut projection);
+    combat.status = "Bench primed. Deploy a unit before opening combat.".to_owned();
+    spawn_round_units(
+        &mut commands,
+        &board,
+        &player_squad,
+        &enemy_squad,
+        &mut combat,
+    );
+    update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
 }
 
 fn handle_runtime_commands(
@@ -395,21 +407,61 @@ fn handle_runtime_commands(
             RuntimeCommand::BuyOffer(index) => {
                 if combat.phase != CombatPhase::Preparation
                     || combat.gold < BUY_COST
-                    || player_squad.units.len() >= PLAYER_SLOTS.len()
+                    || player_squad.bench.len() >= BENCH_CAPACITY
                     || index >= shop.offers.len()
                 {
                     continue;
                 }
 
                 let purchased = shop.offers[index];
-                player_squad.units.push(purchased);
+                player_squad.bench.push(purchased);
                 combat.gold -= BUY_COST;
                 combat.status = format!(
-                    "Drafted {}. Squad size is now {}.",
+                    "Drafted {} to bench. Bench now holds {} units.",
                     purchased.label(),
-                    player_squad.units.len()
+                    player_squad.bench.len()
                 );
                 reroll_shop(&mut shop, combat.round + index as u32 + 2);
+            }
+            RuntimeCommand::DeployBenchToBoard {
+                bench_index,
+                slot_index,
+            } => {
+                if combat.phase != CombatPhase::Preparation
+                    || slot_index >= player_squad.board.len()
+                    || bench_index >= player_squad.bench.len()
+                    || player_squad.board[slot_index].is_some()
+                {
+                    continue;
+                }
+
+                let deployed = player_squad.bench.remove(bench_index);
+                player_squad.board[slot_index] = Some(deployed);
+                combat.status = format!(
+                    "Deployed {} into slot {}.",
+                    deployed.label(),
+                    slot_index + 1
+                );
+                needs_respawn = true;
+            }
+            RuntimeCommand::WithdrawBoardUnit(slot_index) => {
+                if combat.phase != CombatPhase::Preparation
+                    || slot_index >= player_squad.board.len()
+                    || player_squad.bench.len() >= BENCH_CAPACITY
+                {
+                    continue;
+                }
+
+                let Some(withdrawn) = player_squad.board[slot_index].take() else {
+                    continue;
+                };
+
+                player_squad.bench.push(withdrawn);
+                combat.status = format!(
+                    "Returned {} to bench from slot {}.",
+                    withdrawn.label(),
+                    slot_index + 1
+                );
                 needs_respawn = true;
             }
         }
@@ -417,10 +469,16 @@ fn handle_runtime_commands(
 
     if needs_respawn {
         despawn_units(&mut commands, units.iter());
-        spawn_round_units(&mut commands, &board, &player_squad, &enemy_squad, &mut combat);
+        spawn_round_units(
+            &mut commands,
+            &board,
+            &player_squad,
+            &enemy_squad,
+            &mut combat,
+        );
     }
 
-    update_projection_from_state(&combat, &shop, &mut projection);
+    update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
 }
 
 fn run_combat_tick(
@@ -433,10 +491,7 @@ fn run_combat_tick(
     mut projection: ResMut<StarterSliceProjection>,
     shop: Res<ShopState>,
     mut timer: ResMut<CombatTickTimer>,
-    mut unit_queries: ParamSet<(
-        Query<(Entity, &UnitEntity)>,
-        Query<&mut UnitEntity>,
-    )>,
+    mut unit_queries: ParamSet<(Query<(Entity, &UnitEntity)>, Query<&mut UnitEntity>)>,
 ) {
     if combat.phase != CombatPhase::Combat {
         return;
@@ -522,9 +577,19 @@ fn run_combat_tick(
             );
         }
 
-        let entities = unit_queries.p0().iter().map(|(entity, _)| entity).collect::<Vec<_>>();
+        let entities = unit_queries
+            .p0()
+            .iter()
+            .map(|(entity, _)| entity)
+            .collect::<Vec<_>>();
         despawn_units(&mut commands, entities.into_iter());
-        spawn_round_units(&mut commands, &board, &player_squad, &enemy_squad, &mut combat);
+        spawn_round_units(
+            &mut commands,
+            &board,
+            &player_squad,
+            &enemy_squad,
+            &mut combat,
+        );
     } else {
         combat.status = format!(
             "Combat underway. {} allied units vs {} enemies.",
@@ -532,7 +597,7 @@ fn run_combat_tick(
         );
     }
 
-    update_projection_from_state(&combat, &shop, &mut projection);
+    update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
 }
 
 fn update_unit_health_bars(
@@ -542,7 +607,8 @@ fn update_unit_health_bars(
 ) {
     for (mut sprite, parent) in &mut bars {
         if let Ok(unit) = units.get(parent.parent()) {
-            let width = board.cell_size * 0.46
+            let width = board.cell_size
+                * 0.46
                 * (unit.health.max(0) as f32 / unit.max_health.max(1) as f32);
             sprite.custom_size = Some(Vec2::new(width.max(8.0), 10.0));
         }
@@ -552,12 +618,13 @@ fn update_unit_health_bars(
 fn update_projection_from_state(
     combat: &CombatState,
     shop: &ShopState,
+    player_squad: &PlayerSquad,
+    enemy_squad: &EnemySquad,
     projection: &mut ResMut<StarterSliceProjection>,
 ) {
     projection.phase = combat.phase.as_str().to_owned();
     projection.objective =
-        "Draft a compact squad, open combat, and survive the first Numeron rounds."
-            .to_owned();
+        "Draft a compact squad, open combat, and survive the first Numeron rounds.".to_owned();
     projection.status = combat.status.clone();
     projection.score = combat.score;
     projection.gold = combat.gold;
@@ -572,6 +639,27 @@ fn update_projection_from_state(
         .iter()
         .map(|offer| offer.label().to_owned())
         .collect();
+    projection.bench_units = player_squad
+        .bench
+        .iter()
+        .map(|unit| unit.label().to_owned())
+        .collect();
+    projection.player_board = player_squad
+        .board
+        .iter()
+        .copied()
+        .map(|unit| unit.map(|unit| unit.label().to_owned()))
+        .collect();
+    projection.enemy_board = enemy_squad
+        .units
+        .iter()
+        .copied()
+        .map(|unit| Some(unit.label().to_owned()))
+        .chain(std::iter::repeat(None::<String>))
+        .take(ENEMY_SLOTS.len())
+        .collect();
+    projection.bench_capacity = BENCH_CAPACITY;
+    projection.board_capacity = PLAYER_SLOTS.len();
     projection.completed = combat.phase == CombatPhase::Resolution;
 }
 
@@ -585,7 +673,11 @@ fn spawn_round_units(
     combat.player_units = 0;
     combat.enemy_units = 0;
 
-    for (index, archetype) in player_squad.units.iter().copied().enumerate() {
+    for (index, maybe_archetype) in player_squad.board.iter().copied().enumerate() {
+        let Some(archetype) = maybe_archetype else {
+            continue;
+        };
+
         if let Some(&(row, col)) = PLAYER_SLOTS.get(index) {
             spawn_unit(commands, board, UnitOwner::Player, archetype, row, col);
             combat.player_units += 1;
@@ -652,10 +744,7 @@ fn spawn_unit(
         });
 }
 
-fn despawn_units(
-    commands: &mut Commands,
-    units: impl Iterator<Item = Entity>,
-) {
+fn despawn_units(commands: &mut Commands, units: impl Iterator<Item = Entity>) {
     for entity in units {
         commands.entity(entity).despawn();
     }

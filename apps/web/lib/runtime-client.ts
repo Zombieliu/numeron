@@ -34,6 +34,8 @@ type RuntimeModule = {
   resetRuntimeRound?: () => void;
   rerollRuntimeShop?: () => void;
   buyRuntimeShopOffer?: (index: number) => void;
+  deployRuntimeBenchUnit?: (benchIndex: number, slotIndex: number) => void;
+  withdrawRuntimeBoardUnit?: (slotIndex: number) => void;
 };
 
 const listeners = new Set<(snapshot: RuntimeBootSnapshot) => void>();
@@ -119,6 +121,14 @@ export function rerollRuntimeShop() {
 
 export function buyRuntimeShopOffer(index: number) {
   runtimeModule?.buyRuntimeShopOffer?.(index);
+}
+
+export function deployRuntimeBenchUnit(benchIndex: number, slotIndex: number) {
+  runtimeModule?.deployRuntimeBenchUnit?.(benchIndex, slotIndex);
+}
+
+export function withdrawRuntimeBoardUnit(slotIndex: number) {
+  runtimeModule?.withdrawRuntimeBoardUnit?.(slotIndex);
 }
 
 function ensureRuntimeBoot() {
@@ -283,6 +293,27 @@ function normalizeRuntimeEventPayload(
         shopOffers: Array.isArray(projection.slice?.shopOffers)
           ? projection.slice.shopOffers.map((offer) => String(offer))
           : DEFAULT_RUNTIME_PROJECTION.slice.shopOffers,
+        benchUnits: Array.isArray(projection.slice?.benchUnits)
+          ? projection.slice.benchUnits.map((unit) => String(unit))
+          : DEFAULT_RUNTIME_PROJECTION.slice.benchUnits,
+        playerBoard: Array.isArray(projection.slice?.playerBoard)
+          ? projection.slice.playerBoard.map((unit) =>
+              unit == null ? null : String(unit),
+            )
+          : DEFAULT_RUNTIME_PROJECTION.slice.playerBoard,
+        enemyBoard: Array.isArray(projection.slice?.enemyBoard)
+          ? projection.slice.enemyBoard.map((unit) =>
+              unit == null ? null : String(unit),
+            )
+          : DEFAULT_RUNTIME_PROJECTION.slice.enemyBoard,
+        benchCapacity: Number(
+          projection.slice?.benchCapacity ??
+            DEFAULT_RUNTIME_PROJECTION.slice.benchCapacity,
+        ),
+        boardCapacity: Number(
+          projection.slice?.boardCapacity ??
+            DEFAULT_RUNTIME_PROJECTION.slice.boardCapacity,
+        ),
         completed: Boolean(projection.slice?.completed),
       },
     },

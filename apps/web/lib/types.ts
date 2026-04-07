@@ -50,6 +50,11 @@ export type RuntimeProjection = {
     round: number;
     rerollCost: number;
     shopOffers: string[];
+    benchUnits: string[];
+    playerBoard: Array<string | null>;
+    enemyBoard: Array<string | null>;
+    benchCapacity: number;
+    boardCapacity: number;
     completed: boolean;
   };
 };
@@ -187,6 +192,15 @@ export type UiIntent =
   | {
       type: "runtime.shop.buy";
       index: number;
+    }
+  | {
+      type: "runtime.board.deploy";
+      benchIndex: number;
+      slotIndex: number;
+    }
+  | {
+      type: "runtime.board.withdraw";
+      slotIndex: number;
     };
 
 export type RuntimeEvent =
@@ -243,6 +257,11 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     round: 1,
     rerollCost: 1,
     shopOffers: [],
+    benchUnits: [],
+    playerBoard: [null, null, null, null],
+    enemyBoard: [null, null, null],
+    benchCapacity: 4,
+    boardCapacity: 4,
     completed: false,
   },
 };

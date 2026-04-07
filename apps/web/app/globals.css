@@ -186,6 +186,12 @@ textarea {
   gap: 10px;
 }
 
+.formation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .slot-card {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -212,7 +218,31 @@ textarea {
   text-align: left;
 }
 
+.formation-card {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  min-height: 92px;
+}
+
+.formation-card.empty {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.formation-card.selected {
+  border-color: rgba(191, 227, 143, 0.68);
+  background: rgba(110, 211, 183, 0.14);
+}
+
 .offer-card:disabled,
+.formation-card:disabled,
 .button:disabled,
 .touch-button:disabled {
   opacity: 0.45;
@@ -374,6 +404,10 @@ textarea {
   }
 
   .offer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .formation-grid {
     grid-template-columns: 1fr;
   }
 }
