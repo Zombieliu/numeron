@@ -37,9 +37,20 @@ export async function deployFirstBenchUnit(page: Page) {
   const benchIndex = await firstOccupiedIndex(page, "bench-slot", EMPTY_BENCH_PATTERNS);
   const boardIndex = await firstEmptyIndex(page, "board-slot", EMPTY_BOARD_PATTERNS);
 
+  await deployBenchUnitAtIndex(page, benchIndex, boardIndex);
+}
+
+export async function deployBenchUnitAtIndex(
+  page: Page,
+  benchIndex: number,
+  boardIndex?: number,
+) {
+  const nextBoardIndex =
+    boardIndex ?? (await firstEmptyIndex(page, "board-slot", EMPTY_BOARD_PATTERNS));
+
   await page.getByTestId(`bench-slot-${benchIndex}`).click();
-  await page.getByTestId(`board-slot-${boardIndex}`).click();
-  await expect(page.getByTestId(`board-slot-${boardIndex}`)).not.toContainText(
+  await page.getByTestId(`board-slot-${nextBoardIndex}`).click();
+  await expect(page.getByTestId(`board-slot-${nextBoardIndex}`)).not.toContainText(
     /Empty Slot|空槽位/,
   );
 }
@@ -122,6 +133,28 @@ export async function readSaveDraft(page: Page) {
   await ensureOperationsDrawerOpen(page);
   await page.getByTestId("copy-snapshot").click();
   return page.getByTestId("save-draft").inputValue();
+}
+
+export async function readGold(page: Page) {
+  const text = await page.getByTestId("battle-controls-panel").innerText();
+  const match = text.match(/gold\s+(\d+)|金币\s+(\d+)/i);
+
+  if (!match) {
+    throw new Error(`Failed to parse gold from panel:\n${text}`);
+  }
+
+  return Number(match[1] ?? match[2]);
+}
+
+export async function readShopOfferTitles(page: Page) {
+  const titles = [];
+
+  for (let index = 0; index < 3; index += 1) {
+    const text = await page.getByTestId(`shop-offer-${index}`).innerText();
+    titles.push(text.split("\n")[0]?.trim() ?? "");
+  }
+
+  return titles;
 }
 
 async function firstOccupiedIndex(page: Page, prefix: string, emptyPatterns: string[]) {
