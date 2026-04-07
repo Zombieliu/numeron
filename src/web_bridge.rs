@@ -68,6 +68,7 @@ pub enum RuntimeCommand {
     ResetRound,
     RestartRun,
     RerollShop,
+    BuyXp,
     ToggleShopLock,
     BuyOffer(usize),
     DeployBenchToBoard {
@@ -172,6 +173,14 @@ pub fn restart_runtime_run() {
 pub fn reroll_runtime_shop() {
     COMMAND_QUEUE.with(|queue| {
         queue.borrow_mut().push(RuntimeCommand::RerollShop);
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = buyRuntimeXp)]
+pub fn buy_runtime_xp() {
+    COMMAND_QUEUE.with(|queue| {
+        queue.borrow_mut().push(RuntimeCommand::BuyXp);
     });
 }
 
@@ -339,17 +348,28 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         total: slice.total,
         round: slice.round,
         run_number: slice.run_number,
+        level: slice.level,
+        xp: slice.xp,
+        xp_to_next_level: slice.xp_to_next_level,
+        max_level: slice.max_level,
         reroll_cost: slice.reroll_cost,
+        xp_buy_cost: slice.xp_buy_cost,
         shop_locked: slice.shop_locked,
         shop_offers: slice.shop_offers,
         bench_units: slice.bench_units,
         player_board: slice.player_board,
         enemy_board: slice.enemy_board,
+        unit_roster: slice.unit_roster,
         active_traits: slice.active_traits,
         enemy_threat: slice.enemy_threat,
         enemy_intent: slice.enemy_intent,
         bench_capacity: slice.bench_capacity,
         board_capacity: slice.board_capacity,
+        deployment_cap: slice.deployment_cap,
+        streak: slice.streak,
+        base_income: slice.base_income,
+        interest_income: slice.interest_income,
+        streak_income: slice.streak_income,
         round_resolved: slice.round_resolved,
         run_over: slice.run_over,
         run_result: slice.run_result,
@@ -375,17 +395,28 @@ struct ProjectionPayload {
     total: usize,
     round: u32,
     run_number: u32,
+    level: u32,
+    xp: u32,
+    xp_to_next_level: u32,
+    max_level: u32,
     reroll_cost: u32,
+    xp_buy_cost: u32,
     shop_locked: bool,
     shop_offers: Vec<RuntimeUnitView>,
     bench_units: Vec<RuntimeUnitView>,
     player_board: Vec<Option<RuntimeUnitView>>,
     enemy_board: Vec<Option<RuntimeUnitView>>,
+    unit_roster: Vec<RuntimeUnitView>,
     active_traits: Vec<RuntimeTraitView>,
     enemy_threat: u32,
     enemy_intent: String,
     bench_capacity: usize,
     board_capacity: usize,
+    deployment_cap: usize,
+    streak: i32,
+    base_income: u32,
+    interest_income: u32,
+    streak_income: u32,
     round_resolved: bool,
     run_over: bool,
     run_result: String,
@@ -460,7 +491,20 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
             let _ = Reflect::set(&slice, &"total".into(), &projection.total.into());
             let _ = Reflect::set(&slice, &"round".into(), &projection.round.into());
             let _ = Reflect::set(&slice, &"runNumber".into(), &projection.run_number.into());
+            let _ = Reflect::set(&slice, &"level".into(), &projection.level.into());
+            let _ = Reflect::set(&slice, &"xp".into(), &projection.xp.into());
+            let _ = Reflect::set(
+                &slice,
+                &"xpToNextLevel".into(),
+                &projection.xp_to_next_level.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"maxLevel".into(),
+                &projection.max_level.into(),
+            );
             let _ = Reflect::set(&slice, &"rerollCost".into(), &projection.reroll_cost.into());
+            let _ = Reflect::set(&slice, &"xpBuyCost".into(), &projection.xp_buy_cost.into());
             let _ = Reflect::set(&slice, &"shopLocked".into(), &projection.shop_locked.into());
             let offers = js_sys::Array::new();
             for offer in &projection.shop_offers {
@@ -488,6 +532,11 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 };
             }
             let _ = Reflect::set(&slice, &"enemyBoard".into(), &enemy_board);
+            let unit_roster = js_sys::Array::new();
+            for unit in &projection.unit_roster {
+                unit_roster.push(&runtime_unit_view_object(unit));
+            }
+            let _ = Reflect::set(&slice, &"unitRoster".into(), &unit_roster);
             let active_traits = js_sys::Array::new();
             for trait_view in &projection.active_traits {
                 active_traits.push(&runtime_trait_view_object(trait_view));
@@ -512,6 +561,27 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 &slice,
                 &"boardCapacity".into(),
                 &projection.board_capacity.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"deploymentCap".into(),
+                &projection.deployment_cap.into(),
+            );
+            let _ = Reflect::set(&slice, &"streak".into(), &projection.streak.into());
+            let _ = Reflect::set(
+                &slice,
+                &"baseIncome".into(),
+                &projection.base_income.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"interestIncome".into(),
+                &projection.interest_income.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"streakIncome".into(),
+                &projection.streak_income.into(),
             );
             let _ = Reflect::set(
                 &slice,

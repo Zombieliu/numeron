@@ -6,25 +6,29 @@ use std::collections::HashMap;
 pub struct StarterScenePlugin;
 
 const BOARD_ROWS: usize = 4;
-const BOARD_COLS: usize = 6;
+const BOARD_COLS: usize = 7;
 const CELL_SIZE: f32 = 140.0;
 const CELL_PADDING: f32 = 16.0;
 const UNIT_SIZE_RATIO: f32 = 0.64;
-const SHOP_SIZE: usize = 3;
-const BENCH_CAPACITY: usize = 4;
+const SHOP_SIZE: usize = 4;
+const BENCH_CAPACITY: usize = 6;
 const BUY_COST: u32 = 3;
 const REROLL_COST: u32 = 1;
+const BUY_XP_COST: u32 = 4;
+const BUY_XP_AMOUNT: u32 = 4;
 const SELL_VALUE_BASE: u32 = 2;
-const STARTING_GOLD: u32 = 6;
+const STARTING_GOLD: u32 = 10;
 const STARTING_HEALTH: u32 = 20;
-const ROUND_INCOME: u32 = 4;
+const ROUND_BASE_INCOME: u32 = 4;
+const PASSIVE_ROUND_XP: u32 = 1;
+const MAX_INTEREST_INCOME: u32 = 3;
 const COMBAT_INTERVAL: f32 = 0.7;
 const TRAIT_THRESHOLD: usize = 2;
 const MAX_STARS: u8 = 3;
-const FINAL_ROUND: u32 = 6;
+const FINAL_ROUND: u32 = 8;
 
-const PLAYER_SLOTS: [(usize, usize); 4] = [(0, 1), (1, 1), (2, 1), (3, 1)];
-const ENEMY_SLOTS: [(usize, usize); 3] = [(0, 4), (1, 4), (2, 4)];
+const PLAYER_SLOTS: [(usize, usize); 5] = [(0, 1), (1, 1), (2, 1), (3, 1), (1, 2)];
+const ENEMY_SLOTS: [(usize, usize); 5] = [(0, 5), (1, 5), (2, 5), (3, 5), (2, 4)];
 
 fn localized(locale: RuntimeLocale, en: &'static str, zh: &'static str) -> &'static str {
     match locale {
@@ -69,6 +73,11 @@ pub struct CombatState {
     pub enemy_health: u32,
     pub gold: u32,
     pub score: u32,
+    pub level: u32,
+    pub xp: u32,
+    pub deployment_cap: usize,
+    pub win_streak: u32,
+    pub loss_streak: u32,
     pub player_units: usize,
     pub enemy_units: usize,
     pub status: String,
@@ -86,6 +95,11 @@ impl Default for CombatState {
             enemy_health: STARTING_HEALTH,
             gold: STARTING_GOLD,
             score: 0,
+            level: 1,
+            xp: 0,
+            deployment_cap: deploy_cap_for_level(1),
+            win_streak: 0,
+            loss_streak: 0,
             player_units: 0,
             enemy_units: 0,
             status: "Board ready. Draft another unit or start combat.".to_owned(),
@@ -134,17 +148,28 @@ pub struct StarterSliceProjection {
     pub total: usize,
     pub round: u32,
     pub run_number: u32,
+    pub level: u32,
+    pub xp: u32,
+    pub xp_to_next_level: u32,
+    pub max_level: u32,
     pub reroll_cost: u32,
+    pub xp_buy_cost: u32,
     pub shop_locked: bool,
     pub shop_offers: Vec<RuntimeUnitView>,
     pub bench_units: Vec<RuntimeUnitView>,
     pub player_board: Vec<Option<RuntimeUnitView>>,
     pub enemy_board: Vec<Option<RuntimeUnitView>>,
+    pub unit_roster: Vec<RuntimeUnitView>,
     pub active_traits: Vec<RuntimeTraitView>,
     pub enemy_threat: u32,
     pub enemy_intent: String,
     pub bench_capacity: usize,
     pub board_capacity: usize,
+    pub deployment_cap: usize,
+    pub streak: i32,
+    pub base_income: u32,
+    pub interest_income: u32,
+    pub streak_income: u32,
     pub round_resolved: bool,
     pub run_over: bool,
     pub run_result: String,
@@ -166,17 +191,28 @@ impl Default for StarterSliceProjection {
             total: 0,
             round: 1,
             run_number: 1,
+            level: 1,
+            xp: 0,
+            xp_to_next_level: xp_to_next_level(1),
+            max_level: max_level(),
             reroll_cost: REROLL_COST,
+            xp_buy_cost: BUY_XP_COST,
             shop_locked: false,
             shop_offers: Vec::new(),
             bench_units: Vec::new(),
             player_board: vec![None; PLAYER_SLOTS.len()],
             enemy_board: vec![None; ENEMY_SLOTS.len()],
+            unit_roster: Vec::new(),
             active_traits: Vec::new(),
             enemy_threat: 0,
             enemy_intent: "Awaiting board allocation.".to_owned(),
             bench_capacity: BENCH_CAPACITY,
             board_capacity: PLAYER_SLOTS.len(),
+            deployment_cap: deploy_cap_for_level(1),
+            streak: 0,
+            base_income: ROUND_BASE_INCOME,
+            interest_income: 0,
+            streak_income: 0,
             round_resolved: false,
             run_over: false,
             run_result: RunResult::Active.as_str().to_owned(),
@@ -356,15 +392,23 @@ enum UnitArchetype {
     SignalRanger,
     AshDuelist,
     IronVanguard,
+    FrostOracle,
+    EmberMedic,
+    VoltJuggler,
+    GraveWarden,
 }
 
 impl UnitArchetype {
-    fn all() -> [Self; 4] {
+    fn all() -> [Self; 8] {
         [
-            Self::VerdantBruiser,
             Self::SignalRanger,
             Self::AshDuelist,
             Self::IronVanguard,
+            Self::FrostOracle,
+            Self::VerdantBruiser,
+            Self::EmberMedic,
+            Self::VoltJuggler,
+            Self::GraveWarden,
         ]
     }
 
@@ -374,6 +418,10 @@ impl UnitArchetype {
             Self::SignalRanger => "signal-ranger",
             Self::AshDuelist => "ash-duelist",
             Self::IronVanguard => "iron-vanguard",
+            Self::FrostOracle => "frost-oracle",
+            Self::EmberMedic => "ember-medic",
+            Self::VoltJuggler => "volt-juggler",
+            Self::GraveWarden => "grave-warden",
         }
     }
 
@@ -383,6 +431,10 @@ impl UnitArchetype {
             Self::SignalRanger => localized(locale, "Signal Ranger", "信号射手"),
             Self::AshDuelist => localized(locale, "Ash Duelist", "灰烬决斗者"),
             Self::IronVanguard => localized(locale, "Iron Vanguard", "钢铁先锋"),
+            Self::FrostOracle => localized(locale, "Frost Oracle", "霜语先知"),
+            Self::EmberMedic => localized(locale, "Ember Medic", "余烬医师"),
+            Self::VoltJuggler => localized(locale, "Volt Juggler", "电弧杂耍者"),
+            Self::GraveWarden => localized(locale, "Grave Warden", "墓垒守卫"),
         }
     }
 
@@ -392,6 +444,10 @@ impl UnitArchetype {
             Self::SignalRanger => localized(locale, "Piercing Volley", "穿透齐射"),
             Self::AshDuelist => localized(locale, "Execution Arc", "处决弧刃"),
             Self::IronVanguard => localized(locale, "Anchor Strike", "锚定打击"),
+            Self::FrostOracle => localized(locale, "Cold Snap", "寒霜迸发"),
+            Self::EmberMedic => localized(locale, "Cinder Mend", "炽火疗愈"),
+            Self::VoltJuggler => localized(locale, "Chain Static", "连锁电弧"),
+            Self::GraveWarden => localized(locale, "Last Toll", "终末丧钟"),
         }
     }
 
@@ -417,22 +473,62 @@ impl UnitArchetype {
                 "Blocks 1 damage on every hit and spikes every second strike.",
                 "每次受击格挡 1 点伤害，并在第二次攻击时增强。",
             ),
+            Self::FrostOracle => localized(
+                locale,
+                "Every third cast bursts for heavier spell damage.",
+                "每第三次施法会打出更高爆发。",
+            ),
+            Self::EmberMedic => localized(
+                locale,
+                "Every attack also patches the weakest ally.",
+                "每次攻击后都会治疗最虚弱的友军。",
+            ),
+            Self::VoltJuggler => localized(
+                locale,
+                "Every second shot also zaps a secondary target.",
+                "每第二次出手会顺带电击第二目标。",
+            ),
+            Self::GraveWarden => localized(
+                locale,
+                "Swings harder while wounded and anchors the frontline.",
+                "受伤后会打得更重，并持续稳住前线。",
+            ),
         }
     }
 
     fn cast_state(self, action_counter: u32, locale: RuntimeLocale) -> &'static str {
         match self {
-            Self::VerdantBruiser | Self::SignalRanger | Self::IronVanguard => {
+            Self::VerdantBruiser
+            | Self::SignalRanger
+            | Self::IronVanguard
+            | Self::VoltJuggler => {
                 if (action_counter + 1) % 2 == 0 {
                     localized(locale, "Next attack is empowered.", "下一次攻击已强化。")
                 } else {
                     localized(locale, "One swing until the empowered cast.", "再攻击一次就会进入强化。")
                 }
             }
+            Self::FrostOracle => {
+                if (action_counter + 1) % 3 == 0 {
+                    localized(locale, "Next cast detonates with frost burst.", "下一次施法会引爆霜爆。")
+                } else {
+                    localized(locale, "Charging the next frost burst.", "正在为下一次霜爆蓄势。")
+                }
+            }
+            Self::EmberMedic => localized(
+                locale,
+                "Healing pulse is active every attack.",
+                "每次攻击都会触发治疗脉冲。",
+            ),
             Self::AshDuelist => localized(
                 locale,
                 "Bonus damage is live against targets below half health.",
                 "对半血以下目标会立刻触发额外伤害。",
+            ),
+            Self::GraveWarden => localized(
+                locale,
+                "Below half health it gains bonus strike damage.",
+                "半血以下会获得额外打击伤害。",
             ),
         }
     }
@@ -459,20 +555,52 @@ impl UnitArchetype {
                 "Challenges the highest-attack enemy and shrugs off 1 damage from each hit.",
                 "优先挑战攻击最高的敌人，并且每次受击减少 1 点伤害。",
             ),
+            Self::FrostOracle => localized(
+                locale,
+                "Focuses the highest-attack enemy and bursts every third cast.",
+                "优先锁定攻击最高的敌人，并在第三次施法时爆发。",
+            ),
+            Self::EmberMedic => localized(
+                locale,
+                "Pokes the weakest enemy while healing the lowest-health ally.",
+                "一边攻击最弱敌人，一边治疗生命值最低的友军。",
+            ),
+            Self::VoltJuggler => localized(
+                locale,
+                "Shoots the weakest enemy and arcs into a second target every other shot.",
+                "优先射击最弱敌人，并在隔次出手时弹射到第二目标。",
+            ),
+            Self::GraveWarden => localized(
+                locale,
+                "Pins the healthiest enemy and gains damage while wounded.",
+                "优先钉住最肉的敌人，并在受伤后提升伤害。",
+            ),
         }
     }
 
     fn faction(self) -> UnitFaction {
         match self {
-            Self::VerdantBruiser | Self::SignalRanger => UnitFaction::Dawn,
-            Self::AshDuelist | Self::IronVanguard => UnitFaction::Dusk,
+            Self::VerdantBruiser
+            | Self::SignalRanger
+            | Self::FrostOracle
+            | Self::EmberMedic => UnitFaction::Dawn,
+            Self::AshDuelist
+            | Self::IronVanguard
+            | Self::VoltJuggler
+            | Self::GraveWarden => UnitFaction::Dusk,
         }
     }
 
     fn role(self) -> UnitRole {
         match self {
-            Self::VerdantBruiser | Self::IronVanguard => UnitRole::Vanguard,
-            Self::SignalRanger | Self::AshDuelist => UnitRole::Skirmisher,
+            Self::VerdantBruiser
+            | Self::IronVanguard
+            | Self::EmberMedic
+            | Self::GraveWarden => UnitRole::Vanguard,
+            Self::SignalRanger
+            | Self::AshDuelist
+            | Self::FrostOracle
+            | Self::VoltJuggler => UnitRole::Skirmisher,
         }
     }
 
@@ -480,8 +608,12 @@ impl UnitArchetype {
         match (self, owner) {
             (Self::VerdantBruiser, UnitOwner::Player) => Color::linear_rgba(0.30, 0.83, 0.79, 0.98),
             (Self::SignalRanger, UnitOwner::Player) => Color::linear_rgba(0.32, 0.62, 0.93, 0.98),
+            (Self::FrostOracle, UnitOwner::Player) => Color::linear_rgba(0.63, 0.73, 0.97, 0.98),
+            (Self::EmberMedic, UnitOwner::Player) => Color::linear_rgba(0.95, 0.66, 0.35, 0.98),
             (Self::AshDuelist, UnitOwner::Enemy) => Color::linear_rgba(0.94, 0.41, 0.58, 0.98),
             (Self::IronVanguard, UnitOwner::Enemy) => Color::linear_rgba(0.82, 0.30, 0.35, 0.98),
+            (Self::VoltJuggler, UnitOwner::Enemy) => Color::linear_rgba(0.74, 0.42, 0.95, 0.98),
+            (Self::GraveWarden, UnitOwner::Enemy) => Color::linear_rgba(0.45, 0.50, 0.59, 0.98),
             (archetype, UnitOwner::Player) => archetype.color(UnitOwner::Enemy),
             (archetype, UnitOwner::Enemy) => archetype.color(UnitOwner::Player),
         }
@@ -493,6 +625,10 @@ impl UnitArchetype {
             Self::SignalRanger => 10,
             Self::AshDuelist => 12,
             Self::IronVanguard => 16,
+            Self::FrostOracle => 9,
+            Self::EmberMedic => 13,
+            Self::VoltJuggler => 11,
+            Self::GraveWarden => 18,
         }
     }
 
@@ -502,6 +638,10 @@ impl UnitArchetype {
             Self::SignalRanger => 5,
             Self::AshDuelist => 4,
             Self::IronVanguard => 3,
+            Self::FrostOracle => 6,
+            Self::EmberMedic => 3,
+            Self::VoltJuggler => 5,
+            Self::GraveWarden => 4,
         }
     }
 }
@@ -587,6 +727,13 @@ struct CombatUnitSnapshot {
     max_health: i32,
     attack: u32,
     action_counter: u32,
+}
+
+#[derive(Clone, Debug)]
+struct ResolvedCombatAction {
+    hits: Vec<(Entity, i32)>,
+    heals: Vec<(Entity, i32)>,
+    highlight: String,
 }
 
 impl Plugin for StarterScenePlugin {
@@ -719,25 +866,28 @@ fn reset_run_state(
     shop.locked = false;
     shop.offers.clear();
     player_squad.board = [None; PLAYER_SLOTS.len()];
-    player_squad.bench = vec![UnitInstance::new(UnitArchetype::VerdantBruiser)];
+    player_squad.bench = vec![
+        UnitInstance::new(UnitArchetype::VerdantBruiser),
+        UnitInstance::new(UnitArchetype::EmberMedic),
+    ];
     enemy_squad.units = seed_enemy_squad(1);
     reroll_shop(shop, combat.round);
     combat.status = if increment_run_number {
         match locale {
             RuntimeLocale::En => format!(
-                "Run {} restarted. Bench primed. Deploy a unit before opening combat.",
+                "Run {} restarted. Bench primed with a two-unit opening. Deploy up to your level cap before combat.",
                 combat.run_number
             ),
             RuntimeLocale::ZhCn => format!(
-                "第 {} 局已重新开始。备战席已就绪，开始战斗前先部署一个单位。",
+                "第 {} 局已重新开始。初始两单位已在备战席，战斗前可按人口上限部署。",
                 combat.run_number
             ),
         }
     } else {
         localized(
             locale,
-            "Bench primed. Deploy a unit before opening combat.",
-            "备战席已就绪。开始战斗前先部署一个单位。",
+            "Bench primed. Deploy up to your current cap before opening combat.",
+            "备战席已就绪。开始战斗前可先部署到当前人口上限。",
         )
         .to_owned()
     };
@@ -788,32 +938,64 @@ fn handle_runtime_commands(
             }
             RuntimeCommand::ResetRound => {
                 if combat.phase == CombatPhase::Resolution && !combat.run_over {
+                    let (base_income, interest_income, streak_income) =
+                        round_income_preview(combat.gold, current_streak(&combat));
+                    let total_income = base_income + interest_income + streak_income;
                     combat.round += 1;
                     combat.phase = CombatPhase::Preparation;
                     combat.run_result = RunResult::Active;
-                    combat.gold += ROUND_INCOME;
+                    combat.gold += total_income;
+                    let levels_gained = grant_xp(&mut combat, PASSIVE_ROUND_XP);
                     enemy_squad.units = seed_enemy_squad(combat.round);
                     if shop.locked {
                         combat.status = match locale {
                             RuntimeLocale::En => format!(
-                                "Round {} ready. Locked shop carried forward. Draft or reposition before combat.",
-                                combat.round
+                                "Round {} ready. Income +{} (base {} / interest {} / streak {}). Locked shop carried forward. Level {} with {} cap{}.",
+                                combat.round,
+                                total_income,
+                                base_income,
+                                interest_income,
+                                streak_income,
+                                combat.level,
+                                combat.deployment_cap,
+                                if levels_gained > 0 { " after leveling." } else { "." }
                             ),
                             RuntimeLocale::ZhCn => format!(
-                                "第 {} 回合已就绪。锁定商店已保留，战斗前可以继续招募或调整站位。",
-                                combat.round
+                                "第 {} 回合已就绪。收入 +{}（基础 {} / 利息 {} / 连胜连败 {}）。锁定商店已保留。当前等级 {}，可部署 {} 个单位{}",
+                                combat.round,
+                                total_income,
+                                base_income,
+                                interest_income,
+                                streak_income,
+                                combat.level,
+                                combat.deployment_cap,
+                                if levels_gained > 0 { "，并已升级。" } else { "。" }
                             ),
                         };
                     } else {
                         reroll_shop(&mut shop, combat.round);
                         combat.status = match locale {
                             RuntimeLocale::En => format!(
-                                "Round {} ready. Draft, merge, or reposition before combat.",
-                                combat.round
+                                "Round {} ready. Income +{} (base {} / interest {} / streak {}). Draft, merge, or reposition before combat. Level {} supports {} deployed units{}.",
+                                combat.round,
+                                total_income,
+                                base_income,
+                                interest_income,
+                                streak_income,
+                                combat.level,
+                                combat.deployment_cap,
+                                if levels_gained > 0 { " after leveling up" } else { "" }
                             ),
                             RuntimeLocale::ZhCn => format!(
-                                "第 {} 回合已就绪。战斗前可以继续招募、合成或调整站位。",
-                                combat.round
+                                "第 {} 回合已就绪。收入 +{}（基础 {} / 利息 {} / 连胜连败 {}）。战斗前可以继续招募、合成或调整站位。当前等级 {}，可部署 {} 个单位{}",
+                                combat.round,
+                                total_income,
+                                base_income,
+                                interest_income,
+                                streak_income,
+                                combat.level,
+                                combat.deployment_cap,
+                                if levels_gained > 0 { "，并已升级。" } else { "。" }
                             ),
                         };
                     }
@@ -848,6 +1030,53 @@ fn handle_runtime_commands(
                     )
                     .to_owned();
                 }
+            }
+            RuntimeCommand::BuyXp => {
+                if combat.phase != CombatPhase::Preparation
+                    || combat.run_over
+                    || combat.gold < BUY_XP_COST
+                    || combat.level >= max_level()
+                {
+                    continue;
+                }
+
+                combat.gold -= BUY_XP_COST;
+                let previous_level = combat.level;
+                let levels_gained = grant_xp(&mut combat, BUY_XP_AMOUNT);
+                combat.status = match locale {
+                    RuntimeLocale::En => {
+                        if levels_gained > 0 {
+                            format!(
+                                "Bought XP for {} gold. Level {} unlocked with {} deployment slots.",
+                                BUY_XP_COST, combat.level, combat.deployment_cap
+                            )
+                        } else {
+                            format!(
+                                "Bought XP for {} gold. Level {} progress: {}/{}.",
+                                BUY_XP_COST,
+                                previous_level,
+                                combat.xp,
+                                xp_to_next_level(previous_level)
+                            )
+                        }
+                    }
+                    RuntimeLocale::ZhCn => {
+                        if levels_gained > 0 {
+                            format!(
+                                "已花费 {} 金币购买经验。升到 {} 级，可部署 {} 个单位。",
+                                BUY_XP_COST, combat.level, combat.deployment_cap
+                            )
+                        } else {
+                            format!(
+                                "已花费 {} 金币购买经验。{} 级进度：{}/{}。",
+                                BUY_XP_COST,
+                                previous_level,
+                                combat.xp,
+                                xp_to_next_level(previous_level)
+                            )
+                        }
+                    }
+                };
             }
             RuntimeCommand::ToggleShopLock => {
                 if combat.phase != CombatPhase::Preparation || combat.run_over {
@@ -907,11 +1136,13 @@ fn handle_runtime_commands(
                 bench_index,
                 slot_index,
             } => {
+                let deployed_units = player_squad.board.iter().flatten().count();
                 if combat.phase != CombatPhase::Preparation
                     || combat.run_over
                     || slot_index >= player_squad.board.len()
                     || bench_index >= player_squad.bench.len()
                     || player_squad.board[slot_index].is_some()
+                    || deployed_units >= combat.deployment_cap
                 {
                     continue;
                 }
@@ -1090,26 +1321,33 @@ fn run_combat_tick(
         .collect::<Vec<_>>();
 
     let mut pending_damage = HashMap::<Entity, i32>::new();
+    let mut pending_healing = HashMap::<Entity, i32>::new();
     let mut combat_highlights = Vec::new();
 
     for attacker in &player_entities {
-        if let Some((target_entity, damage, highlight)) =
-            resolve_attack(*attacker, &enemy_entities, locale)
-        {
-            *pending_damage.entry(target_entity).or_insert(0) += damage;
+        if let Some(action) = resolve_attack(*attacker, &player_entities, &enemy_entities, locale) {
+            for (target_entity, damage) in action.hits {
+                *pending_damage.entry(target_entity).or_insert(0) += damage;
+            }
+            for (target_entity, healing) in action.heals {
+                *pending_healing.entry(target_entity).or_insert(0) += healing;
+            }
             if combat_highlights.len() < 2 {
-                combat_highlights.push(highlight);
+                combat_highlights.push(action.highlight);
             }
         }
     }
 
     for attacker in &enemy_entities {
-        if let Some((target_entity, damage, highlight)) =
-            resolve_attack(*attacker, &player_entities, locale)
-        {
-            *pending_damage.entry(target_entity).or_insert(0) += damage;
+        if let Some(action) = resolve_attack(*attacker, &enemy_entities, &player_entities, locale) {
+            for (target_entity, damage) in action.hits {
+                *pending_damage.entry(target_entity).or_insert(0) += damage;
+            }
+            for (target_entity, healing) in action.heals {
+                *pending_healing.entry(target_entity).or_insert(0) += healing;
+            }
             if combat_highlights.len() < 4 {
-                combat_highlights.push(highlight);
+                combat_highlights.push(action.highlight);
             }
         }
     }
@@ -1124,6 +1362,12 @@ fn run_combat_tick(
         if let Ok(mut unit) = unit_queries.p1().get_mut(target_entity) {
             let mitigated = mitigate_damage(unit.archetype, damage);
             unit.health -= mitigated;
+        }
+    }
+
+    for (target_entity, healing) in pending_healing {
+        if let Ok(mut unit) = unit_queries.p1().get_mut(target_entity) {
+            unit.health = (unit.health + healing).min(unit.max_health);
         }
     }
 
@@ -1158,8 +1402,10 @@ fn run_combat_tick(
     if combat.player_units == 0 || combat.enemy_units == 0 {
         combat.phase = CombatPhase::Resolution;
         if combat.enemy_units == 0 {
+            combat.win_streak += 1;
+            combat.loss_streak = 0;
             combat.score += 80;
-            combat.gold += 2;
+            combat.gold += 1;
             combat.enemy_health = combat.enemy_health.saturating_sub(2);
             if combat.round >= FINAL_ROUND {
                 combat.run_over = true;
@@ -1188,6 +1434,8 @@ fn run_combat_tick(
                 };
             }
         } else {
+            combat.loss_streak += 1;
+            combat.win_streak = 0;
             let defeat_damage = combat.enemy_units.max(1) as u32 * 2;
             combat.player_health = combat.player_health.saturating_sub(defeat_damage);
             if combat.player_health == 0 {
@@ -1312,17 +1560,20 @@ fn run_combat_tick(
 
 fn resolve_attack(
     attacker: CombatUnitSnapshot,
+    allies: &[CombatUnitSnapshot],
     opponents: &[CombatUnitSnapshot],
     locale: RuntimeLocale,
-) -> Option<(Entity, i32, String)> {
+) -> Option<ResolvedCombatAction> {
     let target = select_target(attacker.archetype, opponents)?;
-    let mut damage = attacker.attack as i32;
+    let mut primary_damage = attacker.attack as i32;
+    let mut extra_hits = Vec::new();
+    let mut heals = Vec::new();
     let mut skill_note = None;
 
     match attacker.archetype {
         UnitArchetype::VerdantBruiser => {
             if (attacker.action_counter + 1) % 2 == 0 {
-                damage += 2;
+                primary_damage += 2;
                 skill_note = Some(localized(
                     locale,
                     "Bulwark Bash landed heavy",
@@ -1332,7 +1583,7 @@ fn resolve_attack(
         }
         UnitArchetype::SignalRanger => {
             if (attacker.action_counter + 1) % 2 == 0 {
-                damage += 2;
+                primary_damage += 2;
                 skill_note = Some(localized(
                     locale,
                     "Piercing Volley broke through",
@@ -1342,7 +1593,7 @@ fn resolve_attack(
         }
         UnitArchetype::AshDuelist => {
             if target.health * 2 <= target.max_health {
-                damage += 2;
+                primary_damage += 2;
                 skill_note = Some(localized(
                     locale,
                     "Execution Arc punished a weakened target",
@@ -1352,7 +1603,7 @@ fn resolve_attack(
         }
         UnitArchetype::IronVanguard => {
             if (attacker.action_counter + 1) % 2 == 0 {
-                damage += 1;
+                primary_damage += 1;
                 skill_note = Some(localized(
                     locale,
                     "Anchor Strike cracked the enemy line",
@@ -1360,7 +1611,52 @@ fn resolve_attack(
                 ));
             }
         }
+        UnitArchetype::FrostOracle => {
+            if (attacker.action_counter + 1) % 3 == 0 {
+                primary_damage += 3;
+                skill_note = Some(localized(
+                    locale,
+                    "Cold Snap burst through the target",
+                    "寒霜迸发命中了主目标",
+                ));
+            }
+        }
+        UnitArchetype::EmberMedic => {
+            if let Some(ally) = select_ally_to_heal(attacker.entity, allies) {
+                heals.push((ally.entity, 2));
+                skill_note = Some(localized(
+                    locale,
+                    "Cinder Mend patched the frontline",
+                    "炽火疗愈修补了前线",
+                ));
+            }
+        }
+        UnitArchetype::VoltJuggler => {
+            if (attacker.action_counter + 1) % 2 == 0 {
+                if let Some(secondary) = select_secondary_target(target.entity, opponents) {
+                    extra_hits.push((secondary.entity, 2));
+                    skill_note = Some(localized(
+                        locale,
+                        "Chain Static arced into a second target",
+                        "连锁电弧弹射到了第二目标",
+                    ));
+                }
+            }
+        }
+        UnitArchetype::GraveWarden => {
+            if attacker.health * 2 <= attacker.max_health {
+                primary_damage += 2;
+                skill_note = Some(localized(
+                    locale,
+                    "Last Toll hit harder while wounded",
+                    "终末丧钟在残血时打得更重",
+                ));
+            }
+        }
     }
+
+    let mut hits = vec![(target.entity, primary_damage.max(1))];
+    hits.extend(extra_hits.into_iter().map(|(entity, damage)| (entity, damage.max(1))));
 
     let highlight = if let Some(skill_note) = skill_note {
         match locale {
@@ -1368,14 +1664,14 @@ fn resolve_attack(
                 "{} hit {} for {}. {}.",
                 attacker.archetype.label(locale),
                 target.archetype.label(locale),
-                damage,
+                primary_damage,
                 skill_note
             ),
             RuntimeLocale::ZhCn => format!(
                 "{} 命中 {}，造成 {} 点伤害。{}。",
                 attacker.archetype.label(locale),
                 target.archetype.label(locale),
-                damage,
+                primary_damage,
                 skill_note
             ),
         }
@@ -1385,18 +1681,22 @@ fn resolve_attack(
                 "{} hit {} for {}.",
                 attacker.archetype.label(locale),
                 target.archetype.label(locale),
-                damage
+                primary_damage
             ),
             RuntimeLocale::ZhCn => format!(
                 "{} 命中 {}，造成 {} 点伤害。",
                 attacker.archetype.label(locale),
                 target.archetype.label(locale),
-                damage
+                primary_damage
             ),
         }
     };
 
-    Some((target.entity, damage.max(1), highlight))
+    Some(ResolvedCombatAction {
+        hits,
+        heals,
+        highlight,
+    })
 }
 
 fn select_target(
@@ -1412,15 +1712,49 @@ fn select_target(
         UnitArchetype::VerdantBruiser => {
             candidates.sort_by_key(|candidate| (-candidate.max_health, candidate.health));
         }
-        UnitArchetype::SignalRanger | UnitArchetype::AshDuelist => {
+        UnitArchetype::SignalRanger
+        | UnitArchetype::AshDuelist
+        | UnitArchetype::EmberMedic
+        | UnitArchetype::VoltJuggler => {
             candidates.sort_by_key(|candidate| (candidate.health, -(candidate.attack as i32)));
         }
-        UnitArchetype::IronVanguard => {
+        UnitArchetype::IronVanguard | UnitArchetype::FrostOracle => {
             candidates.sort_by_key(|candidate| (-(candidate.attack as i32), -candidate.health));
+        }
+        UnitArchetype::GraveWarden => {
+            candidates.sort_by_key(|candidate| (-candidate.max_health, -candidate.health));
         }
     }
 
     candidates.first().copied()
+}
+
+fn select_secondary_target(
+    primary_target: Entity,
+    opponents: &[CombatUnitSnapshot],
+) -> Option<CombatUnitSnapshot> {
+    opponents
+        .iter()
+        .copied()
+        .filter(|candidate| candidate.entity != primary_target)
+        .min_by_key(|candidate| (candidate.health, -(candidate.attack as i32)))
+}
+
+fn select_ally_to_heal(
+    attacker_entity: Entity,
+    allies: &[CombatUnitSnapshot],
+) -> Option<CombatUnitSnapshot> {
+    allies
+        .iter()
+        .copied()
+        .filter(|candidate| candidate.health > 0)
+        .min_by_key(|candidate| {
+            (
+                candidate.health,
+                if candidate.entity == attacker_entity { 1 } else { 0 },
+                candidate.max_health,
+            )
+        })
 }
 
 fn mitigate_damage(archetype: UnitArchetype, damage: i32) -> i32 {
@@ -1560,7 +1894,12 @@ fn apply_common_projection_fields(
     projection.total = combat.player_units + combat.enemy_units;
     projection.round = combat.round;
     projection.run_number = combat.run_number;
+    projection.level = combat.level;
+    projection.xp = combat.xp;
+    projection.xp_to_next_level = xp_to_next_level(combat.level);
+    projection.max_level = max_level();
     projection.reroll_cost = REROLL_COST;
+    projection.xp_buy_cost = BUY_XP_COST;
     projection.shop_locked = shop.locked;
     projection.shop_offers = shop
         .offers
@@ -1574,12 +1913,24 @@ fn apply_common_projection_fields(
         .copied()
         .map(|unit| unit.base_view(locale))
         .collect();
+    projection.unit_roster = UnitArchetype::all()
+        .into_iter()
+        .map(UnitInstance::new)
+        .map(|unit| unit.base_view(locale))
+        .collect();
     projection.active_traits =
         trait_views_for(player_squad.board.iter().flatten().copied(), locale).collect();
     projection.enemy_threat = enemy_threat(enemy_squad.units.iter().copied());
     projection.enemy_intent = enemy_intent_for_round(combat.round, locale);
     projection.bench_capacity = BENCH_CAPACITY;
     projection.board_capacity = PLAYER_SLOTS.len();
+    projection.deployment_cap = combat.deployment_cap;
+    projection.streak = current_streak(combat);
+    let (base_income, interest_income, streak_income) =
+        round_income_preview(combat.gold, projection.streak);
+    projection.base_income = base_income;
+    projection.interest_income = interest_income;
+    projection.streak_income = streak_income;
     projection.round_resolved = combat.phase == CombatPhase::Resolution;
     projection.run_over = combat.run_over;
     projection.run_result = combat.run_result.as_str().to_owned();
@@ -1713,30 +2064,91 @@ fn reroll_shop(shop: &mut ShopState, round_seed: u32) {
 }
 
 fn seed_enemy_squad(round: u32) -> Vec<UnitInstance> {
-    let mut units = vec![
-        UnitInstance::new(UnitArchetype::AshDuelist),
-        UnitInstance::new(UnitArchetype::IronVanguard),
-    ];
-
-    if round >= 2 {
-        units.push(UnitInstance::new(UnitArchetype::AshDuelist));
-    }
-
-    if round >= 3 {
-        units[0].stars = 2;
-    }
-
-    if round >= 4 {
-        units[1].stars = 2;
-    }
-
-    if round >= 5 && units.len() == ENEMY_SLOTS.len() {
-        units[2] = UnitInstance::new(UnitArchetype::SignalRanger);
-    }
-
-    if round >= 6 {
-        units[2].stars = 2;
-    }
+    let mut units = match round {
+        1 => vec![
+            UnitInstance::new(UnitArchetype::AshDuelist),
+            UnitInstance::new(UnitArchetype::IronVanguard),
+        ],
+        2 => vec![
+            UnitInstance::new(UnitArchetype::AshDuelist),
+            UnitInstance::new(UnitArchetype::IronVanguard),
+            UnitInstance::new(UnitArchetype::VoltJuggler),
+        ],
+        3 => vec![
+            UnitInstance {
+                archetype: UnitArchetype::AshDuelist,
+                stars: 2,
+            },
+            UnitInstance::new(UnitArchetype::IronVanguard),
+            UnitInstance::new(UnitArchetype::VoltJuggler),
+        ],
+        4 => vec![
+            UnitInstance {
+                archetype: UnitArchetype::AshDuelist,
+                stars: 2,
+            },
+            UnitInstance {
+                archetype: UnitArchetype::IronVanguard,
+                stars: 2,
+            },
+            UnitInstance::new(UnitArchetype::VoltJuggler),
+            UnitInstance::new(UnitArchetype::GraveWarden),
+        ],
+        5 => vec![
+            UnitInstance {
+                archetype: UnitArchetype::IronVanguard,
+                stars: 2,
+            },
+            UnitInstance::new(UnitArchetype::SignalRanger),
+            UnitInstance::new(UnitArchetype::VoltJuggler),
+            UnitInstance::new(UnitArchetype::GraveWarden),
+        ],
+        6 => vec![
+            UnitInstance {
+                archetype: UnitArchetype::IronVanguard,
+                stars: 2,
+            },
+            UnitInstance {
+                archetype: UnitArchetype::SignalRanger,
+                stars: 2,
+            },
+            UnitInstance::new(UnitArchetype::VoltJuggler),
+            UnitInstance::new(UnitArchetype::GraveWarden),
+            UnitInstance::new(UnitArchetype::AshDuelist),
+        ],
+        7 => vec![
+            UnitInstance {
+                archetype: UnitArchetype::SignalRanger,
+                stars: 2,
+            },
+            UnitInstance {
+                archetype: UnitArchetype::VoltJuggler,
+                stars: 2,
+            },
+            UnitInstance::new(UnitArchetype::GraveWarden),
+            UnitInstance::new(UnitArchetype::IronVanguard),
+            UnitInstance::new(UnitArchetype::AshDuelist),
+        ],
+        _ => vec![
+            UnitInstance {
+                archetype: UnitArchetype::SignalRanger,
+                stars: 2,
+            },
+            UnitInstance {
+                archetype: UnitArchetype::VoltJuggler,
+                stars: 2,
+            },
+            UnitInstance {
+                archetype: UnitArchetype::GraveWarden,
+                stars: 2,
+            },
+            UnitInstance {
+                archetype: UnitArchetype::IronVanguard,
+                stars: 2,
+            },
+            UnitInstance::new(UnitArchetype::AshDuelist),
+        ],
+    };
 
     units.truncate(ENEMY_SLOTS.len());
     units
@@ -1773,20 +2185,32 @@ fn enemy_intent_for_round(round: u32, locale: RuntimeLocale) -> String {
         .to_owned(),
         4 => localized(
             locale,
-            "Frontline hardens: Iron Vanguard upgrades and soaks damage.",
-            "前线变硬：钢铁先锋升级后更能抗伤。",
+            "Frontline hardens: Iron Vanguard upgrades and Grave Warden joins the wall.",
+            "前线变硬：钢铁先锋升级，墓垒守卫加入防线。",
         )
         .to_owned(),
         5 => localized(
             locale,
-            "Mixed threat: the enemy swaps in a ranged Signal Ranger.",
-            "混合威胁：敌方换上远程信号射手。",
+            "Mixed threat: a ranged Signal Ranger appears behind the bruisers.",
+            "混合威胁：敌方在前排后方补上了远程信号射手。",
+        )
+        .to_owned(),
+        6 => localized(
+            locale,
+            "Pressure climb: upgraded ranger and a fifth body widen the enemy board.",
+            "压力继续上升：升级后的射手与第五个单位一起扩宽敌方阵面。",
+        )
+        .to_owned(),
+        7 => localized(
+            locale,
+            "Veteran tempo: chain damage and bruiser pressure hit together.",
+            "老练节奏：连锁伤害与前排压力会同时到来。",
         )
         .to_owned(),
         _ => localized(
             locale,
-            "Veteran warband: upgraded mixed comp with stronger pressure.",
-            "老练战帮：升级后的混编阵容会带来更强压力。",
+            "Final warband: upgraded mixed comp with five threats online.",
+            "最终战帮：五个威胁全开的升级混编阵容。",
         )
         .to_owned(),
     }
@@ -1986,6 +2410,78 @@ fn trait_views_for(
         },
     ]
     .into_iter()
+}
+
+fn max_level() -> u32 {
+    4
+}
+
+fn deploy_cap_for_level(level: u32) -> usize {
+    (level as usize + 1).min(PLAYER_SLOTS.len())
+}
+
+fn xp_to_next_level(level: u32) -> u32 {
+    if level >= max_level() {
+        0
+    } else {
+        4
+    }
+}
+
+fn grant_xp(combat: &mut CombatState, amount: u32) -> u32 {
+    if combat.level >= max_level() {
+        combat.xp = 0;
+        return 0;
+    }
+
+    combat.xp += amount;
+    let mut levels_gained = 0;
+
+    while combat.level < max_level() {
+        let threshold = xp_to_next_level(combat.level);
+        if combat.xp < threshold {
+            break;
+        }
+
+        combat.xp -= threshold;
+        combat.level += 1;
+        combat.deployment_cap = deploy_cap_for_level(combat.level);
+        levels_gained += 1;
+    }
+
+    if combat.level >= max_level() {
+        combat.xp = 0;
+        combat.deployment_cap = deploy_cap_for_level(combat.level);
+    }
+
+    levels_gained
+}
+
+fn streak_bonus(streak: i32) -> u32 {
+    let absolute = streak.unsigned_abs();
+    if absolute >= 4 {
+        2
+    } else if absolute >= 2 {
+        1
+    } else {
+        0
+    }
+}
+
+fn current_streak(combat: &CombatState) -> i32 {
+    if combat.win_streak > 0 {
+        combat.win_streak as i32
+    } else if combat.loss_streak > 0 {
+        -(combat.loss_streak as i32)
+    } else {
+        0
+    }
+}
+
+fn round_income_preview(gold: u32, streak: i32) -> (u32, u32, u32) {
+    let interest_income = (gold / 5).min(MAX_INTEREST_INCOME);
+    let streak_income = streak_bonus(streak);
+    (ROUND_BASE_INCOME, interest_income, streak_income)
 }
 
 fn scaled_stats(unit: UnitInstance) -> UnitStats {

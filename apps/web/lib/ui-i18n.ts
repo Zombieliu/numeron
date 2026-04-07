@@ -31,8 +31,11 @@ type UiCopy = {
   phase: string;
   gold: string;
   reroll: string;
+  buyXp: string;
   bench: string;
   shop: string;
+  deployCap: string;
+  boardSlots: string;
   startCombat: string;
   nextRound: string;
   restartRun: string;
@@ -50,14 +53,24 @@ type UiCopy = {
   sellBenchUnit: string;
   benchSelectedHint: string;
   benchIdleHint: string;
+  deployCapReached: string;
   deployment: string;
   withdrawToBench: string;
   sellDeployedUnit: string;
   activeBoard: string;
+  economy: string;
+  nextIncome: string;
+  baseIncome: string;
+  interestIncome: string;
+  streakIncome: string;
+  streak: string;
+  economyHint: string;
   synergies: string;
   enemyLineup: string;
   threat: string;
   intent: string;
+  roster: string;
+  rosterHint: string;
   status: string;
   statusSummary: string;
   runtimeActive: string;
@@ -150,8 +163,11 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     phase: "Phase",
     gold: "Gold",
     reroll: "Reroll",
+    buyXp: "Buy XP",
     bench: "Bench",
     shop: "Shop",
+    deployCap: "Deploy Cap",
+    boardSlots: "board slots",
     startCombat: "Start Combat",
     nextRound: "Next Round",
     restartRun: "Restart Run",
@@ -171,17 +187,29 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     benchSelectedHint:
       "Bench unit selected. Click an empty deployment slot to place it.",
     benchIdleHint: "Select a benched unit to prepare a deployment.",
+    deployCapReached: "Level up first to deploy another unit.",
     deployment: "Deployment",
     withdrawToBench: "Withdraw To Bench",
     sellDeployedUnit: "Sell Deployed Unit",
     activeBoard: "Active board",
+    economy: "Economy",
+    nextIncome: "Next Income",
+    baseIncome: "Base",
+    interestIncome: "Interest",
+    streakIncome: "Streak Bonus",
+    streak: "Streak",
+    economyHint:
+      "Interest previews off current gold, and streak bonus grows on both wins and losses.",
     synergies: "Synergies",
     enemyLineup: "Enemy Lineup",
     threat: "Threat",
     intent: "Intent",
+    roster: "Roster",
+    rosterHint:
+      "Numeron now runs an eight-unit opening pool so real shop and composition decisions show up early.",
     status: "Status",
     statusSummary:
-      "Current runtime supports lockable shops, enemy forecasts, visible skill cadence, and restartable runs.",
+      "Current runtime supports lockable shops, leveling, streak/interest economy, visible skill cadence, and restartable runs.",
     runtimeActive: "Runtime active",
     commander: "Commander",
     boardSeed: "Board Seed",
@@ -272,8 +300,11 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     phase: "阶段",
     gold: "金币",
     reroll: "刷新",
+    buyXp: "购买经验",
     bench: "备战席",
     shop: "商店",
+    deployCap: "人口上限",
+    boardSlots: "棋盘槽位",
     startCombat: "开始战斗",
     nextRound: "下一回合",
     restartRun: "重新开局",
@@ -291,16 +322,27 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     sellBenchUnit: "出售备战单位",
     benchSelectedHint: "已选中备战单位，点击空部署位即可上场。",
     benchIdleHint: "先选择一个备战单位，再准备部署。",
+    deployCapReached: "先升级人口上限，才能继续部署。",
     deployment: "部署区",
     withdrawToBench: "撤回到备战席",
     sellDeployedUnit: "出售上场单位",
     activeBoard: "当前上场",
+    economy: "经济",
+    nextIncome: "下回合收入",
+    baseIncome: "基础",
+    interestIncome: "利息",
+    streakIncome: "连胜连败加成",
+    streak: "连胜连败",
+    economyHint: "利息按当前金币预览，连胜与连败都会带来额外收入。",
     synergies: "羁绊",
     enemyLineup: "敌方阵容",
     threat: "威胁值",
     intent: "意图",
+    roster: "单位池",
+    rosterHint: "Numeron 现在有 8 个起始单位，可以开始测试真正的商店与阵容决策。",
     status: "状态",
-    statusSummary: "当前 runtime 已支持锁店、敌方预判、技能节奏显示，以及可重开的 run。",
+    statusSummary:
+      "当前 runtime 已支持锁店、等级与经济层、敌方预判、技能节奏显示，以及可重开的 run。",
     runtimeActive: "Runtime 状态",
     commander: "指挥官",
     boardSeed: "棋盘单位",

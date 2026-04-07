@@ -42,10 +42,10 @@ test("withdraw and sell flows return units and gold cleanly", async ({ page }) =
   await expect(page.getByTestId("board-slot-0")).toContainText(/Empty Slot|空槽位/);
   await expect(page.getByTestId("bench-slot-0")).not.toContainText(/Empty Bench Slot|空备战槽/);
 
-  await page.getByTestId("bench-slot-0").click();
+  await page.getByTestId("bench-slot-1").click();
   await page.getByTestId("sell-bench").click();
 
-  await expect(page.getByTestId("bench-slot-0")).toContainText(/Empty Bench Slot|空备战槽/);
+  await expect(page.getByTestId("bench-slot-1")).toContainText(/Empty Bench Slot|空备战槽/);
   expect(await readGold(page)).toBe(startingGold + 2);
 });
 
@@ -58,19 +58,48 @@ test("buying the third matching copy merges into a two-star unit", async ({ page
   await waitForRoundResolution(page);
   await advanceToNextRound(page, 2);
 
-  await expect(page.getByTestId("shop-offer-1")).toContainText(
-    /Verdant Bruiser|翠卫斗士/,
-  );
-  await page.getByTestId("shop-offer-1").click();
-  await expect(page.getByTestId("shop-offer-1")).toContainText(
-    /Verdant Bruiser|翠卫斗士/,
-  );
-  await page.getByTestId("shop-offer-1").click();
+  let boughtCopies = 0;
+
+  for (let cycle = 0; cycle < 12 && boughtCopies < 2; cycle += 1) {
+    for (let index = 0; index < 4 && boughtCopies < 2; index += 1) {
+      const offer = page.getByTestId(`shop-offer-${index}`);
+      if ((await offer.innerText()).match(/Verdant Bruiser|翠卫斗士/)) {
+        await offer.click();
+        boughtCopies += 1;
+      }
+    }
+
+    if (boughtCopies < 2) {
+      await page.getByTestId("reroll-shop").click();
+    }
+  }
+
+  expect(boughtCopies).toBe(2);
 
   await expect(page.getByTestId("board-slot-0")).toContainText(
     /Verdant Bruiser II|翠卫斗士 II/,
   );
   await expect(page.getByTestId("status-panel")).toContainText(/Merged three|已将三个/);
+});
+
+test("buying xp unlocks an extra deployment slot", async ({ page }) => {
+  await openShell(page);
+  await launchRuntime(page);
+
+  await deployBenchUnitAtIndex(page, 0, 0);
+  await deployBenchUnitAtIndex(page, 0, 1);
+  await page.getByTestId("shop-offer-0").click();
+  await page.getByTestId("bench-slot-0").click();
+
+  await expect(page.getByTestId("deployment-cap-stat")).toContainText(/2\/2/);
+  await expect(page.getByTestId("board-slot-2")).toBeDisabled();
+
+  await page.getByTestId("buy-xp").click();
+
+  await expect(page.getByTestId("deployment-cap-stat")).toContainText(/2\/3/);
+  await expect(page.getByTestId("board-slot-2")).toBeEnabled();
+  await page.getByTestId("board-slot-2").click();
+  await expect(page.getByTestId("board-slot-2")).not.toContainText(/Empty Slot|空槽位/);
 });
 
 test("switching save slots restores slot-scoped locale and player profile", async ({

@@ -38,6 +38,7 @@ type RuntimeModule = {
   resetRuntimeRound?: () => void;
   restartRuntimeRun?: () => void;
   rerollRuntimeShop?: () => void;
+  buyRuntimeXp?: () => void;
   toggleRuntimeShopLock?: () => void;
   buyRuntimeShopOffer?: (index: number) => void;
   deployRuntimeBenchUnit?: (benchIndex: number, slotIndex: number) => void;
@@ -131,6 +132,10 @@ export function restartRuntimeRun() {
 
 export function rerollRuntimeShop() {
   runtimeModule?.rerollRuntimeShop?.();
+}
+
+export function buyRuntimeXp() {
+  runtimeModule?.buyRuntimeXp?.();
 }
 
 export function toggleRuntimeShopLock() {
@@ -316,9 +321,23 @@ function normalizeRuntimeEventPayload(
         runNumber: Number(
           projection.slice?.runNumber ?? DEFAULT_RUNTIME_PROJECTION.slice.runNumber,
         ),
+        level: Number(
+          projection.slice?.level ?? DEFAULT_RUNTIME_PROJECTION.slice.level,
+        ),
+        xp: Number(projection.slice?.xp ?? DEFAULT_RUNTIME_PROJECTION.slice.xp),
+        xpToNextLevel: Number(
+          projection.slice?.xpToNextLevel ??
+            DEFAULT_RUNTIME_PROJECTION.slice.xpToNextLevel,
+        ),
+        maxLevel: Number(
+          projection.slice?.maxLevel ?? DEFAULT_RUNTIME_PROJECTION.slice.maxLevel,
+        ),
         rerollCost: Number(
           projection.slice?.rerollCost ??
             DEFAULT_RUNTIME_PROJECTION.slice.rerollCost,
+        ),
+        xpBuyCost: Number(
+          projection.slice?.xpBuyCost ?? DEFAULT_RUNTIME_PROJECTION.slice.xpBuyCost,
         ),
         shopLocked: Boolean(
           projection.slice?.shopLocked ??
@@ -340,6 +359,9 @@ function normalizeRuntimeEventPayload(
               unit == null ? null : normalizeRuntimeUnitView(unit),
             )
           : DEFAULT_RUNTIME_PROJECTION.slice.enemyBoard,
+        unitRoster: Array.isArray(projection.slice?.unitRoster)
+          ? projection.slice.unitRoster.map(normalizeRuntimeUnitView)
+          : DEFAULT_RUNTIME_PROJECTION.slice.unitRoster,
         activeTraits: Array.isArray(projection.slice?.activeTraits)
           ? projection.slice.activeTraits.map(normalizeRuntimeTraitView)
           : DEFAULT_RUNTIME_PROJECTION.slice.activeTraits,
@@ -358,6 +380,24 @@ function normalizeRuntimeEventPayload(
         boardCapacity: Number(
           projection.slice?.boardCapacity ??
             DEFAULT_RUNTIME_PROJECTION.slice.boardCapacity,
+        ),
+        deploymentCap: Number(
+          projection.slice?.deploymentCap ??
+            DEFAULT_RUNTIME_PROJECTION.slice.deploymentCap,
+        ),
+        streak: Number(
+          projection.slice?.streak ?? DEFAULT_RUNTIME_PROJECTION.slice.streak,
+        ),
+        baseIncome: Number(
+          projection.slice?.baseIncome ?? DEFAULT_RUNTIME_PROJECTION.slice.baseIncome,
+        ),
+        interestIncome: Number(
+          projection.slice?.interestIncome ??
+            DEFAULT_RUNTIME_PROJECTION.slice.interestIncome,
+        ),
+        streakIncome: Number(
+          projection.slice?.streakIncome ??
+            DEFAULT_RUNTIME_PROJECTION.slice.streakIncome,
         ),
         roundResolved: Boolean(
           projection.slice?.roundResolved ??
@@ -436,6 +476,10 @@ function normalizeArchetype(value: unknown) {
     case "signal-ranger":
     case "ash-duelist":
     case "iron-vanguard":
+    case "frost-oracle":
+    case "ember-medic":
+    case "volt-juggler":
+    case "grave-warden":
       return value;
     default:
       return "verdant-bruiser";

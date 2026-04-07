@@ -32,7 +32,15 @@ export type RuntimeBootRecord = {
 
 export type RuntimeUnitView = {
   label: string;
-  archetype: "verdant-bruiser" | "signal-ranger" | "ash-duelist" | "iron-vanguard";
+  archetype:
+    | "verdant-bruiser"
+    | "signal-ranger"
+    | "ash-duelist"
+    | "iron-vanguard"
+    | "frost-oracle"
+    | "ember-medic"
+    | "volt-juggler"
+    | "grave-warden";
   faction: "dawn" | "dusk";
   role: "vanguard" | "skirmisher";
   skill: string;
@@ -74,17 +82,28 @@ export type RuntimeProjection = {
     total: number;
     round: number;
     runNumber: number;
+    level: number;
+    xp: number;
+    xpToNextLevel: number;
+    maxLevel: number;
     rerollCost: number;
+    xpBuyCost: number;
     shopLocked: boolean;
     shopOffers: RuntimeUnitView[];
     benchUnits: RuntimeUnitView[];
     playerBoard: Array<RuntimeUnitView | null>;
     enemyBoard: Array<RuntimeUnitView | null>;
+    unitRoster: RuntimeUnitView[];
     activeTraits: RuntimeTraitView[];
     enemyThreat: number;
     enemyIntent: string;
     benchCapacity: number;
     boardCapacity: number;
+    deploymentCap: number;
+    streak: number;
+    baseIncome: number;
+    interestIncome: number;
+    streakIncome: number;
     roundResolved: boolean;
     runOver: boolean;
     runResult: "active" | "victory" | "defeat";
@@ -230,6 +249,9 @@ export type UiIntent =
       type: "runtime.shop.reroll";
     }
   | {
+      type: "runtime.shop.buy-xp";
+    }
+  | {
       type: "runtime.shop.lock.toggle";
     }
   | {
@@ -302,23 +324,34 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     status: "Waiting for board allocation.",
     score: 0,
     gold: 0,
-    playerHealth: 30,
-    enemyHealth: 30,
+    playerHealth: 20,
+    enemyHealth: 20,
     captured: 0,
     total: 0,
     round: 1,
     runNumber: 1,
+    level: 1,
+    xp: 0,
+    xpToNextLevel: 4,
+    maxLevel: 4,
     rerollCost: 1,
+    xpBuyCost: 4,
     shopLocked: false,
     shopOffers: [],
     benchUnits: [],
-    playerBoard: [null, null, null, null],
-    enemyBoard: [null, null, null],
+    playerBoard: [null, null, null, null, null],
+    enemyBoard: [null, null, null, null, null],
+    unitRoster: [],
     activeTraits: [],
     enemyThreat: 0,
     enemyIntent: "Awaiting board allocation.",
-    benchCapacity: 4,
-    boardCapacity: 4,
+    benchCapacity: 6,
+    boardCapacity: 5,
+    deploymentCap: 2,
+    streak: 0,
+    baseIncome: 4,
+    interestIncome: 0,
+    streakIncome: 0,
     roundResolved: false,
     runOver: false,
     runResult: "active",

@@ -67,6 +67,10 @@ const UNIT_ART_BY_ARCHETYPE: Record<RuntimeUnitView["archetype"], string> = {
   "signal-ranger": "/assets/numeron/shell/unit_signal_ranger.png",
   "ash-duelist": "/assets/numeron/shell/unit_ash_duelist.png",
   "iron-vanguard": "/assets/numeron/shell/unit_iron_vanguard.png",
+  "frost-oracle": "/assets/numeron/shell/unit_signal_ranger.png",
+  "ember-medic": "/assets/numeron/shell/unit_verdant_bruiser.png",
+  "volt-juggler": "/assets/numeron/shell/unit_ash_duelist.png",
+  "grave-warden": "/assets/numeron/shell/unit_iron_vanguard.png",
 };
 
 type ControlKey = "up" | "down" | "left" | "right";
@@ -121,7 +125,11 @@ export function GameShell() {
   const benchUnits = runtimeSnapshot.world.slice.benchUnits;
   const playerBoard = runtimeSnapshot.world.slice.playerBoard;
   const enemyBoard = runtimeSnapshot.world.slice.enemyBoard;
+  const unitRoster = runtimeSnapshot.world.slice.unitRoster;
   const activeTraits = runtimeSnapshot.world.slice.activeTraits;
+  const deployedUnits = playerBoard.filter(Boolean).length;
+  const deploymentCap = runtimeSnapshot.world.slice.deploymentCap;
+  const deploymentCapReached = deployedUnits >= deploymentCap;
   const hasBenchSelection =
     selectedBenchIndex != null && selectedBenchIndex < benchUnits.length;
   const hasBoardSelection =
@@ -132,6 +140,10 @@ export function GameShell() {
     canDraft &&
     runtimeSnapshot.world.slice.gold >= 3 &&
     benchUnits.length < runtimeSnapshot.world.slice.benchCapacity;
+  const canBuyXp =
+    canDraft &&
+    runtimeSnapshot.world.slice.gold >= runtimeSnapshot.world.slice.xpBuyCost &&
+    runtimeSnapshot.world.slice.level < runtimeSnapshot.world.slice.maxLevel;
   const canRerollShop =
     canDraft &&
     runtimeSnapshot.world.slice.gold >= runtimeSnapshot.world.slice.rerollCost;
@@ -140,6 +152,10 @@ export function GameShell() {
   const localizedRoundState = runtimeSnapshot.world.slice.status;
   const localizedObjective = runtimeSnapshot.world.slice.objective;
   const localizedEnemyIntent = runtimeSnapshot.world.slice.enemyIntent;
+  const nextIncomeTotal =
+    runtimeSnapshot.world.slice.baseIncome +
+    runtimeSnapshot.world.slice.interestIncome +
+    runtimeSnapshot.world.slice.streakIncome;
 
   useEffect(() => {
     const storedCollection = loadStoredSaveCollection();
@@ -662,6 +678,12 @@ export function GameShell() {
     });
   }
 
+  function handleBuyXp() {
+    void dispatchUiIntent({
+      type: "runtime.shop.buy-xp",
+    });
+  }
+
   function handleBuyOffer(index: number) {
     void dispatchUiIntent({
       type: "runtime.shop.buy",
@@ -889,6 +911,10 @@ export function GameShell() {
               <strong>{runtimeSnapshot.world.slice.runNumber}</strong>
             </div>
             <div className="status-pill">
+              <span className="stat-label">{copy.level}</span>
+              <strong>{runtimeSnapshot.world.slice.level}</strong>
+            </div>
+            <div className="status-pill">
               <span className="stat-label">{copy.result}</span>
               <strong>{formatRunResult(runtimeSnapshot.world.slice.runResult, locale)}</strong>
             </div>
@@ -1004,6 +1030,21 @@ export function GameShell() {
           <section className="panel" data-testid="battle-controls-panel">
             <div className="eyebrow">{copy.battleControls}</div>
             <div className="stat-grid">
+              <div className="stat-card" data-testid="level-stat">
+                <span className="stat-label">{copy.level}</span>
+                <strong>{runtimeSnapshot.world.slice.level}</strong>
+              </div>
+              <div className="stat-card" data-testid="xp-stat">
+                <span className="stat-label">{copy.xp}</span>
+                <strong>
+                  {runtimeSnapshot.world.slice.maxLevel >
+                  runtimeSnapshot.world.slice.level
+                    ? `${runtimeSnapshot.world.slice.xp}/${runtimeSnapshot.world.slice.xpToNextLevel}`
+                    : locale === "zh-CN"
+                      ? "已满"
+                      : "max"}
+                </strong>
+              </div>
               <div className="stat-card">
                 <span className="stat-label">{copy.phase}</span>
                 <strong>{formatPhaseLabel(currentPhase, locale)}</strong>
@@ -1015,6 +1056,12 @@ export function GameShell() {
               <div className="stat-card">
                 <span className="stat-label">{copy.reroll}</span>
                 <strong>{runtimeSnapshot.world.slice.rerollCost}</strong>
+              </div>
+              <div className="stat-card" data-testid="deployment-cap-stat">
+                <span className="stat-label">{copy.deployCap}</span>
+                <strong>
+                  {deployedUnits}/{deploymentCap}
+                </strong>
               </div>
               <div className="stat-card">
                 <span className="stat-label">{copy.bench}</span>
@@ -1109,6 +1156,14 @@ export function GameShell() {
               >
                 {runtimeSnapshot.world.slice.shopLocked ? copy.unlockShop : copy.lockShop}
               </button>
+              <button
+                className="button secondary"
+                onClick={handleBuyXp}
+                disabled={!canBuyXp}
+                data-testid="buy-xp"
+              >
+                {copy.buyXp}
+              </button>
             </div>
             <div className="muted">{copy.draftHint}</div>
             <div className="muted">
@@ -1191,7 +1246,8 @@ export function GameShell() {
             <div className="formation-grid">
               {playerBoard.map((unit, index) => {
                 const isEmpty = unit == null;
-                const canDeployIntoSlot = canDraft && isEmpty && hasBenchSelection;
+                const canDeployIntoSlot =
+                  canDraft && isEmpty && hasBenchSelection && !deploymentCapReached;
                 const isSelected = selectedBoardIndex === index;
                 const canSelectSlot = canDraft && !isEmpty;
 
@@ -1226,9 +1282,11 @@ export function GameShell() {
                             ? "点击选中"
                             : "Click to select"
                         : hasBenchSelection
-                          ? locale === "zh-CN"
-                            ? "点击部署选中单位"
-                            : "Click to deploy selected unit"
+                          ? deploymentCapReached
+                            ? copy.deployCapReached
+                            : locale === "zh-CN"
+                              ? "点击部署选中单位"
+                              : "Click to deploy selected unit"
                           : locale === "zh-CN"
                             ? "先选择一个备战单位"
                             : "Select a bench unit first"}
@@ -1266,7 +1324,7 @@ export function GameShell() {
               </button>
             </div>
             <div className="muted">
-              {copy.activeBoard}: {playerBoard.filter(Boolean).length}/
+              {copy.activeBoard}: {deployedUnits}/{deploymentCap} · {copy.boardSlots}{" "}
               {runtimeSnapshot.world.slice.boardCapacity}
             </div>
           </section>
@@ -1398,6 +1456,37 @@ export function GameShell() {
             </div>
           </section>
 
+          <section className="panel" data-testid="economy-panel">
+            <div className="eyebrow">{copy.economy}</div>
+            <div className="stat-grid stat-grid-two">
+              <div className="stat-card">
+                <span className="stat-label">{copy.nextIncome}</span>
+                <strong>{nextIncomeTotal}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.streak}</span>
+                <strong>{formatStreak(runtimeSnapshot.world.slice.streak, locale)}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.baseIncome}</span>
+                <strong>{runtimeSnapshot.world.slice.baseIncome}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.interestIncome}</span>
+                <strong>{runtimeSnapshot.world.slice.interestIncome}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.streakIncome}</span>
+                <strong>{runtimeSnapshot.world.slice.streakIncome}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">{copy.buyXp}</span>
+                <strong>{runtimeSnapshot.world.slice.xpBuyCost}</strong>
+              </div>
+            </div>
+            <div className="muted">{copy.economyHint}</div>
+          </section>
+
           <section className="panel" data-testid="trait-panel">
             <div className="eyebrow">{copy.synergies}</div>
             <div className="trait-grid">
@@ -1418,6 +1507,25 @@ export function GameShell() {
                 </div>
               ))}
             </div>
+          </section>
+
+          <section className="panel" data-testid="roster-panel">
+            <div className="eyebrow">{copy.roster}</div>
+            <div className="offer-grid">
+              {unitRoster.map((unit) => (
+                <div key={unit.archetype} className="offer-card">
+                  <UnitPortrait unit={unit} />
+                  <span className="slot-title">{unit.label}</span>
+                  <span className="slot-meta">
+                    {formatFactionLabel(unit.faction, locale)} ·{" "}
+                    {formatRoleLabel(unit.role, locale)}
+                  </span>
+                  <span className="slot-meta">{renderUnitMeta(unit, locale)}</span>
+                  <span className="slot-meta">{unit.skill}</span>
+                </div>
+              ))}
+            </div>
+            <div className="muted">{copy.rosterHint}</div>
           </section>
 
           <section className="panel" data-testid="status-panel">
@@ -1685,6 +1793,18 @@ function controlKeyFromKeyboard(key: string): ControlKey | null {
 
 function renderBootRecord(record: RuntimeBootRecord, locale: UiLocale) {
   return `${record.phase} · ${localizeBootMessage(record.message, locale)}`;
+}
+
+function formatStreak(streak: number, locale: UiLocale) {
+  if (streak > 0) {
+    return locale === "zh-CN" ? `连胜 ${streak}` : `W ${streak}`;
+  }
+
+  if (streak < 0) {
+    return locale === "zh-CN" ? `连败 ${Math.abs(streak)}` : `L ${Math.abs(streak)}`;
+  }
+
+  return locale === "zh-CN" ? "无" : "None";
 }
 
 function readStoredDataMode(): ShellDataMode {

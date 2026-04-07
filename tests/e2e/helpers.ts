@@ -148,8 +148,9 @@ export async function readGold(page: Page) {
 
 export async function readShopOfferTitles(page: Page) {
   const titles = [];
+  const count = await page.locator('[data-testid^="shop-offer-"]').count();
 
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < count; index += 1) {
     const text = await page.getByTestId(`shop-offer-${index}`).innerText();
     titles.push(text.split("\n")[0]?.trim() ?? "");
   }
@@ -158,7 +159,9 @@ export async function readShopOfferTitles(page: Page) {
 }
 
 async function firstOccupiedIndex(page: Page, prefix: string, emptyPatterns: string[]) {
-  for (let index = 0; index < 4; index += 1) {
+  const count = await page.locator(`[data-testid^="${prefix}-"]`).count();
+
+  for (let index = 0; index < count; index += 1) {
     const text = await page.getByTestId(`${prefix}-${index}`).innerText();
     if (!emptyPatterns.some((pattern) => text.includes(pattern))) {
       return index;
@@ -169,7 +172,9 @@ async function firstOccupiedIndex(page: Page, prefix: string, emptyPatterns: str
 }
 
 async function firstEmptyIndex(page: Page, prefix: string, emptyPatterns: string[]) {
-  for (let index = 0; index < 4; index += 1) {
+  const count = await page.locator(`[data-testid^="${prefix}-"]`).count();
+
+  for (let index = 0; index < count; index += 1) {
     const text = await page.getByTestId(`${prefix}-${index}`).innerText();
     if (emptyPatterns.some((pattern) => text.includes(pattern))) {
       return index;
