@@ -85,6 +85,7 @@ export function profileToBootConfig(slot: RuntimeSaveSlot): RuntimeBootConfig {
   return {
     playerName: slot.profile.preferredPlayerName,
     touchControls: slot.profile.preferredTouchControls,
+    locale: slot.profile.preferredLocale,
   };
 }
 

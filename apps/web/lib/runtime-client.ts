@@ -28,7 +28,11 @@ type RuntimeModule = {
   clearRuntimeBootStatusSink?: () => void;
   setRuntimeEventSink?: (callback: (payload: RuntimeAdapterEventPayload) => void) => void;
   clearRuntimeEventSink?: () => void;
-  setRuntimeSessionConfig?: (playerName: string, touchControls: boolean) => void;
+  setRuntimeSessionConfig?: (
+    playerName: string,
+    touchControls: boolean,
+    locale: "en" | "zh-CN",
+  ) => void;
   setRuntimeVirtualInput?: (x: number, y: number) => void;
   startRuntimeCombat?: () => void;
   resetRuntimeRound?: () => void;
@@ -89,11 +93,13 @@ export function setRuntimeSessionConfig(config: RuntimeBootConfig) {
   pendingSessionConfig = {
     playerName: config.playerName.trim() || DEFAULT_RUNTIME_BOOT_CONFIG.playerName,
     touchControls: config.touchControls,
+    locale: config.locale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_BOOT_CONFIG.locale,
   };
 
   runtimeModule?.setRuntimeSessionConfig?.(
     pendingSessionConfig.playerName,
     pendingSessionConfig.touchControls,
+    pendingSessionConfig.locale,
   );
 }
 
@@ -253,6 +259,7 @@ function applyPendingRuntimeState(runtime: RuntimeModule) {
   runtime.setRuntimeSessionConfig?.(
     pendingSessionConfig.playerName,
     pendingSessionConfig.touchControls,
+    pendingSessionConfig.locale,
   );
   runtime.setRuntimeVirtualInput?.(pendingVirtualInput.x, pendingVirtualInput.y);
 }

@@ -49,6 +49,7 @@ export function profileToBootConfig(profile: RuntimeProfile): RuntimeBootConfig 
     playerName:
       profile.preferredPlayerName || DEFAULT_RUNTIME_BOOT_CONFIG.playerName,
     touchControls: profile.preferredTouchControls,
+    locale: profile.preferredLocale || DEFAULT_RUNTIME_BOOT_CONFIG.locale,
   };
 }
 
@@ -76,6 +77,8 @@ export function sanitizeRuntimeProfile(
       typeof value?.preferredTouchControls === "boolean"
         ? value.preferredTouchControls
         : DEFAULT_RUNTIME_PROFILE.preferredTouchControls,
+    preferredLocale:
+      value?.preferredLocale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_PROFILE.preferredLocale,
     runsLaunched: Math.max(0, Number(value?.runsLaunched ?? 0) || 0),
     bestScore: Math.max(0, Number(value?.bestScore ?? 0) || 0),
     bestRound: Math.max(0, Number(value?.bestRound ?? 0) || 0),

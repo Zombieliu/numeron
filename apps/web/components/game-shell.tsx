@@ -43,7 +43,6 @@ import {
   getUiCopy,
   localizeBootMessage,
   localizeCastState,
-  localizeRuntimeText,
   localizeSkillLabel,
   localizeTargetRule,
   localizeTempoLabel,
@@ -66,7 +65,6 @@ import type {
 const LAUNCHER_STORAGE_KEY = "numeron.launcher.v1";
 const DATA_MODE_STORAGE_KEY = "numeron.data-mode.v1";
 const BACKEND_URL_STORAGE_KEY = "numeron.backend-url.v1";
-const LOCALE_STORAGE_KEY = "numeron.locale.v1";
 const BUY_COST_LABEL = 3;
 
 type ControlKey = "up" | "down" | "left" | "right";
@@ -94,7 +92,6 @@ export function GameShell() {
   const [dataMode, setDataMode] = useState<ShellDataMode>("local");
   const [backendUrl, setBackendUrl] = useState(DEFAULT_REMOTE_BACKEND_URL);
   const [backendMessage, setBackendMessage] = useState<string | null>(null);
-  const [locale, setLocale] = useState<UiLocale>("en");
   const [currentSession, setCurrentSession] = useState<MatchSessionRecord | null>(
     null,
   );
@@ -103,6 +100,7 @@ export function GameShell() {
   const remoteKnownSessionIds = useRef<Set<string>>(new Set());
   const remoteProfileSignature = useRef<string | null>(null);
   const remoteHydrated = useRef(false);
+  const locale = runtimeSnapshot.bootConfig.locale as UiLocale;
   const copy = getUiCopy(locale);
 
   const activeSlot = getActiveSlot(saveCollection);
@@ -137,25 +135,15 @@ export function GameShell() {
     runtimeSnapshot.world.slice.gold >= runtimeSnapshot.world.slice.rerollCost;
   const canWithdrawUnit =
     canDraft && benchUnits.length < runtimeSnapshot.world.slice.benchCapacity;
-  const localizedRoundState = localizeRuntimeText(
-    runtimeSnapshot.world.slice.status,
-    locale,
-  );
-  const localizedObjective = localizeRuntimeText(
-    runtimeSnapshot.world.slice.objective,
-    locale,
-  );
-  const localizedEnemyIntent = localizeRuntimeText(
-    runtimeSnapshot.world.slice.enemyIntent,
-    locale,
-  );
+  const localizedRoundState = runtimeSnapshot.world.slice.status;
+  const localizedObjective = runtimeSnapshot.world.slice.objective;
+  const localizedEnemyIntent = runtimeSnapshot.world.slice.enemyIntent;
 
   useEffect(() => {
     const storedCollection = loadStoredSaveCollection();
     setSaveCollection(storedCollection);
     setDataMode(readStoredDataMode());
     setBackendUrl(readStoredBackendUrl());
-    setLocale(readStoredLocale());
 
     const initialConfig = readStoredBootConfig(storedCollection);
     setRuntimeSnapshot(
@@ -173,10 +161,6 @@ export function GameShell() {
   }, []);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
-    } catch {}
-
     document.documentElement.lang = locale;
   }, [locale]);
 
@@ -238,15 +222,16 @@ export function GameShell() {
 
     updateSlot(activeSlot.id, (slot) => {
       const now = new Date().toISOString();
-      return {
-        ...slot,
-        profile: {
-          ...slot.profile,
-          preferredPlayerName: runtimeSnapshot.bootConfig.playerName,
-          preferredTouchControls: runtimeSnapshot.bootConfig.touchControls,
-          updatedAt: now,
-        },
-        updatedAt: now,
+          return {
+            ...slot,
+            profile: {
+              ...slot.profile,
+              preferredPlayerName: runtimeSnapshot.bootConfig.playerName,
+              preferredTouchControls: runtimeSnapshot.bootConfig.touchControls,
+              preferredLocale: runtimeSnapshot.bootConfig.locale,
+              updatedAt: now,
+            },
+            updatedAt: now,
       };
     });
   }, [
@@ -254,6 +239,7 @@ export function GameShell() {
     clientReady,
     runtimeSnapshot.bootConfig.playerName,
     runtimeSnapshot.bootConfig.touchControls,
+    runtimeSnapshot.bootConfig.locale,
   ]);
 
   useEffect(() => {
@@ -912,14 +898,14 @@ export function GameShell() {
             <button
               type="button"
               className={`mode-chip${locale === "en" ? " active" : ""}`}
-              onClick={() => setLocale("en")}
+              onClick={() => setLauncherConfig("locale", "en")}
             >
               {copy.english}
             </button>
             <button
               type="button"
               className={`mode-chip${locale === "zh-CN" ? " active" : ""}`}
-              onClick={() => setLocale("zh-CN")}
+              onClick={() => setLauncherConfig("locale", "zh-CN")}
             >
               {copy.chineseSimplified}
             </button>
@@ -1419,7 +1405,7 @@ export function GameShell() {
                     {trait.count}/{trait.threshold}
                   </span>
                   <span className="slot-meta">
-                    {localizeRuntimeText(trait.description, locale)}
+                    {trait.description}
                   </span>
                 </div>
               ))}
@@ -1688,16 +1674,6 @@ function readStoredBackendUrl() {
     return normalizeBackendUrl(window.localStorage.getItem(BACKEND_URL_STORAGE_KEY));
   } catch {
     return DEFAULT_REMOTE_BACKEND_URL;
-  }
-}
-
-function readStoredLocale(): UiLocale {
-  try {
-    return window.localStorage.getItem(LOCALE_STORAGE_KEY) === "zh-CN"
-      ? "zh-CN"
-      : "en";
-  } catch {
-    return "en";
   }
 }
 

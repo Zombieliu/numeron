@@ -42,6 +42,7 @@ enum GameState {
 pub struct RuntimeConfig {
     pub player_name: String,
     pub touch_controls: bool,
+    pub locale: RuntimeLocale,
 }
 
 impl Default for RuntimeConfig {
@@ -49,6 +50,30 @@ impl Default for RuntimeConfig {
         Self {
             player_name: "Pilot".to_owned(),
             touch_controls: true,
+            locale: RuntimeLocale::En,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RuntimeLocale {
+    En,
+    ZhCn,
+}
+
+impl RuntimeLocale {
+    pub fn from_code(value: &str) -> Self {
+        if value == "zh-CN" {
+            Self::ZhCn
+        } else {
+            Self::En
+        }
+    }
+
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::En => "en",
+            Self::ZhCn => "zh-CN",
         }
     }
 }

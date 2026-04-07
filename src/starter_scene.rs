@@ -1,4 +1,4 @@
-use crate::GameState;
+use crate::{GameState, RuntimeConfig, RuntimeLocale};
 use crate::web_bridge::{RuntimeCommand, take_runtime_commands};
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -25,6 +25,13 @@ const FINAL_ROUND: u32 = 6;
 
 const PLAYER_SLOTS: [(usize, usize); 4] = [(0, 1), (1, 1), (2, 1), (3, 1)];
 const ENEMY_SLOTS: [(usize, usize); 3] = [(0, 4), (1, 4), (2, 4)];
+
+fn localized(locale: RuntimeLocale, en: &'static str, zh: &'static str) -> &'static str {
+    match locale {
+        RuntimeLocale::En => en,
+        RuntimeLocale::ZhCn => zh,
+    }
+}
 
 #[derive(Resource, Clone, Debug)]
 pub struct BoardConfig {
@@ -283,17 +290,25 @@ impl UnitFaction {
         }
     }
 
-    fn label(self) -> &'static str {
+    fn label(self, locale: RuntimeLocale) -> &'static str {
         match self {
-            UnitFaction::Dawn => "Dawn Circuit",
-            UnitFaction::Dusk => "Dusk Bastion",
+            UnitFaction::Dawn => localized(locale, "Dawn Circuit", "黎明回路"),
+            UnitFaction::Dusk => localized(locale, "Dusk Bastion", "黄昏壁垒"),
         }
     }
 
-    fn description(self) -> &'static str {
+    fn description(self, locale: RuntimeLocale) -> &'static str {
         match self {
-            UnitFaction::Dawn => "2 deployed Dawn units: Dawn allies gain +1 attack.",
-            UnitFaction::Dusk => "2 deployed Dusk units: Dusk allies gain +2 health.",
+            UnitFaction::Dawn => localized(
+                locale,
+                "2 deployed Dawn units: Dawn allies gain +1 attack.",
+                "部署 2 个黎明单位：所有黎明友军获得 +1 攻击。",
+            ),
+            UnitFaction::Dusk => localized(
+                locale,
+                "2 deployed Dusk units: Dusk allies gain +2 health.",
+                "部署 2 个黄昏单位：所有黄昏友军获得 +2 生命。",
+            ),
         }
     }
 }
@@ -312,17 +327,25 @@ impl UnitRole {
         }
     }
 
-    fn label(self) -> &'static str {
+    fn label(self, locale: RuntimeLocale) -> &'static str {
         match self {
-            UnitRole::Vanguard => "Vanguard Line",
-            UnitRole::Skirmisher => "Skirmisher Line",
+            UnitRole::Vanguard => localized(locale, "Vanguard Line", "前排战线"),
+            UnitRole::Skirmisher => localized(locale, "Skirmisher Line", "游击战线"),
         }
     }
 
-    fn description(self) -> &'static str {
+    fn description(self, locale: RuntimeLocale) -> &'static str {
         match self {
-            UnitRole::Vanguard => "2 deployed Vanguards: all allies gain +2 health.",
-            UnitRole::Skirmisher => "2 deployed Skirmishers: all allies gain +1 attack.",
+            UnitRole::Vanguard => localized(
+                locale,
+                "2 deployed Vanguards: all allies gain +2 health.",
+                "部署 2 个前排单位：所有友军获得 +2 生命。",
+            ),
+            UnitRole::Skirmisher => localized(
+                locale,
+                "2 deployed Skirmishers: all allies gain +1 attack.",
+                "部署 2 个游击单位：所有友军获得 +1 攻击。",
+            ),
         }
     }
 }
@@ -354,58 +377,88 @@ impl UnitArchetype {
         }
     }
 
-    fn label(self) -> &'static str {
+    fn label(self, locale: RuntimeLocale) -> &'static str {
         match self {
-            Self::VerdantBruiser => "Verdant Bruiser",
-            Self::SignalRanger => "Signal Ranger",
-            Self::AshDuelist => "Ash Duelist",
-            Self::IronVanguard => "Iron Vanguard",
+            Self::VerdantBruiser => localized(locale, "Verdant Bruiser", "翠卫斗士"),
+            Self::SignalRanger => localized(locale, "Signal Ranger", "信号射手"),
+            Self::AshDuelist => localized(locale, "Ash Duelist", "灰烬决斗者"),
+            Self::IronVanguard => localized(locale, "Iron Vanguard", "钢铁先锋"),
         }
     }
 
-    fn skill_label(self) -> &'static str {
+    fn skill_label(self, locale: RuntimeLocale) -> &'static str {
         match self {
-            Self::VerdantBruiser => "Bulwark Bash",
-            Self::SignalRanger => "Piercing Volley",
-            Self::AshDuelist => "Execution Arc",
-            Self::IronVanguard => "Anchor Strike",
+            Self::VerdantBruiser => localized(locale, "Bulwark Bash", "壁垒重击"),
+            Self::SignalRanger => localized(locale, "Piercing Volley", "穿透齐射"),
+            Self::AshDuelist => localized(locale, "Execution Arc", "处决弧刃"),
+            Self::IronVanguard => localized(locale, "Anchor Strike", "锚定打击"),
         }
     }
 
-    fn tempo_label(self) -> &'static str {
+    fn tempo_label(self, locale: RuntimeLocale) -> &'static str {
         match self {
-            Self::VerdantBruiser => "Empowers every second swing.",
-            Self::SignalRanger => "Fires a stronger volley every second shot.",
-            Self::AshDuelist => "Always primed to punish weakened targets.",
-            Self::IronVanguard => "Blocks 1 damage on every hit and spikes every second strike.",
+            Self::VerdantBruiser => localized(
+                locale,
+                "Empowers every second swing.",
+                "每第二次攻击会强化。",
+            ),
+            Self::SignalRanger => localized(
+                locale,
+                "Fires a stronger volley every second shot.",
+                "每第二次射击会打出更强齐射。",
+            ),
+            Self::AshDuelist => localized(
+                locale,
+                "Always primed to punish weakened targets.",
+                "始终准备惩罚残血目标。",
+            ),
+            Self::IronVanguard => localized(
+                locale,
+                "Blocks 1 damage on every hit and spikes every second strike.",
+                "每次受击格挡 1 点伤害，并在第二次攻击时增强。",
+            ),
         }
     }
 
-    fn cast_state(self, action_counter: u32) -> &'static str {
+    fn cast_state(self, action_counter: u32, locale: RuntimeLocale) -> &'static str {
         match self {
             Self::VerdantBruiser | Self::SignalRanger | Self::IronVanguard => {
                 if (action_counter + 1) % 2 == 0 {
-                    "Next attack is empowered."
+                    localized(locale, "Next attack is empowered.", "下一次攻击已强化。")
                 } else {
-                    "One swing until the empowered cast."
+                    localized(locale, "One swing until the empowered cast.", "再攻击一次就会进入强化。")
                 }
             }
-            Self::AshDuelist => "Bonus damage is live against targets below half health.",
+            Self::AshDuelist => localized(
+                locale,
+                "Bonus damage is live against targets below half health.",
+                "对半血以下目标会立刻触发额外伤害。",
+            ),
         }
     }
 
-    fn target_rule(self) -> &'static str {
+    fn target_rule(self, locale: RuntimeLocale) -> &'static str {
         match self {
-            Self::VerdantBruiser => "Targets the healthiest enemy and surges every second swing.",
-            Self::SignalRanger => {
-                "Snipes the weakest enemy and fires a stronger volley every second shot."
-            }
-            Self::AshDuelist => {
-                "Executes the weakest enemy and deals bonus damage below half health."
-            }
-            Self::IronVanguard => {
-                "Challenges the highest-attack enemy and shrugs off 1 damage from each hit."
-            }
+            Self::VerdantBruiser => localized(
+                locale,
+                "Targets the healthiest enemy and surges every second swing.",
+                "优先攻击血量最高的敌人，并在每第二次挥击时爆发。",
+            ),
+            Self::SignalRanger => localized(
+                locale,
+                "Snipes the weakest enemy and fires a stronger volley every second shot.",
+                "优先狙击最弱目标，并在每第二次射击时打出强化齐射。",
+            ),
+            Self::AshDuelist => localized(
+                locale,
+                "Executes the weakest enemy and deals bonus damage below half health.",
+                "优先处决最弱敌人，对半血以下目标造成额外伤害。",
+            ),
+            Self::IronVanguard => localized(
+                locale,
+                "Challenges the highest-attack enemy and shrugs off 1 damage from each hit.",
+                "优先挑战攻击最高的敌人，并且每次受击减少 1 点伤害。",
+            ),
         }
     }
 
@@ -467,25 +520,25 @@ impl UnitInstance {
         }
     }
 
-    fn label(self) -> String {
-        format!("{} {}", self.archetype.label(), star_badge(self.stars))
+    fn label(self, locale: RuntimeLocale) -> String {
+        format!("{} {}", self.archetype.label(locale), star_badge(self.stars))
     }
 
     fn sell_value(self) -> u32 {
         SELL_VALUE_BASE * self.stars as u32
     }
 
-    fn base_view(self) -> RuntimeUnitView {
+    fn base_view(self, locale: RuntimeLocale) -> RuntimeUnitView {
         let stats = scaled_stats(self);
         RuntimeUnitView {
-            label: self.label(),
+            label: self.label(locale),
             archetype: self.archetype.key().to_owned(),
             faction: self.archetype.faction().key().to_owned(),
             role: self.archetype.role().key().to_owned(),
-            skill: self.archetype.skill_label().to_owned(),
-            tempo_label: self.archetype.tempo_label().to_owned(),
-            cast_state: self.archetype.cast_state(0).to_owned(),
-            target_rule: self.archetype.target_rule().to_owned(),
+            skill: self.archetype.skill_label(locale).to_owned(),
+            tempo_label: self.archetype.tempo_label(locale).to_owned(),
+            cast_state: self.archetype.cast_state(0, locale).to_owned(),
+            target_rule: self.archetype.target_rule(locale).to_owned(),
             stars: self.stars,
             attack: stats.attack,
             health: stats.max_health.max(1) as u32,
@@ -493,12 +546,12 @@ impl UnitInstance {
         }
     }
 
-    fn resolved_view(self, buffs: TraitBuffs) -> RuntimeUnitView {
+    fn resolved_view(self, buffs: TraitBuffs, locale: RuntimeLocale) -> RuntimeUnitView {
         let stats = resolved_stats(self, buffs);
         RuntimeUnitView {
             attack: stats.attack,
             health: stats.max_health.max(1) as u32,
-            ..self.base_view()
+            ..self.base_view(locale)
         }
     }
 }
@@ -561,6 +614,7 @@ impl Plugin for StarterScenePlugin {
 fn setup_board_scene(
     mut commands: Commands,
     board: Res<BoardConfig>,
+    config: Res<RuntimeConfig>,
     mut combat: ResMut<CombatState>,
     mut projection: ResMut<StarterSliceProjection>,
     mut shop: ResMut<ShopState>,
@@ -623,6 +677,7 @@ fn setup_board_scene(
     reset_run_state(
         &mut commands,
         &board,
+        config.locale,
         &mut combat,
         &mut shop,
         &mut player_squad,
@@ -630,12 +685,20 @@ fn setup_board_scene(
         &mut combat_timer,
         false,
     );
-    update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
+    update_projection_from_state(
+        &combat,
+        &shop,
+        &player_squad,
+        &enemy_squad,
+        config.locale,
+        &mut projection,
+    );
 }
 
 fn reset_run_state(
     commands: &mut Commands,
     board: &BoardConfig,
+    locale: RuntimeLocale,
     combat: &mut CombatState,
     shop: &mut ShopState,
     player_squad: &mut PlayerSquad,
@@ -660,19 +723,31 @@ fn reset_run_state(
     enemy_squad.units = seed_enemy_squad(1);
     reroll_shop(shop, combat.round);
     combat.status = if increment_run_number {
-        format!(
-            "Run {} restarted. Bench primed. Deploy a unit before opening combat.",
-            combat.run_number
-        )
+        match locale {
+            RuntimeLocale::En => format!(
+                "Run {} restarted. Bench primed. Deploy a unit before opening combat.",
+                combat.run_number
+            ),
+            RuntimeLocale::ZhCn => format!(
+                "第 {} 局已重新开始。备战席已就绪，开始战斗前先部署一个单位。",
+                combat.run_number
+            ),
+        }
     } else {
-        "Bench primed. Deploy a unit before opening combat.".to_owned()
+        localized(
+            locale,
+            "Bench primed. Deploy a unit before opening combat.",
+            "备战席已就绪。开始战斗前先部署一个单位。",
+        )
+        .to_owned()
     };
-    spawn_round_units(commands, board, player_squad, enemy_squad, combat);
+    spawn_round_units(commands, board, player_squad, enemy_squad, locale, combat);
 }
 
 fn handle_runtime_commands(
     mut commands: Commands,
     board: Res<BoardConfig>,
+    config: Res<RuntimeConfig>,
     mut combat: ResMut<CombatState>,
     mut projection: ResMut<StarterSliceProjection>,
     mut shop: ResMut<ShopState>,
@@ -681,6 +756,7 @@ fn handle_runtime_commands(
     units: Query<Entity, With<UnitEntity>>,
     mut combat_timer: ResMut<CombatTickTimer>,
 ) {
+    let locale = config.locale;
     let commands_to_apply = take_runtime_commands();
     if commands_to_apply.is_empty() {
         return;
@@ -697,10 +773,16 @@ fn handle_runtime_commands(
                     && combat.enemy_units > 0
                 {
                     combat.phase = CombatPhase::Combat;
-                    combat.status = format!(
-                        "Combat started. {} allied units engage {} enemies.",
-                        combat.player_units, combat.enemy_units
-                    );
+                    combat.status = match locale {
+                        RuntimeLocale::En => format!(
+                            "Combat started. {} allied units engage {} enemies.",
+                            combat.player_units, combat.enemy_units
+                        ),
+                        RuntimeLocale::ZhCn => format!(
+                            "战斗开始。{} 名友军正在迎战 {} 名敌军。",
+                            combat.player_units, combat.enemy_units
+                        ),
+                    };
                     combat_timer.0.reset();
                 }
             }
@@ -712,16 +794,28 @@ fn handle_runtime_commands(
                     combat.gold += ROUND_INCOME;
                     enemy_squad.units = seed_enemy_squad(combat.round);
                     if shop.locked {
-                        combat.status = format!(
-                            "Round {} ready. Locked shop carried forward. Draft or reposition before combat.",
-                            combat.round
-                        );
+                        combat.status = match locale {
+                            RuntimeLocale::En => format!(
+                                "Round {} ready. Locked shop carried forward. Draft or reposition before combat.",
+                                combat.round
+                            ),
+                            RuntimeLocale::ZhCn => format!(
+                                "第 {} 回合已就绪。锁定商店已保留，战斗前可以继续招募或调整站位。",
+                                combat.round
+                            ),
+                        };
                     } else {
                         reroll_shop(&mut shop, combat.round);
-                        combat.status = format!(
-                            "Round {} ready. Draft, merge, or reposition before combat.",
-                            combat.round
-                        );
+                        combat.status = match locale {
+                            RuntimeLocale::En => format!(
+                                "Round {} ready. Draft, merge, or reposition before combat.",
+                                combat.round
+                            ),
+                            RuntimeLocale::ZhCn => format!(
+                                "第 {} 回合已就绪。战斗前可以继续招募、合成或调整站位。",
+                                combat.round
+                            ),
+                        };
                     }
                     needs_respawn = true;
                 }
@@ -731,6 +825,7 @@ fn handle_runtime_commands(
                 reset_run_state(
                     &mut commands,
                     &board,
+                    locale,
                     &mut combat,
                     &mut shop,
                     &mut player_squad,
@@ -746,7 +841,12 @@ fn handle_runtime_commands(
                 {
                     combat.gold -= REROLL_COST;
                     reroll_shop(&mut shop, combat.round + 1);
-                    combat.status = "Shop rerolled. Draft before combat starts.".to_owned();
+                    combat.status = localized(
+                        locale,
+                        "Shop rerolled. Draft before combat starts.",
+                        "商店已刷新。战斗前先完成招募。",
+                    )
+                    .to_owned();
                 }
             }
             RuntimeCommand::ToggleShopLock => {
@@ -756,9 +856,19 @@ fn handle_runtime_commands(
 
                 shop.locked = !shop.locked;
                 combat.status = if shop.locked {
-                    "Shop lock engaged. Current offers will carry into the next round.".to_owned()
+                    localized(
+                        locale,
+                        "Shop lock engaged. Current offers will carry into the next round.",
+                        "商店已锁定，当前招募项会保留到下一回合。",
+                    )
+                    .to_owned()
                 } else {
-                    "Shop lock released. Next round will refresh the offers.".to_owned()
+                    localized(
+                        locale,
+                        "Shop lock released. Next round will refresh the offers.",
+                        "商店已解锁，下一回合开始时会刷新。",
+                    )
+                    .to_owned()
                 };
             }
             RuntimeCommand::BuyOffer(index) => {
@@ -774,13 +884,20 @@ fn handle_runtime_commands(
                 let purchased = shop.offers[index];
                 player_squad.bench.push(purchased);
                 combat.gold -= BUY_COST;
-                let merge_messages = normalize_player_squad(&mut player_squad);
+                let merge_messages = normalize_player_squad(&mut player_squad, locale);
                 combat.status = merge_messages_for(
-                    format!(
-                        "Drafted {} to bench. Bench now holds {} units.",
-                        purchased.label(),
-                        player_squad.bench.len()
-                    ),
+                    match locale {
+                        RuntimeLocale::En => format!(
+                            "Drafted {} to bench. Bench now holds {} units.",
+                            purchased.label(locale),
+                            player_squad.bench.len()
+                        ),
+                        RuntimeLocale::ZhCn => format!(
+                            "已将 {} 招募到备战席。当前备战席共有 {} 个单位。",
+                            purchased.label(locale),
+                            player_squad.bench.len()
+                        ),
+                    },
                     &merge_messages,
                 );
                 reroll_shop(&mut shop, combat.round + index as u32 + 2);
@@ -801,13 +918,18 @@ fn handle_runtime_commands(
 
                 let deployed = player_squad.bench.remove(bench_index);
                 player_squad.board[slot_index] = Some(deployed);
-                let merge_messages = normalize_player_squad(&mut player_squad);
+                let merge_messages = normalize_player_squad(&mut player_squad, locale);
                 combat.status = merge_messages_for(
-                    format!(
-                        "Deployed {} into slot {}.",
-                        deployed.label(),
-                        slot_index + 1
-                    ),
+                    match locale {
+                        RuntimeLocale::En => {
+                            format!("Deployed {} into slot {}.", deployed.label(locale), slot_index + 1)
+                        }
+                        RuntimeLocale::ZhCn => format!(
+                            "已将 {} 部署到槽位 {}。",
+                            deployed.label(locale),
+                            slot_index + 1
+                        ),
+                    },
                     &merge_messages,
                 );
                 needs_respawn = true;
@@ -826,13 +948,20 @@ fn handle_runtime_commands(
                 };
 
                 player_squad.bench.push(withdrawn);
-                let merge_messages = normalize_player_squad(&mut player_squad);
+                let merge_messages = normalize_player_squad(&mut player_squad, locale);
                 combat.status = merge_messages_for(
-                    format!(
-                        "Returned {} to bench from slot {}.",
-                        withdrawn.label(),
-                        slot_index + 1
-                    ),
+                    match locale {
+                        RuntimeLocale::En => format!(
+                            "Returned {} to bench from slot {}.",
+                            withdrawn.label(locale),
+                            slot_index + 1
+                        ),
+                        RuntimeLocale::ZhCn => format!(
+                            "已将 {} 从槽位 {} 撤回到备战席。",
+                            withdrawn.label(locale),
+                            slot_index + 1
+                        ),
+                    },
                     &merge_messages,
                 );
                 needs_respawn = true;
@@ -847,7 +976,14 @@ fn handle_runtime_commands(
 
                 let sold = player_squad.bench.remove(bench_index);
                 combat.gold += sold.sell_value();
-                combat.status = format!("Sold {} for {} gold.", sold.label(), sold.sell_value());
+                combat.status = match locale {
+                    RuntimeLocale::En => {
+                        format!("Sold {} for {} gold.", sold.label(locale), sold.sell_value())
+                    }
+                    RuntimeLocale::ZhCn => {
+                        format!("已出售 {}，获得 {} 金币。", sold.label(locale), sold.sell_value())
+                    }
+                };
             }
             RuntimeCommand::SellBoardUnit(slot_index) => {
                 if combat.phase != CombatPhase::Preparation
@@ -862,12 +998,20 @@ fn handle_runtime_commands(
                 };
 
                 combat.gold += sold.sell_value();
-                combat.status = format!(
-                    "Sold {} from slot {} for {} gold.",
-                    sold.label(),
-                    slot_index + 1,
-                    sold.sell_value()
-                );
+                combat.status = match locale {
+                    RuntimeLocale::En => format!(
+                        "Sold {} from slot {} for {} gold.",
+                        sold.label(locale),
+                        slot_index + 1,
+                        sold.sell_value()
+                    ),
+                    RuntimeLocale::ZhCn => format!(
+                        "已出售槽位 {} 的 {}，获得 {} 金币。",
+                        slot_index + 1,
+                        sold.label(locale),
+                        sold.sell_value()
+                    ),
+                };
                 needs_respawn = true;
             }
         }
@@ -880,17 +1024,26 @@ fn handle_runtime_commands(
             &board,
             &player_squad,
             &enemy_squad,
+            locale,
             &mut combat,
         );
     }
 
-    update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
+    update_projection_from_state(
+        &combat,
+        &shop,
+        &player_squad,
+        &enemy_squad,
+        locale,
+        &mut projection,
+    );
 }
 
 fn run_combat_tick(
     mut commands: Commands,
     time: Res<Time>,
     board: Res<BoardConfig>,
+    config: Res<RuntimeConfig>,
     mut combat: ResMut<CombatState>,
     player_squad: Res<PlayerSquad>,
     enemy_squad: Res<EnemySquad>,
@@ -899,6 +1052,7 @@ fn run_combat_tick(
     mut timer: ResMut<CombatTickTimer>,
     mut unit_queries: ParamSet<(Query<(Entity, &UnitEntity)>, Query<&mut UnitEntity>)>,
 ) {
+    let locale = config.locale;
     if combat.phase != CombatPhase::Combat {
         return;
     }
@@ -939,7 +1093,8 @@ fn run_combat_tick(
     let mut combat_highlights = Vec::new();
 
     for attacker in &player_entities {
-        if let Some((target_entity, damage, highlight)) = resolve_attack(*attacker, &enemy_entities)
+        if let Some((target_entity, damage, highlight)) =
+            resolve_attack(*attacker, &enemy_entities, locale)
         {
             *pending_damage.entry(target_entity).or_insert(0) += damage;
             if combat_highlights.len() < 2 {
@@ -950,7 +1105,7 @@ fn run_combat_tick(
 
     for attacker in &enemy_entities {
         if let Some((target_entity, damage, highlight)) =
-            resolve_attack(*attacker, &player_entities)
+            resolve_attack(*attacker, &player_entities, locale)
         {
             *pending_damage.entry(target_entity).or_insert(0) += damage;
             if combat_highlights.len() < 4 {
@@ -1009,16 +1164,28 @@ fn run_combat_tick(
             if combat.round >= FINAL_ROUND {
                 combat.run_over = true;
                 combat.run_result = RunResult::Victory;
-                combat.status = format!(
-                    "Run clear. Round {} collapsed the final enemy squad. Restart to begin a new climb.",
-                    combat.round
-                );
+                combat.status = match locale {
+                    RuntimeLocale::En => format!(
+                        "Run clear. Round {} collapsed the final enemy squad. Restart to begin a new climb.",
+                        combat.round
+                    ),
+                    RuntimeLocale::ZhCn => format!(
+                        "通关。第 {} 回合击溃了最后一支敌军。重新开局即可开始新的爬塔。",
+                        combat.round
+                    ),
+                };
             } else {
                 combat.run_result = RunResult::Active;
-                combat.status = format!(
-                    "Victory. Enemy board collapsed. Click Next Round to continue to round {}.",
-                    combat.round + 1
-                );
+                combat.status = match locale {
+                    RuntimeLocale::En => format!(
+                        "Victory. Enemy board collapsed. Click Next Round to continue to round {}.",
+                        combat.round + 1
+                    ),
+                    RuntimeLocale::ZhCn => format!(
+                        "胜利。敌方棋盘已崩溃。点击“下一回合”进入第 {} 回合。",
+                        combat.round + 1
+                    ),
+                };
             }
         } else {
             let defeat_damage = combat.enemy_units.max(1) as u32 * 2;
@@ -1026,16 +1193,28 @@ fn run_combat_tick(
             if combat.player_health == 0 {
                 combat.run_over = true;
                 combat.run_result = RunResult::Defeat;
-                combat.status = format!(
-                    "Run over. {} enemies survived the last fight and the commander fell. Restart to try again.",
-                    combat.enemy_units
-                );
+                combat.status = match locale {
+                    RuntimeLocale::En => format!(
+                        "Run over. {} enemies survived the last fight and the commander fell. Restart to try again.",
+                        combat.enemy_units
+                    ),
+                    RuntimeLocale::ZhCn => format!(
+                        "本局结束。最后一战仍有 {} 个敌人存活，指挥官已经倒下。重新开局后再试一次。",
+                        combat.enemy_units
+                    ),
+                };
             } else {
                 combat.run_result = RunResult::Active;
-                combat.status = format!(
-                    "Defeat. {} enemies survived. Click Next Round to rebuild.",
-                    combat.enemy_units
-                );
+                combat.status = match locale {
+                    RuntimeLocale::En => format!(
+                        "Defeat. {} enemies survived. Click Next Round to rebuild.",
+                        combat.enemy_units
+                    ),
+                    RuntimeLocale::ZhCn => format!(
+                        "失败。还有 {} 个敌人存活。点击“下一回合”重新布阵。",
+                        combat.enemy_units
+                    ),
+                };
             }
         }
 
@@ -1051,26 +1230,45 @@ fn run_combat_tick(
                 &board,
                 &player_squad,
                 &enemy_squad,
+                locale,
                 &mut combat,
             );
         }
     } else {
         combat.status = if combat_highlights.is_empty() {
-            format!(
-                "Combat underway. {} allied units vs {} enemies.",
-                combat.player_units, combat.enemy_units
-            )
+            match locale {
+                RuntimeLocale::En => format!(
+                    "Combat underway. {} allied units vs {} enemies.",
+                    combat.player_units, combat.enemy_units
+                ),
+                RuntimeLocale::ZhCn => format!(
+                    "战斗进行中。{} 名友军对阵 {} 名敌军。",
+                    combat.player_units, combat.enemy_units
+                ),
+            }
         } else {
-            format!(
-                "Combat underway. {} allied units vs {} enemies. {}",
-                combat.player_units,
-                combat.enemy_units,
-                combat_highlights
-                    .into_iter()
-                    .take(2)
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            )
+            match locale {
+                RuntimeLocale::En => format!(
+                    "Combat underway. {} allied units vs {} enemies. {}",
+                    combat.player_units,
+                    combat.enemy_units,
+                    combat_highlights
+                        .into_iter()
+                        .take(2)
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                ),
+                RuntimeLocale::ZhCn => format!(
+                    "战斗进行中。{} 名友军对阵 {} 名敌军。{}",
+                    combat.player_units,
+                    combat.enemy_units,
+                    combat_highlights
+                        .into_iter()
+                        .take(2)
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                ),
+            }
         };
     }
 
@@ -1097,16 +1295,25 @@ fn run_combat_tick(
             &player_squad,
             &enemy_squad,
             &live_snapshots,
+            locale,
             &mut projection,
         );
     } else {
-        update_projection_from_state(&combat, &shop, &player_squad, &enemy_squad, &mut projection);
+        update_projection_from_state(
+            &combat,
+            &shop,
+            &player_squad,
+            &enemy_squad,
+            locale,
+            &mut projection,
+        );
     }
 }
 
 fn resolve_attack(
     attacker: CombatUnitSnapshot,
     opponents: &[CombatUnitSnapshot],
+    locale: RuntimeLocale,
 ) -> Option<(Entity, i32, String)> {
     let target = select_target(attacker.archetype, opponents)?;
     let mut damage = attacker.attack as i32;
@@ -1116,44 +1323,77 @@ fn resolve_attack(
         UnitArchetype::VerdantBruiser => {
             if (attacker.action_counter + 1) % 2 == 0 {
                 damage += 2;
-                skill_note = Some("Bulwark Bash landed heavy");
+                skill_note = Some(localized(
+                    locale,
+                    "Bulwark Bash landed heavy",
+                    "壁垒重击已触发",
+                ));
             }
         }
         UnitArchetype::SignalRanger => {
             if (attacker.action_counter + 1) % 2 == 0 {
                 damage += 2;
-                skill_note = Some("Piercing Volley broke through");
+                skill_note = Some(localized(
+                    locale,
+                    "Piercing Volley broke through",
+                    "穿透齐射已打穿前线",
+                ));
             }
         }
         UnitArchetype::AshDuelist => {
             if target.health * 2 <= target.max_health {
                 damage += 2;
-                skill_note = Some("Execution Arc punished a weakened target");
+                skill_note = Some(localized(
+                    locale,
+                    "Execution Arc punished a weakened target",
+                    "处决弧刃命中了残血目标",
+                ));
             }
         }
         UnitArchetype::IronVanguard => {
             if (attacker.action_counter + 1) % 2 == 0 {
                 damage += 1;
-                skill_note = Some("Anchor Strike cracked the enemy line");
+                skill_note = Some(localized(
+                    locale,
+                    "Anchor Strike cracked the enemy line",
+                    "锚定打击撕开了敌方前线",
+                ));
             }
         }
     }
 
     let highlight = if let Some(skill_note) = skill_note {
-        format!(
-            "{} hit {} for {}. {}.",
-            attacker.archetype.label(),
-            target.archetype.label(),
-            damage,
-            skill_note
-        )
+        match locale {
+            RuntimeLocale::En => format!(
+                "{} hit {} for {}. {}.",
+                attacker.archetype.label(locale),
+                target.archetype.label(locale),
+                damage,
+                skill_note
+            ),
+            RuntimeLocale::ZhCn => format!(
+                "{} 命中 {}，造成 {} 点伤害。{}。",
+                attacker.archetype.label(locale),
+                target.archetype.label(locale),
+                damage,
+                skill_note
+            ),
+        }
     } else {
-        format!(
-            "{} hit {} for {}.",
-            attacker.archetype.label(),
-            target.archetype.label(),
-            damage
-        )
+        match locale {
+            RuntimeLocale::En => format!(
+                "{} hit {} for {}.",
+                attacker.archetype.label(locale),
+                target.archetype.label(locale),
+                damage
+            ),
+            RuntimeLocale::ZhCn => format!(
+                "{} 命中 {}，造成 {} 点伤害。",
+                attacker.archetype.label(locale),
+                target.archetype.label(locale),
+                damage
+            ),
+        }
     };
 
     Some((target.entity, damage.max(1), highlight))
@@ -1209,6 +1449,7 @@ fn board_views_from_live_units(
     live_snapshots: &[CombatUnitSnapshot],
     owner: UnitOwner,
     slots: usize,
+    locale: RuntimeLocale,
 ) -> Vec<Option<RuntimeUnitView>> {
     let mut board = vec![None; slots];
 
@@ -1220,19 +1461,19 @@ fn board_views_from_live_units(
         board[snapshot.slot_index] = Some(RuntimeUnitView {
             label: format!(
                 "{} {}",
-                snapshot.archetype.label(),
+                snapshot.archetype.label(locale),
                 star_badge(snapshot.stars)
             ),
             archetype: snapshot.archetype.key().to_owned(),
             faction: snapshot.archetype.faction().key().to_owned(),
             role: snapshot.archetype.role().key().to_owned(),
-            skill: snapshot.archetype.skill_label().to_owned(),
-            tempo_label: snapshot.archetype.tempo_label().to_owned(),
+            skill: snapshot.archetype.skill_label(locale).to_owned(),
+            tempo_label: snapshot.archetype.tempo_label(locale).to_owned(),
             cast_state: snapshot
                 .archetype
-                .cast_state(snapshot.action_counter)
+                .cast_state(snapshot.action_counter, locale)
                 .to_owned(),
-            target_rule: snapshot.archetype.target_rule().to_owned(),
+            target_rule: snapshot.archetype.target_rule(locale).to_owned(),
             stars: snapshot.stars,
             attack: snapshot.attack,
             health: snapshot.health.max(1) as u32,
@@ -1248,23 +1489,24 @@ fn update_projection_from_state(
     shop: &ShopState,
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
+    locale: RuntimeLocale,
     projection: &mut ResMut<StarterSliceProjection>,
 ) {
     let player_buffs = trait_buffs_for(player_squad.board.iter().flatten().copied());
     let enemy_buffs = trait_buffs_for(enemy_squad.units.iter().copied());
 
-    apply_common_projection_fields(combat, shop, player_squad, enemy_squad, projection);
+    apply_common_projection_fields(combat, shop, player_squad, enemy_squad, locale, projection);
     projection.player_board = player_squad
         .board
         .iter()
         .copied()
-        .map(|unit| unit.map(|unit| unit.resolved_view(player_buffs)))
+        .map(|unit| unit.map(|unit| unit.resolved_view(player_buffs, locale)))
         .collect();
     projection.enemy_board = enemy_squad
         .units
         .iter()
         .copied()
-        .map(|unit| Some(unit.resolved_view(enemy_buffs)))
+        .map(|unit| Some(unit.resolved_view(enemy_buffs, locale)))
         .chain(std::iter::repeat(None::<RuntimeUnitView>))
         .take(ENEMY_SLOTS.len())
         .collect();
@@ -1276,16 +1518,22 @@ fn update_projection_from_live_state(
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
     live_snapshots: &[CombatUnitSnapshot],
+    locale: RuntimeLocale,
     projection: &mut ResMut<StarterSliceProjection>,
 ) {
-    apply_common_projection_fields(combat, shop, player_squad, enemy_squad, projection);
+    apply_common_projection_fields(combat, shop, player_squad, enemy_squad, locale, projection);
     projection.player_board = board_views_from_live_units(
         live_snapshots,
         UnitOwner::Player,
         PLAYER_SLOTS.len(),
+        locale,
     );
-    projection.enemy_board =
-        board_views_from_live_units(live_snapshots, UnitOwner::Enemy, ENEMY_SLOTS.len());
+    projection.enemy_board = board_views_from_live_units(
+        live_snapshots,
+        UnitOwner::Enemy,
+        ENEMY_SLOTS.len(),
+        locale,
+    );
 }
 
 fn apply_common_projection_fields(
@@ -1293,11 +1541,16 @@ fn apply_common_projection_fields(
     shop: &ShopState,
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
+    locale: RuntimeLocale,
     projection: &mut ResMut<StarterSliceProjection>,
 ) {
     projection.phase = combat.phase.as_str().to_owned();
-    projection.objective = "Draft a compact squad, manage a lockable shop, and survive scaling enemy rounds with readable skill cadence."
-        .to_owned();
+    projection.objective = localized(
+        locale,
+        "Draft a compact squad, manage a lockable shop, and survive scaling enemy rounds with readable skill cadence.",
+        "组建一支紧凑阵容，管理可锁定商店，并在不断增强的敌方回合中依靠可读的技能节奏存活。",
+    )
+    .to_owned();
     projection.status = combat.status.clone();
     projection.score = combat.score;
     projection.gold = combat.gold;
@@ -1313,18 +1566,18 @@ fn apply_common_projection_fields(
         .offers
         .iter()
         .copied()
-        .map(UnitInstance::base_view)
+        .map(|unit| unit.base_view(locale))
         .collect();
     projection.bench_units = player_squad
         .bench
         .iter()
         .copied()
-        .map(UnitInstance::base_view)
+        .map(|unit| unit.base_view(locale))
         .collect();
     projection.active_traits =
-        trait_views_for(player_squad.board.iter().flatten().copied()).collect();
+        trait_views_for(player_squad.board.iter().flatten().copied(), locale).collect();
     projection.enemy_threat = enemy_threat(enemy_squad.units.iter().copied());
-    projection.enemy_intent = enemy_intent_for_round(combat.round);
+    projection.enemy_intent = enemy_intent_for_round(combat.round, locale);
     projection.bench_capacity = BENCH_CAPACITY;
     projection.board_capacity = PLAYER_SLOTS.len();
     projection.round_resolved = combat.phase == CombatPhase::Resolution;
@@ -1338,6 +1591,7 @@ fn spawn_round_units(
     board: &BoardConfig,
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
+    locale: RuntimeLocale,
     combat: &mut CombatState,
 ) {
     let player_buffs = trait_buffs_for(player_squad.board.iter().flatten().copied());
@@ -1359,6 +1613,7 @@ fn spawn_round_units(
                 index,
                 unit,
                 resolved_stats(unit, player_buffs),
+                locale,
                 row,
                 col,
             );
@@ -1375,6 +1630,7 @@ fn spawn_round_units(
                 index,
                 unit,
                 resolved_stats(unit, enemy_buffs),
+                locale,
                 row,
                 col,
             );
@@ -1390,6 +1646,7 @@ fn spawn_unit(
     slot_index: usize,
     unit: UnitInstance,
     stats: UnitStats,
+    locale: RuntimeLocale,
     row: usize,
     col: usize,
 ) {
@@ -1412,7 +1669,7 @@ fn spawn_unit(
                 max_health: stats.max_health,
                 attack: stats.attack,
             },
-            Name::new(unit.label()),
+            Name::new(unit.label(locale)),
         ))
         .with_children(|parent| {
             parent.spawn((
@@ -1494,18 +1751,48 @@ fn enemy_threat(units: impl Iterator<Item = UnitInstance>) -> u32 {
         .sum()
 }
 
-fn enemy_intent_for_round(round: u32) -> String {
+fn enemy_intent_for_round(round: u32, locale: RuntimeLocale) -> String {
     match round {
-        1 => "Scout squad: two bruisers test the board.".to_owned(),
-        2 => "Pressure spike: a third body joins the enemy lane.".to_owned(),
-        3 => "First elite spike: the lead duelist upgrades to two stars.".to_owned(),
-        4 => "Frontline hardens: Iron Vanguard upgrades and soaks damage.".to_owned(),
-        5 => "Mixed threat: the enemy swaps in a ranged Signal Ranger.".to_owned(),
-        _ => "Veteran warband: upgraded mixed comp with stronger pressure.".to_owned(),
+        1 => localized(
+            locale,
+            "Scout squad: two bruisers test the board.",
+            "侦查小队：两名前排先来试探棋盘。",
+        )
+        .to_owned(),
+        2 => localized(
+            locale,
+            "Pressure spike: a third body joins the enemy lane.",
+            "压力上升：敌方加入第三个单位。",
+        )
+        .to_owned(),
+        3 => localized(
+            locale,
+            "First elite spike: the lead duelist upgrades to two stars.",
+            "第一次精英强化：主力决斗者提升到两星。",
+        )
+        .to_owned(),
+        4 => localized(
+            locale,
+            "Frontline hardens: Iron Vanguard upgrades and soaks damage.",
+            "前线变硬：钢铁先锋升级后更能抗伤。",
+        )
+        .to_owned(),
+        5 => localized(
+            locale,
+            "Mixed threat: the enemy swaps in a ranged Signal Ranger.",
+            "混合威胁：敌方换上远程信号射手。",
+        )
+        .to_owned(),
+        _ => localized(
+            locale,
+            "Veteran warband: upgraded mixed comp with stronger pressure.",
+            "老练战帮：升级后的混编阵容会带来更强压力。",
+        )
+        .to_owned(),
     }
 }
 
-fn normalize_player_squad(player_squad: &mut PlayerSquad) -> Vec<String> {
+fn normalize_player_squad(player_squad: &mut PlayerSquad, locale: RuntimeLocale) -> Vec<String> {
     let mut messages = Vec::new();
 
     loop {
@@ -1538,11 +1825,18 @@ fn normalize_player_squad(player_squad: &mut PlayerSquad) -> Vec<String> {
                         player_squad.bench.push(upgraded);
                     }
 
-                    messages.push(format!(
-                        "Merged three {} copies into {}.",
-                        archetype.label(),
-                        upgraded.label()
-                    ));
+                    messages.push(match locale {
+                        RuntimeLocale::En => format!(
+                            "Merged three {} copies into {}.",
+                            archetype.label(locale),
+                            upgraded.label(locale)
+                        ),
+                        RuntimeLocale::ZhCn => format!(
+                            "已将三个 {} 合成为 {}。",
+                            archetype.label(locale),
+                            upgraded.label(locale)
+                        ),
+                    });
                     merged_any = true;
                 }
             }
@@ -1653,40 +1947,41 @@ fn trait_buffs_for(units: impl Iterator<Item = UnitInstance>) -> TraitBuffs {
 
 fn trait_views_for(
     units: impl Iterator<Item = UnitInstance>,
+    locale: RuntimeLocale,
 ) -> impl Iterator<Item = RuntimeTraitView> {
     let (dawn, dusk, vanguard, skirmisher) = trait_counts(units);
 
     [
         RuntimeTraitView {
             key: UnitFaction::Dawn.key().to_owned(),
-            label: UnitFaction::Dawn.label().to_owned(),
+            label: UnitFaction::Dawn.label(locale).to_owned(),
             count: dawn,
             threshold: TRAIT_THRESHOLD,
-            description: UnitFaction::Dawn.description().to_owned(),
+            description: UnitFaction::Dawn.description(locale).to_owned(),
             active: dawn >= TRAIT_THRESHOLD,
         },
         RuntimeTraitView {
             key: UnitFaction::Dusk.key().to_owned(),
-            label: UnitFaction::Dusk.label().to_owned(),
+            label: UnitFaction::Dusk.label(locale).to_owned(),
             count: dusk,
             threshold: TRAIT_THRESHOLD,
-            description: UnitFaction::Dusk.description().to_owned(),
+            description: UnitFaction::Dusk.description(locale).to_owned(),
             active: dusk >= TRAIT_THRESHOLD,
         },
         RuntimeTraitView {
             key: UnitRole::Vanguard.key().to_owned(),
-            label: UnitRole::Vanguard.label().to_owned(),
+            label: UnitRole::Vanguard.label(locale).to_owned(),
             count: vanguard,
             threshold: TRAIT_THRESHOLD,
-            description: UnitRole::Vanguard.description().to_owned(),
+            description: UnitRole::Vanguard.description(locale).to_owned(),
             active: vanguard >= TRAIT_THRESHOLD,
         },
         RuntimeTraitView {
             key: UnitRole::Skirmisher.key().to_owned(),
-            label: UnitRole::Skirmisher.label().to_owned(),
+            label: UnitRole::Skirmisher.label(locale).to_owned(),
             count: skirmisher,
             threshold: TRAIT_THRESHOLD,
-            description: UnitRole::Skirmisher.description().to_owned(),
+            description: UnitRole::Skirmisher.description(locale).to_owned(),
             active: skirmisher >= TRAIT_THRESHOLD,
         },
     ]

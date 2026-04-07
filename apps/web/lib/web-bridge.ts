@@ -196,6 +196,7 @@ export function sanitizeRuntimeBootConfig(
       typeof value?.touchControls === "boolean"
         ? value.touchControls
         : DEFAULT_RUNTIME_BOOT_CONFIG.touchControls,
+    locale: value?.locale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_BOOT_CONFIG.locale,
   };
 }
 

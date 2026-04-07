@@ -14,6 +14,7 @@ export type RuntimeBootPhase =
 export type RuntimeBootConfig = {
   playerName: string;
   touchControls: boolean;
+  locale: "en" | "zh-CN";
 };
 
 export type VirtualInputState = {
@@ -106,6 +107,7 @@ export type RuntimeProfile = {
   version: 1;
   preferredPlayerName: string;
   preferredTouchControls: boolean;
+  preferredLocale: "en" | "zh-CN";
   runsLaunched: number;
   bestScore: number;
   bestRound: number;
@@ -279,6 +281,7 @@ export type RuntimeAdapterEventPayload = {
 export const DEFAULT_RUNTIME_BOOT_CONFIG: RuntimeBootConfig = {
   playerName: "Pilot",
   touchControls: true,
+  locale: "en",
 };
 
 export const DEFAULT_VIRTUAL_INPUT_STATE: VirtualInputState = {
@@ -324,6 +327,7 @@ export const DEFAULT_RUNTIME_PROFILE: RuntimeProfile = {
   version: 1,
   preferredPlayerName: DEFAULT_RUNTIME_BOOT_CONFIG.playerName,
   preferredTouchControls: DEFAULT_RUNTIME_BOOT_CONFIG.touchControls,
+  preferredLocale: DEFAULT_RUNTIME_BOOT_CONFIG.locale,
   runsLaunched: 0,
   bestScore: 0,
   bestRound: 0,

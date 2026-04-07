@@ -4,7 +4,7 @@ use crate::starter_scene::{
 use bevy::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use crate::RuntimeConfig;
+use crate::{RuntimeConfig, RuntimeLocale};
 #[cfg(target_arch = "wasm32")]
 use js_sys::{Function, Object, Reflect};
 #[cfg(target_arch = "wasm32")]
@@ -40,6 +40,7 @@ thread_local! {
 struct PendingSessionConfig {
     player_name: String,
     touch_controls: bool,
+    locale_code: String,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -48,6 +49,7 @@ impl Default for PendingSessionConfig {
         Self {
             player_name: "Pilot".to_owned(),
             touch_controls: true,
+            locale_code: "en".to_owned(),
         }
     }
 }
@@ -111,7 +113,7 @@ pub fn clear_runtime_event_sink() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = setRuntimeSessionConfig)]
-pub fn set_runtime_session_config(player_name: String, touch_controls: bool) {
+pub fn set_runtime_session_config(player_name: String, touch_controls: bool, locale: String) {
     SESSION_CONFIG.with(|config| {
         let trimmed_name = player_name.trim();
         *config.borrow_mut() = PendingSessionConfig {
@@ -121,6 +123,11 @@ pub fn set_runtime_session_config(player_name: String, touch_controls: bool) {
                 trimmed_name.chars().take(16).collect()
             },
             touch_controls,
+            locale_code: if locale == "zh-CN" {
+                "zh-CN".to_owned()
+            } else {
+                "en".to_owned()
+            },
         };
     });
 }
@@ -242,6 +249,7 @@ pub fn boot_runtime() {
     let mut app = crate::build_web_app(RuntimeConfig {
         player_name: pending_config.player_name,
         touch_controls: pending_config.touch_controls,
+        locale: RuntimeLocale::from_code(&pending_config.locale_code),
     });
 
     publish_status("app-created", "Bevy app allocated");

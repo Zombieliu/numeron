@@ -149,6 +149,10 @@ async function runSmoke(url) {
     });
 
     await page.goto(url, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "简体中文", exact: true }).click();
+    await page.locator("text=数据模式").first().waitFor({ timeout: 10_000 });
+    await page.getByRole("button", { name: "English", exact: true }).click();
+    await page.locator("text=Data Mode").first().waitFor({ timeout: 10_000 });
     const launchButton = page.getByRole("button", { name: "Launch Runtime" });
     await launchButton.waitFor({ state: "visible" });
     await page.waitForFunction(() => {
