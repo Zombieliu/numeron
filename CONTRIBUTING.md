@@ -19,6 +19,7 @@ cargo check
 pnpm typecheck
 pnpm build
 pnpm smoke:web
+pnpm test:e2e
 ```
 
 If you touch startup, runtime bridging, shell integration, or release workflow

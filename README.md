@@ -70,6 +70,7 @@ See [`docs/MILESTONES.md`](./docs/MILESTONES.md) for the first execution plan.
 - `pnpm build` exports a static web artifact from `apps/web/out`
 - `pnpm smoke:web` boots the shell, launches the runtime, and validates scene/input flow
 - `SMOKE_REMOTE_BACKEND_URL=http://127.0.0.1:8787 pnpm smoke:web` also validates the shell's remote data-mode path against the optional backend
+- `pnpm test:e2e` runs the Playwright regression suite for local gameplay, save flows, and remote sync
 - `pnpm backend:dev` starts the optional headless Bevy backend reference
 - `src/runtime_app.rs` keeps native and web bootstrap logic on one contract
 - `src/starter_scene.rs` is still temporary and will be replaced by the first Numeron board slice
@@ -193,6 +194,25 @@ This builds the web export when needed, serves the generated static shell on a
 local port, launches Chromium, clicks `Launch Runtime`, waits for
 `scene-ready`, sends virtual input, and saves smoke artifacts under
 `output/playwright/smoke-web`.
+
+### Run Playwright e2e
+
+```bash
+pnpm test:e2e
+```
+
+Targeted entrypoints:
+
+```bash
+pnpm test:e2e:local
+pnpm test:e2e:remote
+```
+
+The Playwright suite keeps the static-export path under test and covers:
+
+- local gameplay flow: launch, draft, deploy, combat, next round, restart
+- save matrix flow: locale/profile persistence plus snapshot import/export
+- remote backend flow: profile push/pull plus live session sync
 
 ## Who This Fits
 

@@ -345,9 +345,7 @@ export function GameShell() {
           id: nextSessionId,
           template: "numeron-run",
           slotId: activeSlot.id,
-          playerName:
-            runtimeSnapshot.world.player?.name ??
-            runtimeSnapshot.bootConfig.playerName,
+          playerName: runtimeSnapshot.bootConfig.playerName,
           locale: runtimeSnapshot.bootConfig.locale,
           status: nextStatus,
           round: runtimeSnapshot.world.slice.round,
@@ -363,9 +361,7 @@ export function GameShell() {
 
       return {
         ...current,
-        playerName:
-          runtimeSnapshot.world.player?.name ??
-          runtimeSnapshot.bootConfig.playerName,
+        playerName: runtimeSnapshot.bootConfig.playerName,
         locale: runtimeSnapshot.bootConfig.locale,
         status: nextStatus,
         round: runtimeSnapshot.world.slice.round,
@@ -384,7 +380,6 @@ export function GameShell() {
     activeSlot.id,
     runtimeSnapshot.bootConfig.playerName,
     runtimeSnapshot.bootConfig.locale,
-    runtimeSnapshot.world.player?.name,
     runtimeSnapshot.world.ready,
     runtimeSnapshot.world.slice.captured,
     runtimeSnapshot.world.slice.objective,
@@ -923,6 +918,7 @@ export function GameShell() {
                 type="button"
                 className={`mode-chip${dataMode === "local" ? " active" : ""}`}
                 onClick={() => setDataMode("local")}
+                data-testid="data-mode-local"
               >
                 {copy.local}
               </button>
@@ -930,6 +926,7 @@ export function GameShell() {
                 type="button"
                 className={`mode-chip${dataMode === "remote" ? " active" : ""}`}
                 onClick={() => setDataMode("remote")}
+                data-testid="data-mode-remote"
               >
                 {copy.remote}
               </button>
@@ -941,13 +938,22 @@ export function GameShell() {
                 value={backendUrl}
                 onChange={(event) => setBackendUrl(event.target.value)}
                 placeholder={DEFAULT_REMOTE_BACKEND_URL}
+                data-testid="backend-url-input"
               />
             </label>
             <div className="action-row">
-              <button className="button secondary" onClick={() => void handlePullRemote()}>
+              <button
+                className="button secondary"
+                onClick={() => void handlePullRemote()}
+                data-testid="pull-remote"
+              >
                 {copy.pullRemote}
               </button>
-              <button className="button secondary" onClick={() => void handlePushRemote()}>
+              <button
+                className="button secondary"
+                onClick={() => void handlePushRemote()}
+                data-testid="push-remote"
+              >
                 {copy.pushActiveSlot}
               </button>
             </div>
@@ -966,6 +972,7 @@ export function GameShell() {
                 value={runtimeSnapshot.bootConfig.playerName}
                 onChange={(event) => setLauncherConfig("playerName", event.target.value)}
                 maxLength={16}
+                data-testid="player-name-input"
               />
             </label>
             <label className="checkbox-row">
@@ -978,12 +985,17 @@ export function GameShell() {
               />
               {copy.touchHudEnabled}
             </label>
-            <button className="button" onClick={handleLaunch} disabled={!clientReady}>
+            <button
+              className="button"
+              onClick={handleLaunch}
+              disabled={!clientReady}
+              data-testid="launch-runtime"
+            >
               {copy.launchRuntime}
             </button>
           </section>
 
-          <section className="panel">
+          <section className="panel" data-testid="battle-controls-panel">
             <div className="eyebrow">{copy.battleControls}</div>
             <div className="stat-grid">
               <div className="stat-card">
@@ -1326,7 +1338,7 @@ export function GameShell() {
         </section>
 
         <aside className="side-column">
-          <section className="panel">
+          <section className="panel" data-testid="enemy-panel">
             <div className="eyebrow">{copy.enemyLineup}</div>
             <div className="stat-grid stat-grid-two">
               <div className="stat-card">
@@ -1376,7 +1388,7 @@ export function GameShell() {
             </div>
           </section>
 
-          <section className="panel">
+          <section className="panel" data-testid="trait-panel">
             <div className="eyebrow">{copy.synergies}</div>
             <div className="trait-grid">
               {activeTraits.map((trait) => (
@@ -1398,7 +1410,7 @@ export function GameShell() {
             </div>
           </section>
 
-          <section className="panel">
+          <section className="panel" data-testid="status-panel">
             <div className="eyebrow">{copy.status}</div>
             <div>{renderBootRecord(runtimeSnapshot.boot.current, locale)}</div>
             <div className="muted">{copy.statusSummary}</div>
@@ -1425,7 +1437,7 @@ export function GameShell() {
             </div>
           </section>
 
-          <section className="panel">
+          <section className="panel" data-testid="session-panel">
             <div className="eyebrow">{copy.activeRun}</div>
             <div className="stat-grid">
               <div className="stat-card">
@@ -1463,7 +1475,7 @@ export function GameShell() {
             </div>
           </section>
 
-          <section className="panel">
+          <section className="panel" data-testid="progression-panel">
             <div className="eyebrow">{copy.runMeta}</div>
             <div className="stat-grid">
               <div className="stat-card">
@@ -1500,7 +1512,7 @@ export function GameShell() {
         </aside>
       </section>
 
-      <details className="dev-drawer">
+      <details className="dev-drawer" data-testid="operations-drawer">
         <summary>{copy.operationsAndSaves}</summary>
         <div className="drawer-grid">
           <section className="panel">
@@ -1512,6 +1524,7 @@ export function GameShell() {
                   type="button"
                   className={`slot-card${slot.id === activeSlot.id ? " active" : ""}`}
                   onClick={() => handleSelectSlot(slot.id)}
+                  data-testid={`save-slot-${slot.id}`}
                 >
                   <span className="slot-title">{slot.label}</span>
                   <span className="slot-meta">
@@ -1531,6 +1544,7 @@ export function GameShell() {
                 value={activeSlot.label}
                 onChange={(event) => handleRenameSlot(event.target.value)}
                 maxLength={18}
+                data-testid="slot-label-input"
               />
             </label>
 
@@ -1563,16 +1577,32 @@ export function GameShell() {
           <section className="panel">
             <div className="eyebrow">{copy.runSnapshot}</div>
             <div className="action-row">
-              <button className="button secondary" onClick={() => void handleCopySaveMatrix()}>
+              <button
+                className="button secondary"
+                onClick={() => void handleCopySaveMatrix()}
+                data-testid="copy-snapshot"
+              >
                 {copy.copySnapshot}
               </button>
-              <button className="button secondary" onClick={handleImportSaveMatrix}>
+              <button
+                className="button secondary"
+                onClick={handleImportSaveMatrix}
+                data-testid="load-snapshot"
+              >
                 {copy.loadSnapshot}
               </button>
-              <button className="button secondary" onClick={handleResetActiveSlot}>
+              <button
+                className="button secondary"
+                onClick={handleResetActiveSlot}
+                data-testid="reset-active-slot"
+              >
                 {copy.resetActiveSlot}
               </button>
-              <button className="button secondary" onClick={handleResetAllSaves}>
+              <button
+                className="button secondary"
+                onClick={handleResetAllSaves}
+                data-testid="reset-all-saves"
+              >
                 {copy.resetAllSaves}
               </button>
             </div>
@@ -1584,6 +1614,7 @@ export function GameShell() {
                 onChange={(event) => setSaveDraft(event.target.value)}
                 placeholder={copy.snapshotPlaceholder}
                 rows={8}
+                data-testid="save-draft"
               />
             </label>
             {saveMessage ? <div className="muted">{saveMessage}</div> : null}
