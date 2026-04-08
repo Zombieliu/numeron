@@ -410,6 +410,8 @@ function sanitizeArchetype(
     case "ember-medic":
     case "volt-juggler":
     case "grave-warden":
+    case "lumen-sentinel":
+    case "shade-runner":
       return value;
     default:
       return "verdant-bruiser";

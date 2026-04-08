@@ -253,13 +253,13 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     intent: "Intent",
     roster: "Roster",
     rosterHint:
-      "Numeron now runs an eight-unit opening pool so real shop and composition decisions show up early.",
+      "Numeron now runs a ten-unit opening pool so real shop, swap, and composition decisions show up early.",
     augmentDraft: "Augment Draft",
     augmentDraftHint: "Pick one augment before combat resumes.",
     lockedAugments: "Locked Augments",
     status: "Status",
     statusSummary:
-      "Current runtime supports lockable shops, leveling, streak/interest economy, visible skill cadence, and restartable runs.",
+      "Current runtime supports lockable shops, leveling, streak/interest economy, prep-phase repositioning, visible combat feed, and restartable runs.",
     runtimeActive: "Runtime active",
     commander: "Commander",
     boardSeed: "Board Seed",
@@ -433,13 +433,13 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     intent: "意图",
     roster: "单位池",
     rosterHint:
-      "Numeron 现在有 8 个起始单位，可以开始测试真正的商店与阵容决策。",
+      "Numeron 现在有 10 个起始单位，已经可以测试真正的商店、站位交换与阵容决策。",
     augmentDraft: "强化选择",
     augmentDraftHint: "先选一个强化，再继续进入战斗。",
     lockedAugments: "已锁定强化",
     status: "状态",
     statusSummary:
-      "当前 runtime 已支持锁店、等级与经济层、敌方预判、技能节奏显示，以及可重开的 run。",
+      "当前 runtime 已支持锁店、等级与经济层、准备阶段换位、战斗事件 feed、敌方预判、技能节奏显示，以及可重开的 run。",
     runtimeActive: "Runtime 状态",
     commander: "指挥官",
     boardSeed: "棋盘单位",

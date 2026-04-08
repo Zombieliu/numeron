@@ -85,6 +85,8 @@ pub struct CombatState {
     pub active_directive: Option<CombatDirectiveOrder>,
     #[serde(default)]
     pub queued_directives: Vec<CombatDirectiveOrder>,
+    #[serde(default)]
+    pub recent_highlights: Vec<String>,
     pub status: String,
 }
 
@@ -109,6 +111,7 @@ impl Default for CombatState {
             enemy_units: 0,
             active_directive: None,
             queued_directives: Vec::new(),
+            recent_highlights: Vec::new(),
             status: "Board ready. Draft another unit or start combat.".to_owned(),
         }
     }
@@ -193,6 +196,7 @@ pub struct StarterSliceProjection {
     pub pending_augments: Vec<RuntimeAugmentView>,
     pub active_combat_directive: Option<RuntimeCombatDirectiveView>,
     pub queued_combat_directives: Vec<RuntimeCombatDirectiveView>,
+    pub combat_feed: Vec<String>,
     pub augment_draft_round: u32,
     pub enemy_threat: u32,
     pub enemy_intent: String,
@@ -242,6 +246,7 @@ impl Default for StarterSliceProjection {
             pending_augments: Vec::new(),
             active_combat_directive: None,
             queued_combat_directives: Vec::new(),
+            combat_feed: Vec::new(),
             augment_draft_round: 0,
             enemy_threat: 0,
             enemy_intent: "Awaiting board allocation.".to_owned(),
@@ -830,10 +835,12 @@ enum UnitArchetype {
     EmberMedic,
     VoltJuggler,
     GraveWarden,
+    LumenSentinel,
+    ShadeRunner,
 }
 
 impl UnitArchetype {
-    fn all() -> [Self; 8] {
+    fn all() -> [Self; 10] {
         [
             Self::SignalRanger,
             Self::AshDuelist,
@@ -843,6 +850,8 @@ impl UnitArchetype {
             Self::EmberMedic,
             Self::VoltJuggler,
             Self::GraveWarden,
+            Self::LumenSentinel,
+            Self::ShadeRunner,
         ]
     }
 
@@ -856,6 +865,8 @@ impl UnitArchetype {
             Self::EmberMedic => "ember-medic",
             Self::VoltJuggler => "volt-juggler",
             Self::GraveWarden => "grave-warden",
+            Self::LumenSentinel => "lumen-sentinel",
+            Self::ShadeRunner => "shade-runner",
         }
     }
 
@@ -869,6 +880,8 @@ impl UnitArchetype {
             Self::EmberMedic => localized(locale, "Ember Medic", "余烬医师"),
             Self::VoltJuggler => localized(locale, "Volt Juggler", "电弧杂耍者"),
             Self::GraveWarden => localized(locale, "Grave Warden", "墓垒守卫"),
+            Self::LumenSentinel => localized(locale, "Lumen Sentinel", "辉光卫哨"),
+            Self::ShadeRunner => localized(locale, "Shade Runner", "影奔袭客"),
         }
     }
 
@@ -882,6 +895,8 @@ impl UnitArchetype {
             Self::EmberMedic => localized(locale, "Cinder Mend", "炽火疗愈"),
             Self::VoltJuggler => localized(locale, "Chain Static", "连锁电弧"),
             Self::GraveWarden => localized(locale, "Last Toll", "终末丧钟"),
+            Self::LumenSentinel => localized(locale, "Solar Riposte", "耀光还击"),
+            Self::ShadeRunner => localized(locale, "Shadow Echo", "暗影回响"),
         }
     }
 
@@ -927,12 +942,26 @@ impl UnitArchetype {
                 "Swings harder while wounded and anchors the frontline.",
                 "受伤后会打得更重，并持续稳住前线。",
             ),
+            Self::LumenSentinel => localized(
+                locale,
+                "Every third strike bursts higher and restores hull.",
+                "每第三次攻击会爆发更高伤害并修复自身。",
+            ),
+            Self::ShadeRunner => localized(
+                locale,
+                "Every second shot adds a follow-up echo on the same target.",
+                "每第二次射击会对同一目标追加回响伤害。",
+            ),
         }
     }
 
     fn cast_state(self, action_counter: u32, locale: RuntimeLocale) -> &'static str {
         match self {
-            Self::VerdantBruiser | Self::SignalRanger | Self::IronVanguard | Self::VoltJuggler => {
+            Self::VerdantBruiser
+            | Self::SignalRanger
+            | Self::IronVanguard
+            | Self::VoltJuggler
+            | Self::ShadeRunner => {
                 if (action_counter + 1) % 2 == 0 {
                     localized(locale, "Next attack is empowered.", "下一次攻击已强化。")
                 } else {
@@ -940,6 +969,21 @@ impl UnitArchetype {
                         locale,
                         "One swing until the empowered cast.",
                         "再攻击一次就会进入强化。",
+                    )
+                }
+            }
+            Self::LumenSentinel => {
+                if (action_counter + 1) % 3 == 0 {
+                    localized(
+                        locale,
+                        "Next attack crashes in with a sustain spike.",
+                        "下一次攻击会带来爆发并回复自身。",
+                    )
+                } else {
+                    localized(
+                        locale,
+                        "Charging toward the next sustain spike.",
+                        "正在为下一次爆发与回复蓄势。",
                     )
                 }
             }
@@ -1018,15 +1062,33 @@ impl UnitArchetype {
                 "Pins the healthiest enemy and gains damage while wounded.",
                 "优先钉住最肉的敌人，并在受伤后提升伤害。",
             ),
+            Self::LumenSentinel => localized(
+                locale,
+                "Pressures the healthiest enemy and stabilizes itself every third strike.",
+                "优先压制最肉敌人，并在每第三次攻击时稳住自身血线。",
+            ),
+            Self::ShadeRunner => localized(
+                locale,
+                "Hunts the weakest enemy and doubles down every other shot.",
+                "优先追击最弱敌人，并在隔次出手时补上回响伤害。",
+            ),
         }
     }
 
     fn faction(self) -> UnitFaction {
         match self {
-            Self::VerdantBruiser | Self::SignalRanger | Self::FrostOracle | Self::EmberMedic => {
+            Self::VerdantBruiser
+            | Self::SignalRanger
+            | Self::FrostOracle
+            | Self::EmberMedic
+            | Self::LumenSentinel => {
                 UnitFaction::Dawn
             }
-            Self::AshDuelist | Self::IronVanguard | Self::VoltJuggler | Self::GraveWarden => {
+            Self::AshDuelist
+            | Self::IronVanguard
+            | Self::VoltJuggler
+            | Self::GraveWarden
+            | Self::ShadeRunner => {
                 UnitFaction::Dusk
             }
         }
@@ -1034,10 +1096,18 @@ impl UnitArchetype {
 
     fn role(self) -> UnitRole {
         match self {
-            Self::VerdantBruiser | Self::IronVanguard | Self::EmberMedic | Self::GraveWarden => {
+            Self::VerdantBruiser
+            | Self::IronVanguard
+            | Self::EmberMedic
+            | Self::GraveWarden
+            | Self::LumenSentinel => {
                 UnitRole::Vanguard
             }
-            Self::SignalRanger | Self::AshDuelist | Self::FrostOracle | Self::VoltJuggler => {
+            Self::SignalRanger
+            | Self::AshDuelist
+            | Self::FrostOracle
+            | Self::VoltJuggler
+            | Self::ShadeRunner => {
                 UnitRole::Skirmisher
             }
         }
@@ -1049,10 +1119,14 @@ impl UnitArchetype {
             (Self::SignalRanger, UnitOwner::Player) => Color::linear_rgba(0.32, 0.62, 0.93, 0.98),
             (Self::FrostOracle, UnitOwner::Player) => Color::linear_rgba(0.63, 0.73, 0.97, 0.98),
             (Self::EmberMedic, UnitOwner::Player) => Color::linear_rgba(0.95, 0.66, 0.35, 0.98),
+            (Self::LumenSentinel, UnitOwner::Player) => {
+                Color::linear_rgba(0.96, 0.84, 0.38, 0.98)
+            }
             (Self::AshDuelist, UnitOwner::Enemy) => Color::linear_rgba(0.94, 0.41, 0.58, 0.98),
             (Self::IronVanguard, UnitOwner::Enemy) => Color::linear_rgba(0.82, 0.30, 0.35, 0.98),
             (Self::VoltJuggler, UnitOwner::Enemy) => Color::linear_rgba(0.74, 0.42, 0.95, 0.98),
             (Self::GraveWarden, UnitOwner::Enemy) => Color::linear_rgba(0.45, 0.50, 0.59, 0.98),
+            (Self::ShadeRunner, UnitOwner::Enemy) => Color::linear_rgba(0.61, 0.33, 0.86, 0.98),
             (archetype, UnitOwner::Player) => archetype.color(UnitOwner::Enemy),
             (archetype, UnitOwner::Enemy) => archetype.color(UnitOwner::Player),
         }
@@ -1068,6 +1142,8 @@ impl UnitArchetype {
             Self::EmberMedic => 13,
             Self::VoltJuggler => 11,
             Self::GraveWarden => 18,
+            Self::LumenSentinel => 14,
+            Self::ShadeRunner => 10,
         }
     }
 
@@ -1081,6 +1157,8 @@ impl UnitArchetype {
             Self::EmberMedic => 3,
             Self::VoltJuggler => 5,
             Self::GraveWarden => 4,
+            Self::LumenSentinel => 4,
+            Self::ShadeRunner => 5,
         }
     }
 }
@@ -1260,6 +1338,12 @@ struct ResolvedCombatAction {
     highlight: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct BoardRepositionResult {
+    moved: UnitInstance,
+    displaced: Option<UnitInstance>,
+}
+
 impl Plugin for StarterScenePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BoardConfig>()
@@ -1435,6 +1519,7 @@ fn reset_run_state(
 
     *combat = CombatState::default();
     combat.run_number = next_run_number;
+    combat.recent_highlights.clear();
     combat_timer.0.reset();
 
     shop.locked = false;
@@ -1502,6 +1587,7 @@ fn restore_run_state(
     *enemy_squad = saved_state.enemy_squad;
     *augments = saved_state.augments;
     combat.deployment_cap = deploy_cap_for_level(combat.level);
+    combat.recent_highlights.truncate(4);
     combat_timer.0.reset();
 
     if combat.phase == CombatPhase::Combat && !saved_state.live_units.is_empty() {
@@ -1553,6 +1639,7 @@ fn handle_runtime_commands(
                     && augments.pending_choices.is_empty()
                 {
                     combat.phase = CombatPhase::Combat;
+                    combat.recent_highlights.clear();
                     combat.status = if combat.active_directive.is_some() {
                         match locale {
                             RuntimeLocale::En => format!(
@@ -1595,6 +1682,7 @@ fn handle_runtime_commands(
                     combat.phase = CombatPhase::Preparation;
                     combat.active_directive = None;
                     combat.queued_directives.clear();
+                    combat.recent_highlights.clear();
                     combat.run_result = RunResult::Active;
                     combat.gold += total_income;
                     let levels_gained = grant_xp(&mut combat, PASSIVE_ROUND_XP);
@@ -1878,6 +1966,52 @@ fn handle_runtime_commands(
                     },
                     &merge_messages,
                 );
+                needs_respawn = true;
+            }
+            RuntimeCommand::RepositionBoardUnit { from_slot, to_slot } => {
+                if combat.phase != CombatPhase::Preparation
+                    || combat.run_over
+                    || from_slot >= player_squad.board.len()
+                    || to_slot >= player_squad.board.len()
+                    || from_slot == to_slot
+                {
+                    continue;
+                }
+
+                let Some(result) =
+                    reposition_board_unit(&mut player_squad.board, from_slot, to_slot)
+                else {
+                    continue;
+                };
+
+                combat.status = match (locale, result.displaced) {
+                    (RuntimeLocale::En, Some(displaced)) => format!(
+                        "Swapped {} in slot {} with {} in slot {}.",
+                        result.moved.label(locale),
+                        from_slot + 1,
+                        displaced.label(locale),
+                        to_slot + 1
+                    ),
+                    (RuntimeLocale::ZhCn, Some(displaced)) => format!(
+                        "已将槽位 {} 的 {} 与槽位 {} 的 {} 对调。",
+                        from_slot + 1,
+                        result.moved.label(locale),
+                        to_slot + 1,
+                        displaced.label(locale)
+                    ),
+                    (RuntimeLocale::En, None) => format!(
+                        "Moved {} from slot {} to slot {}.",
+                        result.moved.label(locale),
+                        from_slot + 1,
+                        to_slot + 1
+                    ),
+                    (RuntimeLocale::ZhCn, None) => format!(
+                        "已将 {} 从槽位 {} 移动到槽位 {}。",
+                        result.moved.label(locale),
+                        from_slot + 1,
+                        to_slot + 1
+                    ),
+                };
                 needs_respawn = true;
             }
             RuntimeCommand::WithdrawBoardUnit(slot_index) => {
@@ -2173,6 +2307,7 @@ fn run_combat_tick(
         combat.phase = CombatPhase::Resolution;
         combat.active_directive = None;
         combat.queued_directives.clear();
+        combat.recent_highlights = combat_highlights.iter().take(4).cloned().collect();
         if combat.enemy_units == 0 {
             combat.win_streak += 1;
             combat.loss_streak = 0;
@@ -2257,6 +2392,7 @@ fn run_combat_tick(
         }
     } else {
         advance_combat_plan_tick(&mut combat);
+        combat.recent_highlights = combat_highlights.iter().take(4).cloned().collect();
         let directive_prefix = combat
             .active_directive
             .map(|directive| match locale {
@@ -2379,6 +2515,17 @@ fn resolve_attack(
                 ));
             }
         }
+        UnitArchetype::LumenSentinel => {
+            if !hold_skills && (attacker.action_counter + 1) % 3 == 0 {
+                primary_damage += 2;
+                heals.push((attacker.entity, 2));
+                skill_note = Some(localized(
+                    locale,
+                    "Solar Riposte stabilized the frontline",
+                    "耀光还击稳住了前线血线",
+                ));
+            }
+        }
         UnitArchetype::SignalRanger => {
             if !hold_skills && (attacker.action_counter + 1) % 2 == 0 {
                 primary_damage += 2;
@@ -2441,6 +2588,16 @@ fn resolve_attack(
                         "连锁电弧弹射到了第二目标",
                     ));
                 }
+            }
+        }
+        UnitArchetype::ShadeRunner => {
+            if !hold_skills && (attacker.action_counter + 1) % 2 == 0 {
+                extra_hits.push((target.entity, 2));
+                skill_note = Some(localized(
+                    locale,
+                    "Shadow Echo doubled down on the mark",
+                    "暗影回响追上了同一目标",
+                ));
             }
         }
         UnitArchetype::GraveWarden => {
@@ -2521,7 +2678,11 @@ fn cadence_skill_would_trigger(
         UnitArchetype::VerdantBruiser
         | UnitArchetype::SignalRanger
         | UnitArchetype::IronVanguard
-        | UnitArchetype::VoltJuggler => (attacker.action_counter + 1) % 2 == 0,
+        | UnitArchetype::VoltJuggler
+        | UnitArchetype::ShadeRunner => (attacker.action_counter + 1) % 2 == 0,
+        UnitArchetype::LumenSentinel => {
+            (attacker.action_counter + 1) % 3 == 0
+        }
         UnitArchetype::AshDuelist => target.health * 2 <= target.max_health,
         UnitArchetype::FrostOracle => (attacker.action_counter + 1) % 3 == 0,
         UnitArchetype::EmberMedic => select_ally_to_heal(attacker.entity, allies).is_some(),
@@ -2554,11 +2715,14 @@ fn select_target(
 
 fn base_target_priority(archetype: UnitArchetype, candidate: CombatUnitSnapshot) -> (i32, i32) {
     match archetype {
-        UnitArchetype::VerdantBruiser => (-candidate.max_health, candidate.health),
+        UnitArchetype::VerdantBruiser | UnitArchetype::LumenSentinel => {
+            (-candidate.max_health, candidate.health)
+        }
         UnitArchetype::SignalRanger
         | UnitArchetype::AshDuelist
         | UnitArchetype::EmberMedic
-        | UnitArchetype::VoltJuggler => (candidate.health, -(candidate.attack as i32)),
+        | UnitArchetype::VoltJuggler
+        | UnitArchetype::ShadeRunner => (candidate.health, -(candidate.attack as i32)),
         UnitArchetype::IronVanguard | UnitArchetype::FrostOracle => {
             (-(candidate.attack as i32), -candidate.health)
         }
@@ -2679,6 +2843,18 @@ fn select_ally_to_heal(
                 candidate.max_health,
             )
         })
+}
+
+fn reposition_board_unit(
+    board: &mut [Option<UnitInstance>; PLAYER_SLOTS.len()],
+    from_slot: usize,
+    to_slot: usize,
+) -> Option<BoardRepositionResult> {
+    let moved = board.get(from_slot).copied().flatten()?;
+    let displaced = board.get(to_slot).copied().flatten();
+    board.swap(from_slot, to_slot);
+
+    Some(BoardRepositionResult { moved, displaced })
 }
 
 fn mitigate_damage(
@@ -3066,6 +3242,7 @@ fn apply_common_projection_fields(
         .copied()
         .map(|augment| augment.as_view(locale))
         .collect();
+    projection.combat_feed = combat.recent_highlights.clone();
     projection.active_combat_directive = combat
         .active_directive
         .map(|directive| directive.as_view(locale));
@@ -4016,6 +4193,69 @@ mod tests {
     }
 
     #[test]
+    fn lumen_sentinel_third_strike_heals_and_hits_harder() {
+        let attacker = snapshot(
+            1,
+            UnitOwner::Player,
+            0,
+            UnitArchetype::LumenSentinel,
+            8,
+            14,
+            4,
+            2,
+        );
+        let target = snapshot(
+            2,
+            UnitOwner::Enemy,
+            0,
+            UnitArchetype::IronVanguard,
+            16,
+            16,
+            3,
+            0,
+        );
+
+        let action = resolve_attack(attacker, &[attacker], &[target], RuntimeLocale::En, None)
+            .expect("sentinel action");
+
+        assert_eq!(action.hits[0].1, 6);
+        assert_eq!(action.heals, vec![(attacker.entity, 2)]);
+        assert!(action.highlight.contains("Solar Riposte"));
+    }
+
+    #[test]
+    fn shade_runner_second_shot_adds_echo_damage_on_the_same_target() {
+        let attacker = snapshot(
+            1,
+            UnitOwner::Player,
+            3,
+            UnitArchetype::ShadeRunner,
+            10,
+            10,
+            5,
+            1,
+        );
+        let target = snapshot(
+            2,
+            UnitOwner::Enemy,
+            0,
+            UnitArchetype::VerdantBruiser,
+            15,
+            15,
+            4,
+            0,
+        );
+
+        let action = resolve_attack(attacker, &[attacker], &[target], RuntimeLocale::En, None)
+            .expect("runner action");
+
+        assert_eq!(action.hits.len(), 2);
+        assert_eq!(action.hits[0], (target.entity, 5));
+        assert_eq!(action.hits[1], (target.entity, 2));
+        assert!(action.highlight.contains("Shadow Echo"));
+    }
+
+    #[test]
     fn fallback_left_directive_deprioritizes_left_wing_targets() {
         let enemy_attacker = snapshot(
             9,
@@ -4245,6 +4485,26 @@ mod tests {
 
         assert!(combat.active_directive.is_none());
         assert!(combat.queued_directives.is_empty());
+    }
+
+    #[test]
+    fn reposition_board_unit_moves_and_swaps_slots() {
+        let mut identity = seeded_identity();
+        let left = UnitInstance::new(UnitArchetype::VerdantBruiser, &mut identity);
+        let right = UnitInstance::new(UnitArchetype::EmberMedic, &mut identity);
+        let mut board = [Some(left), Some(right), None, None, None];
+
+        let swap = reposition_board_unit(&mut board, 0, 1).expect("swap result");
+        assert_eq!(swap.moved, left);
+        assert_eq!(swap.displaced, Some(right));
+        assert_eq!(board[0], Some(right));
+        assert_eq!(board[1], Some(left));
+
+        let move_to_empty = reposition_board_unit(&mut board, 1, 3).expect("move result");
+        assert_eq!(move_to_empty.moved, left);
+        assert_eq!(move_to_empty.displaced, None);
+        assert_eq!(board[1], None);
+        assert_eq!(board[3], Some(left));
     }
 
     #[test]

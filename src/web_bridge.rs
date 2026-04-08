@@ -84,6 +84,10 @@ pub enum RuntimeCommand {
         bench_index: usize,
         slot_index: usize,
     },
+    RepositionBoardUnit {
+        from_slot: usize,
+        to_slot: usize,
+    },
     WithdrawBoardUnit(usize),
     SellBenchUnit(usize),
     SellBoardUnit(usize),
@@ -259,6 +263,17 @@ pub fn withdraw_runtime_board_unit(slot_index: u32) {
         queue
             .borrow_mut()
             .push(RuntimeCommand::WithdrawBoardUnit(slot_index as usize));
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = repositionRuntimeBoardUnit)]
+pub fn reposition_runtime_board_unit(from_slot: u32, to_slot: u32) {
+    COMMAND_QUEUE.with(|queue| {
+        queue.borrow_mut().push(RuntimeCommand::RepositionBoardUnit {
+            from_slot: from_slot as usize,
+            to_slot: to_slot as usize,
+        });
     });
 }
 
@@ -467,6 +482,7 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         pending_augments: slice.pending_augments,
         active_combat_directive: slice.active_combat_directive,
         queued_combat_directives: slice.queued_combat_directives,
+        combat_feed: slice.combat_feed,
         augment_draft_round: slice.augment_draft_round,
         enemy_threat: slice.enemy_threat,
         enemy_intent: slice.enemy_intent,
@@ -520,6 +536,7 @@ struct ProjectionPayload {
     pending_augments: Vec<RuntimeAugmentView>,
     active_combat_directive: Option<RuntimeCombatDirectiveView>,
     queued_combat_directives: Vec<RuntimeCombatDirectiveView>,
+    combat_feed: Vec<String>,
     augment_draft_round: u32,
     enemy_threat: u32,
     enemy_intent: String,
@@ -681,6 +698,11 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 &"queuedCombatDirectives".into(),
                 &queued_combat_directives,
             );
+            let combat_feed = js_sys::Array::new();
+            for highlight in &projection.combat_feed {
+                combat_feed.push(&JsValue::from_str(highlight));
+            }
+            let _ = Reflect::set(&slice, &"combatFeed".into(), &combat_feed);
             let _ = Reflect::set(
                 &slice,
                 &"augmentDraftRound".into(),

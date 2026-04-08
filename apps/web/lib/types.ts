@@ -42,7 +42,9 @@ export type RuntimeUnitView = {
     | "frost-oracle"
     | "ember-medic"
     | "volt-juggler"
-    | "grave-warden";
+    | "grave-warden"
+    | "lumen-sentinel"
+    | "shade-runner";
   faction: "dawn" | "dusk";
   role: "vanguard" | "skirmisher";
   skill: string;
@@ -135,6 +137,7 @@ export type RuntimeProjection = {
     pendingAugments: RuntimeAugmentView[];
     activeCombatDirective: RuntimeCombatDirectiveView | null;
     queuedCombatDirectives: RuntimeCombatDirectiveView[];
+    combatFeed: string[];
     augmentDraftRound: number;
     enemyThreat: number;
     enemyIntent: string;
@@ -357,6 +360,11 @@ export type UiIntent =
       slotIndex: number;
     }
   | {
+      type: "runtime.board.reposition";
+      fromSlot: number;
+      toSlot: number;
+    }
+  | {
       type: "runtime.bench.sell";
       benchIndex: number;
     }
@@ -447,6 +455,7 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     pendingAugments: [],
     activeCombatDirective: null,
     queuedCombatDirectives: [],
+    combatFeed: [],
     augmentDraftRound: 0,
     enemyThreat: 0,
     enemyIntent: "Awaiting board allocation.",

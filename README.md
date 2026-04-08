@@ -82,7 +82,7 @@ The first playable milestone is intentionally narrow:
 
 - one board
 - one shop row
-- eight unit archetypes
+- ten unit archetypes
 - simple economy
 - auto-battle round flow
 - local run persistence

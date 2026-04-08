@@ -17,6 +17,7 @@ import {
   buyRuntimeShopOffer,
   chooseRuntimeAugment,
   deployRuntimeBenchUnit,
+  repositionRuntimeBoardUnit,
   getRuntimeBootSnapshot,
   launchRuntime,
   replaceRuntimeCombatPlan,
@@ -167,6 +168,10 @@ export async function dispatchUiIntent(
     }
     case "runtime.board.withdraw": {
       withdrawRuntimeBoardUnit(intent.slotIndex);
+      return currentSnapshot;
+    }
+    case "runtime.board.reposition": {
+      repositionRuntimeBoardUnit(intent.fromSlot, intent.toSlot);
       return currentSnapshot;
     }
     case "runtime.bench.sell": {
@@ -382,6 +387,9 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
             normalizeRuntimeCombatDirectiveView,
           )
         : DEFAULT_RUNTIME_PROJECTION.slice.queuedCombatDirectives,
+      combatFeed: Array.isArray(projection.slice?.combatFeed)
+        ? projection.slice.combatFeed.map((entry) => String(entry))
+        : DEFAULT_RUNTIME_PROJECTION.slice.combatFeed,
       augmentDraftRound: normalizeNumber(
         projection.slice?.augmentDraftRound,
         DEFAULT_RUNTIME_PROJECTION.slice.augmentDraftRound,
@@ -527,6 +535,8 @@ function normalizeArchetype(value: unknown) {
     case "ember-medic":
     case "volt-juggler":
     case "grave-warden":
+    case "lumen-sentinel":
+    case "shade-runner":
       return value;
     default:
       return "verdant-bruiser";

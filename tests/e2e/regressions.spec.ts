@@ -51,6 +51,32 @@ test("withdraw and sell flows return units and gold cleanly", async ({ page }) =
   expect(await readGold(page)).toBe(startingGold + 2);
 });
 
+test("board units can be repositioned during preparation", async ({ page }) => {
+  await openShell(page);
+  await launchRuntime(page);
+
+  await deployBenchUnitAtIndex(page, 0, 0);
+  await deployBenchUnitAtIndex(page, 0, 1);
+
+  const firstBefore = (await page.getByTestId("board-slot-0").innerText())
+    .split("\n")[0]
+    ?.trim();
+  const secondBefore = (await page.getByTestId("board-slot-1").innerText())
+    .split("\n")[0]
+    ?.trim();
+
+  expect(firstBefore).toBeTruthy();
+  expect(secondBefore).toBeTruthy();
+  expect(firstBefore).not.toBe(secondBefore);
+
+  await page.getByTestId("board-slot-0").click();
+  await page.getByTestId("board-slot-1").click();
+
+  await expect(page.getByTestId("board-slot-0")).toContainText(secondBefore!);
+  await expect(page.getByTestId("board-slot-1")).toContainText(firstBefore!);
+  await expect(page.getByTestId("status-panel")).toContainText(/Swapped|对调|Moved|移动/);
+});
+
 test("buying the third matching copy merges into a two-star unit", async ({ page }) => {
   await openShell(page);
   await launchRuntime(page);

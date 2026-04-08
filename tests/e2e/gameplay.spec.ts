@@ -40,6 +40,9 @@ test("core gameplay loop runs from launch to restart", async ({ page }) => {
   await page.getByTestId("start-combat").click();
   await waitForRoundResolution(page);
   await expect(page.getByTestId("status-panel")).toContainText(/Round state/i);
+  await expect(page.getByTestId("combat-feed")).not.toContainText(
+    /Recent hits, heals|最近几条命中/,
+  );
 
   await advanceToNextRound(page, 2);
   await expect(page.getByTestId("status-panel")).toContainText(/Round 2|第 2 回合/);

@@ -47,6 +47,7 @@ type RuntimeModule = {
   toggleRuntimeShopLock?: () => void;
   buyRuntimeShopOffer?: (index: number) => void;
   deployRuntimeBenchUnit?: (benchIndex: number, slotIndex: number) => void;
+  repositionRuntimeBoardUnit?: (fromSlot: number, toSlot: number) => void;
   withdrawRuntimeBoardUnit?: (slotIndex: number) => void;
   sellRuntimeBenchUnit?: (benchIndex: number) => void;
   sellRuntimeBoardUnit?: (slotIndex: number) => void;
@@ -192,6 +193,10 @@ export function deployRuntimeBenchUnit(benchIndex: number, slotIndex: number) {
 
 export function withdrawRuntimeBoardUnit(slotIndex: number) {
   runtimeModule?.withdrawRuntimeBoardUnit?.(slotIndex);
+}
+
+export function repositionRuntimeBoardUnit(fromSlot: number, toSlot: number) {
+  runtimeModule?.repositionRuntimeBoardUnit?.(fromSlot, toSlot);
 }
 
 export function sellRuntimeBenchUnit(benchIndex: number) {
@@ -460,6 +465,9 @@ function normalizeRuntimeEventPayload(
               normalizeRuntimeCombatDirectiveView,
             )
           : DEFAULT_RUNTIME_PROJECTION.slice.queuedCombatDirectives,
+        combatFeed: Array.isArray(projection.slice?.combatFeed)
+          ? projection.slice.combatFeed.map((entry) => String(entry))
+          : DEFAULT_RUNTIME_PROJECTION.slice.combatFeed,
         augmentDraftRound: clampPositiveNumber(
           projection.slice?.augmentDraftRound,
           DEFAULT_RUNTIME_PROJECTION.slice.augmentDraftRound,
@@ -623,6 +631,8 @@ function normalizeArchetype(value: unknown) {
     case "ember-medic":
     case "volt-juggler":
     case "grave-warden":
+    case "lumen-sentinel":
+    case "shade-runner":
       return value;
     default:
       return "verdant-bruiser";

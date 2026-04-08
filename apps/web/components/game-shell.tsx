@@ -79,6 +79,8 @@ const UNIT_ART_BY_ARCHETYPE: Record<RuntimeUnitView["archetype"], string> = {
   "ember-medic": "/assets/numeron/shell/unit_verdant_bruiser.png",
   "volt-juggler": "/assets/numeron/shell/unit_ash_duelist.png",
   "grave-warden": "/assets/numeron/shell/unit_iron_vanguard.png",
+  "lumen-sentinel": "/assets/numeron/shell/unit_verdant_bruiser.png",
+  "shade-runner": "/assets/numeron/shell/unit_ash_duelist.png",
 };
 
 type ControlKey = "up" | "down" | "left" | "right";
@@ -240,6 +242,7 @@ export function GameShell() {
     runtimeSnapshot.world.slice.activeCombatDirective;
   const queuedCombatDirectives =
     runtimeSnapshot.world.slice.queuedCombatDirectives;
+  const combatFeed = runtimeSnapshot.world.slice.combatFeed;
   const canProgramCombatPlan =
     runtimeReady &&
     currentPhase !== "resolution" &&
@@ -1029,6 +1032,21 @@ export function GameShell() {
   }
 
   function handleSelectBoardUnit(index: number) {
+    if (
+      canDraft &&
+      selectedBoardIndex != null &&
+      selectedBoardIndex !== index
+    ) {
+      void dispatchUiIntent({
+        type: "runtime.board.reposition",
+        fromSlot: selectedBoardIndex,
+        toSlot: index,
+      });
+      setSelectedBoardIndex(null);
+      setSelectedBenchIndex(null);
+      return;
+    }
+
     setSelectedBenchIndex(null);
     setSelectedBoardIndex((current) => (current === index ? null : index));
   }
@@ -2123,6 +2141,8 @@ export function GameShell() {
                       hasBenchSelection &&
                       !deploymentCapReached;
                     const isSelected = selectedBoardIndex === index;
+                    const canRepositionIntoSlot =
+                      canDraft && hasBoardSelection && !isSelected;
                     const canSelectSlot = canDraft && !isEmpty;
 
                     return (
@@ -2134,10 +2154,16 @@ export function GameShell() {
                         }`}
                         onClick={() =>
                           isEmpty
-                            ? handleDeployBenchUnit(index)
+                            ? hasBoardSelection
+                              ? handleSelectBoardUnit(index)
+                              : handleDeployBenchUnit(index)
                             : handleSelectBoardUnit(index)
                         }
-                        disabled={!canDeployIntoSlot && !canSelectSlot}
+                        disabled={
+                          !canDeployIntoSlot &&
+                          !canRepositionIntoSlot &&
+                          !canSelectSlot
+                        }
                         data-testid={`board-slot-${index}`}
                       >
                         {unit ? <UnitPortrait unit={unit} compact /> : null}
@@ -2152,20 +2178,28 @@ export function GameShell() {
                           {unit
                             ? isSelected
                               ? locale === "zh-CN"
-                                ? "已选中，可撤回或出售"
-                                : "Selected for board actions"
-                              : locale === "zh-CN"
-                                ? "点击选中"
-                                : "Click to select"
-                            : hasBenchSelection
-                              ? deploymentCapReached
-                                ? copy.deployCapReached
+                                ? "已选中，可点其他槽位换位或对调"
+                                : "Selected. Click another slot to move or swap"
+                              : hasBoardSelection
+                                ? locale === "zh-CN"
+                                  ? "点击与已选单位对调"
+                                  : "Click to swap with the selected unit"
                                 : locale === "zh-CN"
-                                  ? "点击部署选中单位"
-                                  : "Click to deploy selected unit"
-                              : locale === "zh-CN"
-                                ? "先选一个备战单位"
-                                : "Select a bench unit first"}
+                                  ? "点击选中"
+                                  : "Click to select"
+                            : hasBoardSelection
+                              ? locale === "zh-CN"
+                                ? "点击把已选单位移到这里"
+                                : "Click to move the selected unit here"
+                              : hasBenchSelection
+                                ? deploymentCapReached
+                                  ? copy.deployCapReached
+                                  : locale === "zh-CN"
+                                    ? "点击部署选中单位"
+                                    : "Click to deploy selected unit"
+                                : locale === "zh-CN"
+                                  ? "先选一个备战单位"
+                                  : "Select a bench unit first"}
                         </span>
                         {unit ? (
                           <span className="slot-meta">
@@ -2270,6 +2304,24 @@ export function GameShell() {
                     : locale === "zh-CN"
                       ? "强化、敌方阵容、经济细节会在宽屏和运维抽屉里展开。"
                       : "Augments, enemy lineup, and economy details expand on larger screens or inside the operations drawer."}
+                </div>
+                <div className="feed-list" data-testid="combat-feed">
+                  <div className="stat-label">
+                    {locale === "zh-CN" ? "最近战斗事件" : "Recent Combat Feed"}
+                  </div>
+                  {combatFeed.length > 0 ? (
+                    combatFeed.map((entry, index) => (
+                      <div key={`${index}-${entry}`} className="muted">
+                        {entry}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="muted">
+                      {locale === "zh-CN"
+                        ? "开战后这里会显示最近几条命中、治疗与技能触发。"
+                        : "Recent hits, heals, and skill spikes show up here once combat starts."}
+                    </div>
+                  )}
                 </div>
               </section>
             </section>

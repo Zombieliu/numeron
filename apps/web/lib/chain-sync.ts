@@ -273,6 +273,10 @@ function archetypeToCode(archetype: RuntimeAgentRecord["archetype"]) {
       return 6;
     case "grave-warden":
       return 7;
+    case "lumen-sentinel":
+      return 8;
+    case "shade-runner":
+      return 9;
   }
 }
 
