@@ -26,6 +26,9 @@ test("core gameplay loop runs from launch to restart", async ({ page }) => {
   );
 
   await launchRuntime(page);
+  await expect(page.getByTestId("run-modifier-panel")).toContainText(
+    /Rich Opening|Thin Bench|Dawn Surge|Dusk Surge|Glass Cannon|Augment Storm|富集开局|短备战席|黎明激涌|黄昏激涌|高压脆皮|强化风暴/,
+  );
   await page.getByTestId("lock-shop").click();
   await expect(page.getByTestId("draft-shop")).toContainText(
     /Unlock Shop|Locked offers will carry into the next round/,
@@ -49,6 +52,9 @@ test("core gameplay loop runs from launch to restart", async ({ page }) => {
 
   await playUntilRunEnds(page, { startRound: 3 });
   await expect(page.getByTestId("restart-run")).toBeEnabled();
+  await expect(page.getByTestId("run-summary-panel")).toContainText(
+    /Build Route|Build 路线|Augments|强化|Final Board|最终阵容/,
+  );
   expect(await readVisibleRound(page)).toBeGreaterThanOrEqual(3);
 
   await page.getByTestId("restart-run").click();

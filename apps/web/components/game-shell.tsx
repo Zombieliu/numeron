@@ -243,6 +243,8 @@ export function GameShell() {
   const queuedCombatDirectives =
     runtimeSnapshot.world.slice.queuedCombatDirectives;
   const combatFeed = runtimeSnapshot.world.slice.combatFeed;
+  const runModifier = runtimeSnapshot.world.slice.runModifier;
+  const roundHistory = runtimeSnapshot.world.slice.roundHistory;
   const canProgramCombatPlan =
     runtimeReady &&
     currentPhase !== "resolution" &&
@@ -256,6 +258,9 @@ export function GameShell() {
     runtimeSnapshot.world.slice.interestIncome +
     runtimeSnapshot.world.slice.streakIncome;
   const trackedPlayerUnits = collectTrackedPlayerUnits(benchUnits, playerBoard);
+  const latestCompletedBattle =
+    activeSlot.battleRecords.find((battle) => battle.status === "completed") ??
+    null;
   const commanderPreview = parseCommanderDirective(commanderInput, locale);
   const trackedPlayerUnitSignature = trackedPlayerUnits
     .map(
@@ -2694,6 +2699,27 @@ export function GameShell() {
             </div>
           </section>
 
+          <section className="panel" data-testid="run-modifier-panel">
+            <div className="eyebrow">
+              {locale === "zh-CN" ? "本局 Modifier" : "Run Modifier"}
+            </div>
+            <div className="stat-grid">
+              <div className="stat-card">
+                <span className="stat-label">
+                  {locale === "zh-CN" ? "当前规则" : "Rule"}
+                </span>
+                <strong>{runModifier.label}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">
+                  {locale === "zh-CN" ? "推荐路线" : "Route"}
+                </span>
+                <strong>{runModifier.routeHint}</strong>
+              </div>
+            </div>
+            <div className="muted">{runModifier.description}</div>
+          </section>
+
           <section className="panel" data-testid="progression-panel">
             <div className="eyebrow">{copy.runMeta}</div>
             <div className="stat-grid">
@@ -2757,6 +2783,106 @@ export function GameShell() {
               {formatRunResult(runtimeSnapshot.world.slice.runResult, locale)}
             </div>
           </section>
+
+          {latestCompletedBattle ? (
+            <section className="panel" data-testid="run-summary-panel">
+              <div className="eyebrow">
+                {locale === "zh-CN" ? "Run Summary" : "Run Summary"}
+              </div>
+              <div className="stat-grid stat-grid-two">
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "Build 路线" : "Build Route"}
+                  </span>
+                  <strong>{latestCompletedBattle.buildRoute}</strong>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "MVP" : "MVP"}
+                  </span>
+                  <strong>
+                    {latestCompletedBattle.mvpLabel ??
+                      (locale === "zh-CN" ? "无" : "None")}
+                  </strong>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "Modifier" : "Modifier"}
+                  </span>
+                  <strong>{latestCompletedBattle.runModifier.label}</strong>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "经济总览" : "Economy Totals"}
+                  </span>
+                  <strong>
+                    {latestCompletedBattle.incomeBaseTotal +
+                      latestCompletedBattle.incomeInterestTotal +
+                      latestCompletedBattle.incomeStreakTotal +
+                      latestCompletedBattle.incomeModifierTotal}
+                  </strong>
+                </div>
+              </div>
+              <div className="muted">
+                {latestCompletedBattle.runModifier.description}
+              </div>
+              <div className="muted">
+                {locale === "zh-CN" ? "强化：" : "Augments: "}{" "}
+                {latestCompletedBattle.selectedAugments.length > 0
+                  ? latestCompletedBattle.selectedAugments
+                      .map((augment) => augment.label)
+                      .join(" · ")
+                  : locale === "zh-CN"
+                    ? "无"
+                    : "None"}
+              </div>
+              <div className="muted">
+                {locale === "zh-CN" ? "羁绊：" : "Traits: "}{" "}
+                {latestCompletedBattle.activeTraits.length > 0
+                  ? latestCompletedBattle.activeTraits
+                      .map((trait) => trait.label)
+                      .join(" · ")
+                  : locale === "zh-CN"
+                    ? "无"
+                    : "None"}
+              </div>
+              <div className="muted">
+                {locale === "zh-CN" ? "最终阵容：" : "Final Board: "}{" "}
+                {latestCompletedBattle.finalBoard.length > 0
+                  ? latestCompletedBattle.finalBoard
+                      .map((unit) => unit.label)
+                      .join(" · ")
+                  : locale === "zh-CN"
+                    ? "空"
+                    : "Empty"}
+              </div>
+              <div className="muted">
+                {locale === "zh-CN" ? "经济分解：" : "Income Breakdown: "}B{" "}
+                {latestCompletedBattle.incomeBaseTotal} · I{" "}
+                {latestCompletedBattle.incomeInterestTotal} · S{" "}
+                {latestCompletedBattle.incomeStreakTotal} · M{" "}
+                {latestCompletedBattle.incomeModifierTotal}
+              </div>
+              <div className="feed-list">
+                {(latestCompletedBattle.roundHistory.length > 0
+                  ? latestCompletedBattle.roundHistory
+                  : roundHistory
+                ).map((entry) => (
+                  <div key={`${entry.round}-${entry.summary}`} className="muted">
+                    R{entry.round} ·{" "}
+                    {entry.result === "victory"
+                      ? locale === "zh-CN"
+                        ? "胜"
+                        : "Win"
+                      : locale === "zh-CN"
+                        ? "负"
+                        : "Loss"}{" "}
+                    · +{entry.incomeTotal} · T{entry.threat} · {entry.summary}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section className="panel" data-testid="roster-panel">
             <div className="eyebrow">{copy.roster}</div>
@@ -3291,6 +3417,10 @@ function buildBattleRecord(
   runtimeSnapshot: RuntimeSnapshot,
   playerAgentIds: string[],
 ): RuntimeBattleRecord {
+  const finalBoard = runtimeSnapshot.world.slice.playerBoard.filter(
+    (unit): unit is RuntimeUnitView => unit != null,
+  );
+
   return {
     id: `${session.id}-battle`,
     sessionId: session.id,
@@ -3305,6 +3435,19 @@ function buildBattleRecord(
     endedAt: session.endedAt,
     playerAgentIds,
     replayState: runtimeSnapshot.world.slice.serializedRunState,
+    runModifier: runtimeSnapshot.world.slice.runModifier,
+    selectedAugments: runtimeSnapshot.world.slice.selectedAugments,
+    activeTraits: runtimeSnapshot.world.slice.activeTraits.filter(
+      (trait) => trait.active,
+    ),
+    finalBoard,
+    roundHistory: runtimeSnapshot.world.slice.roundHistory,
+    incomeBaseTotal: runtimeSnapshot.world.slice.incomeBaseTotal,
+    incomeInterestTotal: runtimeSnapshot.world.slice.incomeInterestTotal,
+    incomeStreakTotal: runtimeSnapshot.world.slice.incomeStreakTotal,
+    incomeModifierTotal: runtimeSnapshot.world.slice.incomeModifierTotal,
+    buildRoute: inferBuildRoute(runtimeSnapshot),
+    mvpLabel: selectBattleMvpLabel(finalBoard),
   };
 }
 
@@ -3366,8 +3509,81 @@ function areBattleRecordsEqual(
     left.updatedAt === right.updatedAt &&
     left.endedAt === right.endedAt &&
     left.replayState === right.replayState &&
-    left.playerAgentIds.join("|") === right.playerAgentIds.join("|")
+    left.playerAgentIds.join("|") === right.playerAgentIds.join("|") &&
+    left.runModifier.key === right.runModifier.key &&
+    left.runModifier.label === right.runModifier.label &&
+    left.runModifier.description === right.runModifier.description &&
+    left.runModifier.routeHint === right.runModifier.routeHint &&
+    left.selectedAugments.map((augment) => augment.key).join("|") ===
+      right.selectedAugments.map((augment) => augment.key).join("|") &&
+    left.activeTraits.map((trait) => trait.key).join("|") ===
+      right.activeTraits.map((trait) => trait.key).join("|") &&
+    left.finalBoard.map((unit) => unit.agentId).join("|") ===
+      right.finalBoard.map((unit) => unit.agentId).join("|") &&
+    left.roundHistory.map((entry) => `${entry.round}:${entry.result}:${entry.incomeTotal}:${entry.summary}`).join("|") ===
+      right.roundHistory.map((entry) => `${entry.round}:${entry.result}:${entry.incomeTotal}:${entry.summary}`).join("|") &&
+    left.incomeBaseTotal === right.incomeBaseTotal &&
+    left.incomeInterestTotal === right.incomeInterestTotal &&
+    left.incomeStreakTotal === right.incomeStreakTotal &&
+    left.incomeModifierTotal === right.incomeModifierTotal &&
+    left.buildRoute === right.buildRoute &&
+    left.mvpLabel === right.mvpLabel
   );
+}
+
+function inferBuildRoute(runtimeSnapshot: RuntimeSnapshot) {
+  const locale = runtimeSnapshot.bootConfig.locale as UiLocale;
+  const modifier = runtimeSnapshot.world.slice.runModifier.key;
+  const augmentKeys = new Set(
+    runtimeSnapshot.world.slice.selectedAugments.map((augment) => augment.key),
+  );
+  const traitKeys = new Set(
+    runtimeSnapshot.world.slice.activeTraits
+      .filter((trait) => trait.active)
+      .map((trait) => trait.key),
+  );
+
+  if (
+    modifier === "dawn-surge" ||
+    augmentKeys.has("dawn-pulse") ||
+    traitKeys.has("dawn")
+  ) {
+    return locale === "zh-CN" ? "黎明续航线" : "Dawn Sustain";
+  }
+
+  if (
+    modifier === "dusk-surge" ||
+    augmentKeys.has("dusk-pact") ||
+    traitKeys.has("dusk")
+  ) {
+    return locale === "zh-CN" ? "黄昏爆发线" : "Dusk Burst";
+  }
+
+  if (
+    modifier === "rich-opening" ||
+    modifier === "thin-bench" ||
+    augmentKeys.has("compound-interest")
+  ) {
+    return locale === "zh-CN" ? "经济后期线" : "Economy Spike";
+  }
+
+  if (augmentKeys.has("skirmisher-drive") || traitKeys.has("skirmisher")) {
+    return locale === "zh-CN" ? "游击节奏线" : "Skirmisher Tempo";
+  }
+
+  return locale === "zh-CN" ? "灵活转型线" : "Flex Pivot";
+}
+
+function selectBattleMvpLabel(finalBoard: RuntimeUnitView[]) {
+  const mvp = [...finalBoard].sort((left, right) => {
+    return (
+      right.stars - left.stars ||
+      right.attack + right.health - (left.attack + left.health) ||
+      left.label.localeCompare(right.label)
+    );
+  })[0];
+
+  return mvp?.label ?? null;
 }
 
 function awardLaunchProgression(

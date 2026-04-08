@@ -375,6 +375,12 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       pendingAugments: Array.isArray(projection.slice?.pendingAugments)
         ? projection.slice.pendingAugments.map(normalizeRuntimeAugmentView)
         : DEFAULT_RUNTIME_PROJECTION.slice.pendingAugments,
+      runModifier: projection.slice?.runModifier
+        ? normalizeRuntimeRunModifierView(projection.slice.runModifier)
+        : DEFAULT_RUNTIME_PROJECTION.slice.runModifier,
+      roundHistory: Array.isArray(projection.slice?.roundHistory)
+        ? projection.slice.roundHistory.map(normalizeRuntimeRoundSummaryView)
+        : DEFAULT_RUNTIME_PROJECTION.slice.roundHistory,
       activeCombatDirective: projection.slice?.activeCombatDirective
         ? normalizeRuntimeCombatDirectiveView(
             projection.slice.activeCombatDirective,
@@ -428,6 +434,22 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       streakIncome: Number(
         projection.slice?.streakIncome ??
           DEFAULT_RUNTIME_PROJECTION.slice.streakIncome,
+      ),
+      incomeBaseTotal: Number(
+        projection.slice?.incomeBaseTotal ??
+          DEFAULT_RUNTIME_PROJECTION.slice.incomeBaseTotal,
+      ),
+      incomeInterestTotal: Number(
+        projection.slice?.incomeInterestTotal ??
+          DEFAULT_RUNTIME_PROJECTION.slice.incomeInterestTotal,
+      ),
+      incomeStreakTotal: Number(
+        projection.slice?.incomeStreakTotal ??
+          DEFAULT_RUNTIME_PROJECTION.slice.incomeStreakTotal,
+      ),
+      incomeModifierTotal: Number(
+        projection.slice?.incomeModifierTotal ??
+          DEFAULT_RUNTIME_PROJECTION.slice.incomeModifierTotal,
       ),
       roundResolved: Boolean(
         projection.slice?.roundResolved ??
@@ -520,6 +542,31 @@ function normalizeRuntimeCombatDirectiveView(value: unknown) {
   } as const;
 }
 
+function normalizeRuntimeRunModifierView(value: unknown) {
+  const modifier = typeof value === "object" && value ? value : {};
+  const record = modifier as Record<string, unknown>;
+
+  return {
+    key: normalizeRunModifierKey(record.key),
+    label: String(record.label ?? "Rich Opening"),
+    description: String(record.description ?? ""),
+    routeHint: String(record.routeHint ?? ""),
+  } as const;
+}
+
+function normalizeRuntimeRoundSummaryView(value: unknown) {
+  const summary = typeof value === "object" && value ? value : {};
+  const record = summary as Record<string, unknown>;
+
+  return {
+    round: normalizeNumber(record.round, 1),
+    result: record.result === "defeat" ? "defeat" : "victory",
+    incomeTotal: normalizeNumber(record.incomeTotal, 0),
+    threat: normalizeNumber(record.threat, 0),
+    summary: String(record.summary ?? ""),
+  } as const;
+}
+
 function normalizeNumber(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
@@ -574,6 +621,20 @@ function normalizeAugmentKey(value: unknown) {
       return value;
     default:
       return "compound-interest";
+  }
+}
+
+function normalizeRunModifierKey(value: unknown) {
+  switch (value) {
+    case "rich-opening":
+    case "thin-bench":
+    case "dawn-surge":
+    case "dusk-surge":
+    case "glass-cannon":
+    case "augment-storm":
+      return value;
+    default:
+      return "rich-opening";
   }
 }
 

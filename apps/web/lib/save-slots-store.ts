@@ -5,11 +5,16 @@ import {
   type ProgressionBadge,
   type RuntimeActiveRun,
   type RuntimeAgentRecord,
+  type RuntimeAugmentView,
   type RuntimeBattleRecord,
   type RuntimeBootConfig,
   type RuntimeProgression,
+  type RuntimeRoundSummaryView,
+  type RuntimeRunModifierView,
   type RuntimeSaveCollection,
   type RuntimeSaveSlot,
+  type RuntimeTraitView,
+  type RuntimeUnitView,
   type SaveSlotId,
 } from "@/lib/types";
 import {
@@ -377,6 +382,137 @@ function sanitizeBattleRecord(
       typeof value?.replayState === "string" && value.replayState.trim()
         ? value.replayState
         : null,
+    runModifier: sanitizeRunModifierView(value?.runModifier),
+    selectedAugments: Array.isArray(value?.selectedAugments)
+      ? value.selectedAugments.map(sanitizeAugmentView).slice(0, 8)
+      : [],
+    activeTraits: Array.isArray(value?.activeTraits)
+      ? value.activeTraits.map(sanitizeTraitView).slice(0, 8)
+      : [],
+    finalBoard: Array.isArray(value?.finalBoard)
+      ? value.finalBoard.map(sanitizeUnitView).slice(0, 5)
+      : [],
+    roundHistory: Array.isArray(value?.roundHistory)
+      ? value.roundHistory.map(sanitizeRoundSummaryView).slice(0, 8)
+      : [],
+    incomeBaseTotal: Math.max(0, Number(value?.incomeBaseTotal ?? 0) || 0),
+    incomeInterestTotal: Math.max(
+      0,
+      Number(value?.incomeInterestTotal ?? 0) || 0
+    ),
+    incomeStreakTotal: Math.max(0, Number(value?.incomeStreakTotal ?? 0) || 0),
+    incomeModifierTotal: Math.max(
+      0,
+      Number(value?.incomeModifierTotal ?? 0) || 0
+    ),
+    buildRoute:
+      typeof value?.buildRoute === "string" && value.buildRoute.trim()
+        ? value.buildRoute
+        : "Flex Pivot",
+    mvpLabel:
+      typeof value?.mvpLabel === "string" && value.mvpLabel.trim()
+        ? value.mvpLabel
+        : null,
+  };
+}
+
+function sanitizeRunModifierView(
+  value: Partial<RuntimeRunModifierView> | null | undefined
+): RuntimeRunModifierView {
+  const key =
+    value?.key === "thin-bench" ||
+    value?.key === "dawn-surge" ||
+    value?.key === "dusk-surge" ||
+    value?.key === "glass-cannon" ||
+    value?.key === "augment-storm"
+      ? value.key
+      : "rich-opening";
+
+  return {
+    key,
+    label:
+      typeof value?.label === "string" && value.label.trim()
+        ? value.label
+        : "Rich Opening",
+    description:
+      typeof value?.description === "string" ? value.description : "",
+    routeHint: typeof value?.routeHint === "string" ? value.routeHint : "",
+  };
+}
+
+function sanitizeRoundSummaryView(
+  value: Partial<RuntimeRoundSummaryView> | null | undefined
+): RuntimeRoundSummaryView {
+  return {
+    round: Math.max(1, Number(value?.round ?? 1) || 1),
+    result: value?.result === "defeat" ? "defeat" : "victory",
+    incomeTotal: Math.max(0, Number(value?.incomeTotal ?? 0) || 0),
+    threat: Math.max(0, Number(value?.threat ?? 0) || 0),
+    summary: typeof value?.summary === "string" ? value.summary : "",
+  };
+}
+
+function sanitizeAugmentView(
+  value: Partial<RuntimeAugmentView> | null | undefined
+): RuntimeAugmentView {
+  return {
+    key:
+      value?.key === "vanguard-doctrine" ||
+      value?.key === "skirmisher-drive" ||
+      value?.key === "dawn-pulse" ||
+      value?.key === "dusk-pact" ||
+      value?.key === "emergency-hull"
+        ? value.key
+        : "compound-interest",
+    label: typeof value?.label === "string" ? value.label : "Augment",
+    description:
+      typeof value?.description === "string" ? value.description : "",
+  };
+}
+
+function sanitizeTraitView(
+  value: Partial<RuntimeTraitView> | null | undefined
+): RuntimeTraitView {
+  return {
+    key:
+      value?.key === "dusk" ||
+      value?.key === "vanguard" ||
+      value?.key === "skirmisher"
+        ? value.key
+        : "dawn",
+    label: typeof value?.label === "string" ? value.label : "Trait",
+    count: Math.max(0, Number(value?.count ?? 0) || 0),
+    threshold: Math.max(1, Number(value?.threshold ?? 2) || 2),
+    description:
+      typeof value?.description === "string" ? value.description : "",
+    active: Boolean(value?.active),
+  };
+}
+
+function sanitizeUnitView(
+  value: Partial<RuntimeUnitView> | null | undefined
+): RuntimeUnitView {
+  return {
+    agentId:
+      typeof value?.agentId === "string" && value.agentId.trim()
+        ? value.agentId
+        : "0",
+    battleInstanceId:
+      typeof value?.battleInstanceId === "string" && value.battleInstanceId.trim()
+        ? value.battleInstanceId
+        : "0",
+    label: typeof value?.label === "string" ? value.label : "Unknown Unit",
+    archetype: sanitizeArchetype(value?.archetype),
+    faction: value?.faction === "dusk" ? "dusk" : "dawn",
+    role: value?.role === "skirmisher" ? "skirmisher" : "vanguard",
+    skill: typeof value?.skill === "string" ? value.skill : "",
+    tempoLabel: typeof value?.tempoLabel === "string" ? value.tempoLabel : "",
+    castState: typeof value?.castState === "string" ? value.castState : "",
+    targetRule: typeof value?.targetRule === "string" ? value.targetRule : "",
+    stars: Math.max(1, Number(value?.stars ?? 1) || 1),
+    attack: Math.max(1, Number(value?.attack ?? 1) || 1),
+    health: Math.max(1, Number(value?.health ?? 1) || 1),
+    sellValue: Math.max(1, Number(value?.sellValue ?? 1) || 1),
   };
 }
 

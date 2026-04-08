@@ -1,6 +1,7 @@
 use crate::starter_scene::{
     BoardAnchor, CombatDirectiveOrder, RuntimeAugmentView, RuntimeCombatDirectiveView,
-    RuntimeTraitView, RuntimeUnitView, StarterSliceProjection,
+    RuntimeRoundSummaryView, RuntimeRunModifierView, RuntimeTraitView, RuntimeUnitView,
+    StarterSliceProjection,
 };
 use bevy::prelude::*;
 
@@ -480,6 +481,8 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         active_traits: slice.active_traits,
         selected_augments: slice.selected_augments,
         pending_augments: slice.pending_augments,
+        run_modifier: slice.run_modifier,
+        round_history: slice.round_history,
         active_combat_directive: slice.active_combat_directive,
         queued_combat_directives: slice.queued_combat_directives,
         combat_feed: slice.combat_feed,
@@ -493,6 +496,10 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         base_income: slice.base_income,
         interest_income: slice.interest_income,
         streak_income: slice.streak_income,
+        income_base_total: slice.income_base_total,
+        income_interest_total: slice.income_interest_total,
+        income_streak_total: slice.income_streak_total,
+        income_modifier_total: slice.income_modifier_total,
         round_resolved: slice.round_resolved,
         run_over: slice.run_over,
         run_result: slice.run_result,
@@ -534,6 +541,8 @@ struct ProjectionPayload {
     active_traits: Vec<RuntimeTraitView>,
     selected_augments: Vec<RuntimeAugmentView>,
     pending_augments: Vec<RuntimeAugmentView>,
+    run_modifier: RuntimeRunModifierView,
+    round_history: Vec<RuntimeRoundSummaryView>,
     active_combat_directive: Option<RuntimeCombatDirectiveView>,
     queued_combat_directives: Vec<RuntimeCombatDirectiveView>,
     combat_feed: Vec<String>,
@@ -547,6 +556,10 @@ struct ProjectionPayload {
     base_income: u32,
     interest_income: u32,
     streak_income: u32,
+    income_base_total: u32,
+    income_interest_total: u32,
+    income_streak_total: u32,
+    income_modifier_total: u32,
     round_resolved: bool,
     run_over: bool,
     run_result: String,
@@ -679,6 +692,16 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 pending_augments.push(&runtime_augment_view_object(augment));
             }
             let _ = Reflect::set(&slice, &"pendingAugments".into(), &pending_augments);
+            let _ = Reflect::set(
+                &slice,
+                &"runModifier".into(),
+                &runtime_run_modifier_view_object(&projection.run_modifier),
+            );
+            let round_history = js_sys::Array::new();
+            for round in &projection.round_history {
+                round_history.push(&runtime_round_summary_view_object(round));
+            }
+            let _ = Reflect::set(&slice, &"roundHistory".into(), &round_history);
             let active_combat_directive = projection
                 .active_combat_directive
                 .as_ref()
@@ -744,6 +767,26 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 &slice,
                 &"streakIncome".into(),
                 &projection.streak_income.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"incomeBaseTotal".into(),
+                &projection.income_base_total.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"incomeInterestTotal".into(),
+                &projection.income_interest_total.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"incomeStreakTotal".into(),
+                &projection.income_streak_total.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"incomeModifierTotal".into(),
+                &projection.income_modifier_total.into(),
             );
             let _ = Reflect::set(
                 &slice,
@@ -839,6 +882,35 @@ fn runtime_augment_view_object(view: &RuntimeAugmentView) -> JsValue {
         &"description".into(),
         &view.description.clone().into(),
     );
+    payload.into()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn runtime_run_modifier_view_object(view: &RuntimeRunModifierView) -> JsValue {
+    let payload = Object::new();
+    let _ = Reflect::set(&payload, &"key".into(), &view.key.clone().into());
+    let _ = Reflect::set(&payload, &"label".into(), &view.label.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"description".into(),
+        &view.description.clone().into(),
+    );
+    let _ = Reflect::set(
+        &payload,
+        &"routeHint".into(),
+        &view.route_hint.clone().into(),
+    );
+    payload.into()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn runtime_round_summary_view_object(view: &RuntimeRoundSummaryView) -> JsValue {
+    let payload = Object::new();
+    let _ = Reflect::set(&payload, &"round".into(), &view.round.into());
+    let _ = Reflect::set(&payload, &"result".into(), &view.result.clone().into());
+    let _ = Reflect::set(&payload, &"incomeTotal".into(), &view.income_total.into());
+    let _ = Reflect::set(&payload, &"threat".into(), &view.threat.into());
+    let _ = Reflect::set(&payload, &"summary".into(), &view.summary.clone().into());
     payload.into()
 }
 

@@ -78,6 +78,29 @@ export type RuntimeAugmentView = {
   description: string;
 };
 
+export type RuntimeRunModifierKey =
+  | "rich-opening"
+  | "thin-bench"
+  | "dawn-surge"
+  | "dusk-surge"
+  | "glass-cannon"
+  | "augment-storm";
+
+export type RuntimeRunModifierView = {
+  key: RuntimeRunModifierKey;
+  label: string;
+  description: string;
+  routeHint: string;
+};
+
+export type RuntimeRoundSummaryView = {
+  round: number;
+  result: "victory" | "defeat";
+  incomeTotal: number;
+  threat: number;
+  summary: string;
+};
+
 export type RuntimeCombatDirectiveKey =
   | "focus-backline"
   | "hold-skills"
@@ -135,6 +158,8 @@ export type RuntimeProjection = {
     activeTraits: RuntimeTraitView[];
     selectedAugments: RuntimeAugmentView[];
     pendingAugments: RuntimeAugmentView[];
+    runModifier: RuntimeRunModifierView;
+    roundHistory: RuntimeRoundSummaryView[];
     activeCombatDirective: RuntimeCombatDirectiveView | null;
     queuedCombatDirectives: RuntimeCombatDirectiveView[];
     combatFeed: string[];
@@ -148,6 +173,10 @@ export type RuntimeProjection = {
     baseIncome: number;
     interestIncome: number;
     streakIncome: number;
+    incomeBaseTotal: number;
+    incomeInterestTotal: number;
+    incomeStreakTotal: number;
+    incomeModifierTotal: number;
     roundResolved: boolean;
     runOver: boolean;
     runResult: "active" | "victory" | "defeat";
@@ -254,6 +283,17 @@ export type RuntimeBattleRecord = {
   endedAt: string | null;
   playerAgentIds: string[];
   replayState: string | null;
+  runModifier: RuntimeRunModifierView;
+  selectedAugments: RuntimeAugmentView[];
+  activeTraits: RuntimeTraitView[];
+  finalBoard: RuntimeUnitView[];
+  roundHistory: RuntimeRoundSummaryView[];
+  incomeBaseTotal: number;
+  incomeInterestTotal: number;
+  incomeStreakTotal: number;
+  incomeModifierTotal: number;
+  buildRoute: string;
+  mvpLabel: string | null;
 };
 
 export type RuntimeSaveSlot = {
@@ -453,6 +493,13 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     activeTraits: [],
     selectedAugments: [],
     pendingAugments: [],
+    runModifier: {
+      key: "rich-opening",
+      label: "Rich Opening",
+      description: "Open with more gold and pressure an early tempo line.",
+      routeHint: "Economy greed into a late spike.",
+    },
+    roundHistory: [],
     activeCombatDirective: null,
     queuedCombatDirectives: [],
     combatFeed: [],
@@ -466,6 +513,10 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     baseIncome: 4,
     interestIncome: 0,
     streakIncome: 0,
+    incomeBaseTotal: 0,
+    incomeInterestTotal: 0,
+    incomeStreakTotal: 0,
+    incomeModifierTotal: 0,
     roundResolved: false,
     runOver: false,
     runResult: "active",
