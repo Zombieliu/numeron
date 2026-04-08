@@ -21,16 +21,20 @@ export async function switchToEnglish(page: Page) {
 }
 
 export async function launchRuntime(page: Page) {
-  const launchButton = page.getByTestId("launch-runtime");
+  const overlayLaunchButton = page.getByTestId("canvas-launch-runtime");
+  const launchButton =
+    (await overlayLaunchButton.isVisible().catch(() => false))
+      ? overlayLaunchButton
+      : page.getByTestId("launch-runtime");
   await expect(launchButton).toBeVisible();
   await expect(launchButton).toBeEnabled();
   await launchButton.click();
-  await page.locator("text=/scene-ready|running/i").first().waitFor({ timeout: 30_000 });
   await expect(page.getByTestId("status-panel")).toContainText(/Runtime active|Runtime 状态/);
+  await waitForShopOffers(page);
 }
 
 export async function buyFirstOffer(page: Page) {
-  await page.getByTestId("shop-offer-0").click();
+  await buyOfferAtIndex(page, 0);
 }
 
 export async function deployFirstBenchUnit(page: Page) {
@@ -127,7 +131,16 @@ export async function playUntilRunEnds(
   }
 }
 
-async function readVisibleRound(page: Page) {
+export async function readVisibleRound(page: Page) {
+  const topbarRound = page.getByTestId("topbar-round");
+  if (await topbarRound.isVisible().catch(() => false)) {
+    const topbarText = await topbarRound.innerText();
+    const topbarMatch = topbarText.match(/(?:^|\n)(\d+)\s*$/m);
+    if (topbarMatch) {
+      return Number(topbarMatch[1]);
+    }
+  }
+
   const statusText = await page.getByTestId("status-panel").innerText();
   const statusMatch = statusText.match(/Round\s+(\d+)|第\s+(\d+)\s+回合/i);
   if (statusMatch) {
@@ -149,7 +162,9 @@ export async function setRemoteMode(page: Page, backendUrl = REMOTE_BACKEND_URL)
   await page.getByTestId("data-mode-remote").click();
   await page.getByTestId("backend-url-input").fill(backendUrl);
   await page.getByTestId("pull-remote").click();
-  await expect(page.getByText(/Pulled|已从远端拉取/).first()).toBeVisible();
+  await expect(
+    page.getByText(/Pulled|已从远端拉取|Remote profile synced|远端资料已同步/).first(),
+  ).toBeVisible();
 }
 
 export async function pushRemoteProfile(page: Page) {
@@ -175,6 +190,7 @@ export async function readGold(page: Page) {
 }
 
 export async function readShopOfferTitles(page: Page) {
+  await waitForShopOffers(page);
   const titles = [];
   const count = await page.locator('[data-testid^="shop-offer-"]').count();
 
@@ -184,6 +200,51 @@ export async function readShopOfferTitles(page: Page) {
   }
 
   return titles;
+}
+
+export async function buyOfferAtIndex(page: Page, index: number) {
+  await waitForShopOffers(page);
+  const previousGold = await readGold(page);
+  const previousOffers = (await readShopOfferTitles(page)).join("|");
+  const previousBench = await page.getByTestId("bench-panel").innerText();
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.getByTestId(`shop-offer-${index}`).click();
+
+    try {
+      await expect
+        .poll(
+          async () => {
+            const nextGold = await readGold(page);
+            const nextOffers = (await readShopOfferTitles(page)).join("|");
+            const nextBench = await page.getByTestId("bench-panel").innerText();
+            return (
+              nextGold !== previousGold ||
+              nextOffers !== previousOffers ||
+              nextBench !== previousBench
+            );
+          },
+          { timeout: 3_000 },
+        )
+        .toBe(true);
+      return;
+    } catch (error) {
+      if (attempt === 2) {
+        throw error;
+      }
+    }
+  }
+}
+
+export async function rerollShop(page: Page) {
+  await waitForShopOffers(page);
+  const previousGold = await readGold(page);
+  await page.getByTestId("reroll-shop").click();
+  await expect.poll(() => readGold(page), { timeout: 10_000 }).toBe(previousGold - 1);
+}
+
+async function waitForShopOffers(page: Page) {
+  await expect(page.getByTestId("shop-offer-0")).toBeVisible({ timeout: 10_000 });
 }
 
 async function firstOccupiedIndex(page: Page, prefix: string, emptyPatterns: string[]) {

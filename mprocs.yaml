@@ -1,0 +1,17 @@
+scrollback: 10000
+procs:
+  node:
+    cwd: packages/contracts
+    shell: pnpm start:localnet
+  contracts:
+    cwd: packages/contracts
+    shell: ./node_modules/.bin/dubhe wait --localnet && pnpm setup:localnet && cd ../.. && pnpm local:status
+  web:
+    cwd: .
+    shell: pnpm web:dev
+  backend:
+    cwd: .
+    shell: pnpm backend:dev
+  shell:
+    cwd: packages/contracts
+    shell: ./node_modules/.bin/dubhe wait --localnet && ./node_modules/.bin/dubhe shell

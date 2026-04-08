@@ -31,8 +31,7 @@ across:
 
 ## What It Is
 
-`Numeron` is no longer just a generic template copy. It is the working game repo
-for a small auto-battler that targets:
+`Numeron` is the working game repo for a small auto-battler that targets:
 
 - native desktop via Bevy
 - web/PWA via Next.js + Bevy WASM
@@ -42,7 +41,7 @@ The first concrete target is [`v0.0.1`](./docs/MILESTONES.md): a playable
 single-player vertical slice with shop, board deployment, auto-battle, round
 resolution, and local save or resume.
 
-This template is opinionated about ownership boundaries:
+`Numeron` keeps clear ownership boundaries:
 
 - `React / Next.js` owns product UI, launcher flows, PWA shell, account UI, and overlays
 - `Bevy` owns the canvas runtime
@@ -68,13 +67,14 @@ See [`docs/MILESTONES.md`](./docs/MILESTONES.md) for the first execution plan.
 - `cargo run` starts the native runtime
 - `pnpm dev` starts the Next.js shell and embedded Bevy WASM runtime
 - `pnpm build` exports a static web artifact from `apps/web/out`
+- `pnpm smoke:native` boots the native Bevy app and verifies the shared board slice reaches play state
 - `pnpm smoke:web` boots the shell, launches the runtime, and validates scene/input flow
 - `SMOKE_REMOTE_BACKEND_URL=http://127.0.0.1:8787 pnpm smoke:web` also validates the shell's remote data-mode path against the optional backend
 - `pnpm test:e2e` runs the Playwright regression suite for local gameplay, save flows, and remote sync
 - `pnpm backend:dev` starts the optional headless Bevy backend reference
 - `src/runtime_app.rs` keeps native and web bootstrap logic on one contract
-- `src/starter_scene.rs` is still temporary and will be replaced by the first Numeron board slice
-- the web shell currently carries the reusable save, session, and progression scaffolding that Numeron will adapt for run state
+- `src/starter_scene.rs` contains the current Numeron board slice
+- the web shell already carries the local save-slot, session-history, and progression scaffolding for the vertical slice
 
 ## v0.0.1 Focus
 
@@ -82,7 +82,7 @@ The first playable milestone is intentionally narrow:
 
 - one board
 - one shop row
-- four unit archetypes
+- eight unit archetypes
 - simple economy
 - auto-battle round flow
 - local run persistence
@@ -96,9 +96,9 @@ good on this architecture before expanding the roster or meta.
 - `wasm-pack` build path for the Bevy runtime
 - `Next.js` app shell in [`apps/web`](./apps/web)
 - shared Rust bootstrap for both native and web entrypoints
-- a visible starter scene that still needs replacement by Numeron gameplay
-- local save-slot persistence that can be adapted into run-state persistence
-- optional headless Bevy backend reference for remote profile/session authority
+- a playable board slice with shop, augments, deployment, and auto-battle flow
+- local save-slot persistence, session history, and JSON import/export
+- optional headless Bevy backend reference for experimental remote profile/session authority
 - minimal shell-to-runtime bridge:
   - boot status sink
   - runtime event sink
@@ -144,7 +144,8 @@ Then open:
 
 - `http://127.0.0.1:3000`
 
-The starter slice should boot into a visible arena with a movable player marker.
+The current slice should boot into the Numeron board, pre-fill the bench, and
+allow drafting, deployment, and combat from the shell.
 
 ### Run optional headless backend
 
@@ -214,16 +215,13 @@ The Playwright suite keeps the static-export path under test and covers:
 - save matrix flow: locale/profile persistence plus snapshot import/export
 - remote backend flow: profile push/pull plus live session sync
 
-## Who This Fits
+## Architecture
 
-Use this template when you want to ship a game with:
+`Numeron` is built for a product split where:
 
-- Bevy as the simulation/runtime layer
-- React/Next.js as the product surface
-- a web/PWA-first shell that still preserves native builds
-- a shell-owned data model for saves, sessions, and progression
-
-Skip it if your project only needs a pure Bevy app with no product shell.
+- Bevy owns simulation, board state, and combat rendering
+- React/Next.js owns launcher, HUD, save slots, and progression surfaces
+- the same Rust crate ships to native and web
 
 ## Shell Product Layer
 
@@ -247,7 +245,7 @@ The shell also ships a `Data Mode` switch:
 
 ## Optional Headless Backend
 
-This repo now also ships an optional reference backend in
+This repo also ships an optional reference backend in
 [`server/headless_runtime`](./server/headless_runtime).
 
 Use it when you want to evolve from:
@@ -260,8 +258,8 @@ to:
 - room/session orchestration
 - headless authority for multiplayer or cloud save
 
-The backend is intentionally not required by the default template path. Treat it
-as a reference scaffold, not a hard dependency.
+The backend is intentionally not required by `v0.0.1`. Treat it as an
+experimental reference path, not a hard dependency.
 
 To exercise the remote path from the stock shell:
 
@@ -290,47 +288,20 @@ Both native and web now use the same app bootstrap in
 - web uses `build_web_app(RuntimeConfig)`
 - both share the same `GamePlugin`, starter scene, asset loading, and runtime config surface
 
-This is the part you keep if you want the template to stay commercially reusable:
-your platform shell changes, but the gameplay/runtime crate and startup contract stay the same.
+This is the contract that keeps native and web behavior aligned while the shell
+evolves.
 
 ## Starter Scene
 
-The default visible slice now lives in [`src/starter_scene.rs`](./src/starter_scene.rs).
+The current playable slice lives in [`src/starter_scene.rs`](./src/starter_scene.rs).
 
-- it creates the default camera
-- it spawns a simple arena/backdrop and a visible player marker
-- it includes a tiny looping objective layer so the shell can render score, progress, status, and session summaries without game-specific backend code
-- it gives you a clean place to swap in your own board, map, or combat slice later
+- it sets up the board, shop, bench, and enemy squad
+- it runs preparation, combat, resolution, streak, and augment flow
+- it projects readable runtime state back into the shell HUD
+- it is the vertical slice that `v0.0.1` hardens, not throwaway placeholder code
 
-If you start a real project, replace the starter scene plugin first, not the web bridge.
-
-## Use As GitHub Template
-
-1. Push this repo to your GitHub account
-2. Open `Settings -> General`
-3. Enable `Template repository`
-4. Use GitHub's `Use this template` flow for each new project
-
-When you create a new game from this template, start with
-[`TEMPLATE_SETUP.md`](./TEMPLATE_SETUP.md) before changing gameplay code.
-
-## Rename The Template
-
-After generating a new repo, run:
-
-```bash
-pnpm rename:template -- \
-  --display-name "My Game" \
-  --crate-name my_game \
-  --repo-slug my-game \
-  --bundle-id com.example.mygame \
-  --author-name "Your Name" \
-  --repo-url https://github.com/you/my-game
-```
-
-This updates the default runtime identity, bundle metadata, package names, and
-repo links across the main template surfaces. It is a starting pass, not a
-substitute for product-level review.
+When the game outgrows this slice, replace the board systems first, not the
+runtime bridge.
 
 ## Repository Shape
 
@@ -339,7 +310,7 @@ substitute for product-level review.
 - [`src/runtime_app.rs`](./src/runtime_app.rs)
   shared native/web app bootstrap and window setup
 - [`src/starter_scene.rs`](./src/starter_scene.rs)
-  generic visible runtime starter slice
+  current Numeron board slice and combat loop
 - [`apps/web`](./apps/web)
   Next.js shell that dynamically imports the generated wasm package
 - [`scripts/build-bevy-runtime.sh`](./scripts/build-bevy-runtime.sh)
@@ -347,15 +318,7 @@ substitute for product-level review.
 - [`assets`](./assets)
   shared runtime assets
 - [`build`](./build)
-  native packaging assets from the original template
-
-## When To Keep This Template
-
-Use this template when your game needs:
-
-- a browser-first product shell
-- React-owned menus or HUD
-- native builds that still share the same gameplay/runtime crate
+  native packaging assets and installer metadata
 
 ## CI And Deployment
 
@@ -366,11 +329,11 @@ Use this template when your game needs:
 
 ## Maintenance
 
-- [`VERSION`](./VERSION) tracks the current template release line
-- [`CHANGELOG.md`](./CHANGELOG.md) records downstream-relevant template changes
+- [`VERSION`](./VERSION) tracks the current Numeron release line
+- [`CHANGELOG.md`](./CHANGELOG.md) records release-facing game and platform changes
+- [`docs/RELEASE_CHECKLIST.md`](./docs/RELEASE_CHECKLIST.md) defines the `v0.0.1` ship gate
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) defines the required verification loop
-- [`SECURITY.md`](./SECURITY.md) defines reporting expectations for template issues
-- [`docs/COMMERCIAL_TEMPLATE_GUIDE.md`](./docs/COMMERCIAL_TEMPLATE_GUIDE.md) explains how to turn the template into a public or paid starter kit
+- [`SECURITY.md`](./SECURITY.md) defines reporting expectations for repository issues
 - [`server/headless_runtime/README.md`](./server/headless_runtime/README.md) documents the optional backend reference
 
 ## Updating the icons

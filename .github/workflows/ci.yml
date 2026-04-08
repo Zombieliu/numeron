@@ -92,6 +92,8 @@ jobs:
         run: cargo install wasm-pack --locked
       - name: Install web dependencies
         run: pnpm install --frozen-lockfile
+      - name: Check version alignment
+        run: pnpm version:check
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
       - name: Typecheck web shell

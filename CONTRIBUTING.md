@@ -2,13 +2,13 @@
 
 ## Scope
 
-This repository is a reusable hybrid game template, not a shipped game. Changes
-should improve one of these surfaces:
+This repository is the working `Numeron` game repo. Changes should improve one
+of these surfaces:
 
 - native/web bootstrap consistency
-- starter runtime slice quality
+- the playable auto-battler slice
+- shell/runtime integration quality
 - deployment and release flows
-- template documentation and downstream onboarding
 - regression prevention
 
 ## Development Loop
@@ -29,28 +29,13 @@ logic, run the full loop before opening a PR.
 
 - Keep the shared Rust runtime crate as the source of truth for gameplay/runtime logic.
 - Keep React / Next.js responsible for product shell concerns.
-- Prefer additive starter-scene improvements over game-specific assumptions.
-- Do not reintroduce trunk-only web assumptions.
-- Document any downstream migration cost in `CHANGELOG.md`.
-
-## Template Renames
-
-If your change touches naming, repo metadata, package IDs, or executable names,
-test the rename automation:
-
-```bash
-pnpm rename:template -- \
-  --display-name "My Game" \
-  --crate-name my_game \
-  --repo-slug my-game \
-  --bundle-id com.example.mygame \
-  --author-name "Your Name" \
-  --repo-url https://github.com/you/my-game
-```
+- Prefer improvements that strengthen the `v0.0.1` vertical slice over speculative scaffolding.
+- Keep web builds static-export friendly.
+- Document release-facing behavior changes in `CHANGELOG.md`.
 
 ## Pull Requests
 
-- Keep PRs scoped to one template concern when possible.
+- Keep PRs scoped to one gameplay, platform, or release concern when possible.
 - Include verification notes.
 - Include screenshots or terminal evidence for shell/runtime changes.
-- Call out any follow-up work that downstream template users should know about.
+- Call out any follow-up work that affects the `v0.0.1` ship gate.

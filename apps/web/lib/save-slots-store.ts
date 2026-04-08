@@ -3,6 +3,9 @@ import {
   DEFAULT_RUNTIME_PROGRESSION,
   type MatchSessionRecord,
   type ProgressionBadge,
+  type RuntimeActiveRun,
+  type RuntimeAgentRecord,
+  type RuntimeBattleRecord,
   type RuntimeBootConfig,
   type RuntimeProgression,
   type RuntimeSaveCollection,
@@ -16,8 +19,7 @@ import {
   sanitizeRuntimeProfile,
 } from "@/lib/profile-store";
 
-export const SAVE_COLLECTION_STORAGE_KEY =
-  "numeron.save-collection.v1";
+export const SAVE_COLLECTION_STORAGE_KEY = "numeron.save-collection.v1";
 
 const SLOT_DEFINITIONS: Array<{ id: SaveSlotId; label: string }> = [
   { id: "slot-1", label: "Alpha" },
@@ -61,7 +63,7 @@ export function saveStoredSaveCollection(collection: RuntimeSaveCollection) {
 
   window.localStorage.setItem(
     SAVE_COLLECTION_STORAGE_KEY,
-    JSON.stringify(sanitizeSaveCollection(collection)),
+    JSON.stringify(sanitizeSaveCollection(collection))
   );
 }
 
@@ -97,18 +99,26 @@ export function defaultSaveCollection(): RuntimeSaveCollection {
   };
 }
 
-export function defaultSaveSlot(id: SaveSlotId, label?: string): RuntimeSaveSlot {
+export function defaultSaveSlot(
+  id: SaveSlotId,
+  label?: string
+): RuntimeSaveSlot {
   return {
     id,
     label: sanitizeSlotLabel(label ?? fallbackLabel(id)),
     profile: DEFAULT_RUNTIME_PROFILE,
     progression: DEFAULT_RUNTIME_PROGRESSION,
     recentSessions: [],
+    activeRun: null,
+    agentRoster: [],
+    battleRecords: [],
     updatedAt: null,
   };
 }
 
-export function getActiveSlot(collection: RuntimeSaveCollection): RuntimeSaveSlot {
+export function getActiveSlot(
+  collection: RuntimeSaveCollection
+): RuntimeSaveSlot {
   return (
     collection.slots.find((slot) => slot.id === collection.activeSlotId) ??
     collection.slots[0] ??
@@ -118,16 +128,18 @@ export function getActiveSlot(collection: RuntimeSaveCollection): RuntimeSaveSlo
 
 export function replaceSlot(
   collection: RuntimeSaveCollection,
-  nextSlot: RuntimeSaveSlot,
+  nextSlot: RuntimeSaveSlot
 ): RuntimeSaveCollection {
   return sanitizeSaveCollection({
     ...collection,
-    slots: collection.slots.map((slot) => (slot.id === nextSlot.id ? nextSlot : slot)),
+    slots: collection.slots.map((slot) =>
+      slot.id === nextSlot.id ? nextSlot : slot
+    ),
   });
 }
 
 export function sanitizeSaveCollection(
-  value: Partial<RuntimeSaveCollection> | null | undefined,
+  value: Partial<RuntimeSaveCollection> | null | undefined
 ): RuntimeSaveCollection {
   const slots = SLOT_DEFINITIONS.map(({ id, label }) => {
     const candidate = value?.slots?.find((slot) => slot.id === id);
@@ -135,7 +147,7 @@ export function sanitizeSaveCollection(
   });
 
   const activeSlotId = SLOT_DEFINITIONS.some(
-    ({ id }) => id === value?.activeSlotId,
+    ({ id }) => id === value?.activeSlotId
   )
     ? (value?.activeSlotId as SaveSlotId)
     : SLOT_DEFINITIONS[0].id;
@@ -150,11 +162,13 @@ export function sanitizeSaveCollection(
 export function sanitizeSaveSlot(
   value: Partial<RuntimeSaveSlot> | null | undefined,
   slotId?: SaveSlotId,
-  fallback?: string,
+  fallback?: string
 ): RuntimeSaveSlot {
-  const id = SLOT_DEFINITIONS.some(({ id: candidate }) => candidate === value?.id)
+  const id = SLOT_DEFINITIONS.some(
+    ({ id: candidate }) => candidate === value?.id
+  )
     ? (value?.id as SaveSlotId)
-    : (slotId ?? SLOT_DEFINITIONS[0].id);
+    : slotId ?? SLOT_DEFINITIONS[0].id;
 
   return {
     id,
@@ -166,6 +180,15 @@ export function sanitizeSaveSlot(
           .map((session) => sanitizeMatchSession(session, id))
           .slice(0, 6)
       : [],
+    activeRun: sanitizeActiveRun(value?.activeRun),
+    agentRoster: Array.isArray(value?.agentRoster)
+      ? value.agentRoster.map(sanitizeAgentRecord).slice(0, 256)
+      : [],
+    battleRecords: Array.isArray(value?.battleRecords)
+      ? value.battleRecords
+          .map((record) => sanitizeBattleRecord(record, id))
+          .slice(0, 32)
+      : [],
     updatedAt:
       typeof value?.updatedAt === "string" && value.updatedAt.trim()
         ? value.updatedAt
@@ -174,7 +197,7 @@ export function sanitizeSaveSlot(
 }
 
 export function sanitizeProgression(
-  value: Partial<RuntimeProgression> | null | undefined,
+  value: Partial<RuntimeProgression> | null | undefined
 ): RuntimeProgression {
   const xp = Math.max(0, Number(value?.xp ?? 0) || 0);
   const unlockedBadges = Array.isArray(value?.unlockedBadges)
@@ -196,7 +219,7 @@ export function sanitizeProgression(
 
 export function sanitizeMatchSession(
   value: Partial<MatchSessionRecord> | null | undefined,
-  slotId: SaveSlotId,
+  slotId: SaveSlotId
 ): MatchSessionRecord {
   const now = new Date().toISOString();
 
@@ -211,7 +234,10 @@ export function sanitizeMatchSession(
       typeof value?.playerName === "string" && value.playerName.trim()
         ? value.playerName.trim().slice(0, 16)
         : DEFAULT_RUNTIME_PROFILE.preferredPlayerName,
-    locale: value?.locale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_PROFILE.preferredLocale,
+    locale:
+      value?.locale === "zh-CN"
+        ? "zh-CN"
+        : DEFAULT_RUNTIME_PROFILE.preferredLocale,
     status:
       value?.status === "completed" || value?.status === "staging"
         ? value.status
@@ -244,6 +270,116 @@ export function sanitizeSlotLabel(value: string) {
   return trimmed ? trimmed.slice(0, 18) : "Save Slot";
 }
 
+function sanitizeActiveRun(
+  value: Partial<RuntimeActiveRun> | null | undefined
+): RuntimeActiveRun | null {
+  if (typeof value?.state !== "string" || !value.state.trim()) {
+    return null;
+  }
+
+  return {
+    version: 1,
+    state: value.state,
+    updatedAt:
+      typeof value.updatedAt === "string" && value.updatedAt.trim()
+        ? value.updatedAt
+        : new Date().toISOString(),
+    runNumber: Math.max(1, Number(value.runNumber ?? 1) || 1),
+    round: Math.max(1, Number(value.round ?? 1) || 1),
+  };
+}
+
+function sanitizeAgentRecord(
+  value: Partial<RuntimeAgentRecord> | null | undefined
+): RuntimeAgentRecord {
+  const now = new Date().toISOString();
+
+  return {
+    id:
+      typeof value?.id === "string" && value.id.trim()
+        ? value.id
+        : `agent-${Date.now()}`,
+    archetype: sanitizeArchetype(value?.archetype),
+    faction: value?.faction === "dusk" ? "dusk" : "dawn",
+    role: value?.role === "skirmisher" ? "skirmisher" : "vanguard",
+    firstSeenAt:
+      typeof value?.firstSeenAt === "string" && value.firstSeenAt.trim()
+        ? value.firstSeenAt
+        : now,
+    lastSeenAt:
+      typeof value?.lastSeenAt === "string" && value.lastSeenAt.trim()
+        ? value.lastSeenAt
+        : now,
+    lastBattleInstanceId:
+      typeof value?.lastBattleInstanceId === "string" &&
+      value.lastBattleInstanceId.trim()
+        ? value.lastBattleInstanceId
+        : "0",
+    bestStars: Math.max(1, Math.min(3, Number(value?.bestStars ?? 1) || 1)),
+    matchesPlayed: Math.max(0, Number(value?.matchesPlayed ?? 0) || 0),
+    wins: Math.max(0, Number(value?.wins ?? 0) || 0),
+    losses: Math.max(0, Number(value?.losses ?? 0) || 0),
+    lastSessionId:
+      typeof value?.lastSessionId === "string" && value.lastSessionId.trim()
+        ? value.lastSessionId
+        : null,
+  };
+}
+
+function sanitizeBattleRecord(
+  value: Partial<RuntimeBattleRecord> | null | undefined,
+  slotId: SaveSlotId
+): RuntimeBattleRecord {
+  const now = new Date().toISOString();
+
+  return {
+    id:
+      typeof value?.id === "string" && value.id.trim()
+        ? value.id
+        : `${slotId}-${Date.now()}`,
+    sessionId:
+      typeof value?.sessionId === "string" && value.sessionId.trim()
+        ? value.sessionId
+        : `${slotId}-run-1`,
+    slotId,
+    runNumber: Math.max(1, Number(value?.runNumber ?? 1) || 1),
+    round: Math.max(1, Number(value?.round ?? 1) || 1),
+    score: Math.max(0, Number(value?.score ?? 0) || 0),
+    result:
+      value?.result === "victory" || value?.result === "defeat"
+        ? value.result
+        : "active",
+    status:
+      value?.status === "completed" || value?.status === "staging"
+        ? value.status
+        : "live",
+    startedAt:
+      typeof value?.startedAt === "string" && value.startedAt.trim()
+        ? value.startedAt
+        : now,
+    updatedAt:
+      typeof value?.updatedAt === "string" && value.updatedAt.trim()
+        ? value.updatedAt
+        : now,
+    endedAt:
+      typeof value?.endedAt === "string" && value.endedAt.trim()
+        ? value.endedAt
+        : null,
+    playerAgentIds: Array.isArray(value?.playerAgentIds)
+      ? value.playerAgentIds
+          .filter(
+            (agentId): agentId is string =>
+              typeof agentId === "string" && Boolean(agentId.trim())
+          )
+          .slice(0, 16)
+      : [],
+    replayState:
+      typeof value?.replayState === "string" && value.replayState.trim()
+        ? value.replayState
+        : null,
+  };
+}
+
 function fallbackLabel(id: SaveSlotId) {
   return SLOT_DEFINITIONS.find((slot) => slot.id === id)?.label ?? "Save Slot";
 }
@@ -261,4 +397,21 @@ function isProgressionBadge(value: unknown): value is ProgressionBadge {
     value === "score-300" ||
     value === "loop-3"
   );
+}
+
+function sanitizeArchetype(
+  value: RuntimeAgentRecord["archetype"] | undefined
+): RuntimeAgentRecord["archetype"] {
+  switch (value) {
+    case "signal-ranger":
+    case "ash-duelist":
+    case "iron-vanguard":
+    case "frost-oracle":
+    case "ember-medic":
+    case "volt-juggler":
+    case "grave-warden":
+      return value;
+    default:
+      return "verdant-bruiser";
+  }
 }

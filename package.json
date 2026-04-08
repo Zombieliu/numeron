@@ -5,9 +5,16 @@
     "native": "cargo run",
     "backend:dev": "cargo run --manifest-path server/headless_runtime/Cargo.toml",
     "backend:check": "cargo check --manifest-path server/headless_runtime/Cargo.toml",
+    "contracts:generate": "pnpm --dir packages/contracts generate",
+    "contracts:typecheck": "pnpm --dir packages/contracts type-check",
+    "version:check": "node scripts/check-version-alignment.mjs",
     "runtime:build:dev": "bash scripts/build-bevy-runtime.sh dev",
     "runtime:build:release": "bash scripts/build-bevy-runtime.sh release",
+    "local:play": "bash scripts/local-play.sh",
+    "local:status": "node scripts/print-localnet-status.mjs",
+    "mprocs": "mprocs -c mprocs.yaml",
     "rename:template": "node scripts/rename-template.mjs",
+    "smoke:native": "node scripts/smoke-native.mjs",
     "smoke:web": "node scripts/smoke-web.mjs",
     "test:e2e": "pnpm build && playwright test",
     "test:e2e:local": "pnpm build && playwright test --project=local-chromium",
@@ -20,6 +27,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "mprocs": "^0.7.1",
     "playwright": "1.59.1"
   },
   "packageManager": "pnpm@9.15.4"

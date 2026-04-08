@@ -40,6 +40,7 @@ type UiCopy = {
   nextRound: string;
   restartRun: string;
   prepHint: string;
+  underDeployCapHint: string;
   roundResolvedHint: string;
   runClosedHint: string;
   draftShop: string;
@@ -101,6 +102,43 @@ type UiCopy = {
   saveSlots: string;
   activeSlotLabel: string;
   lastRun: string;
+  agentLedger: string;
+  trackedAgents: string;
+  battleAnchors: string;
+  worldCore: string;
+  chainStatus: string;
+  wallet: string;
+  walletDisconnected: string;
+  ownerAddress: string;
+  network: string;
+  packageId: string;
+  dappStorageId: string;
+  dappHubId: string;
+  frameworkPackageId: string;
+  schemaTables: string;
+  extensionPackages: string;
+  publishPending: string;
+  readyToPublish: string;
+  localLedgerBridge: string;
+  latestCheckpoint: string;
+  objectState: string;
+  objectType: string;
+  objectDigest: string;
+  objectFound: string;
+  objectMissing: string;
+  objectQueryFailed: string;
+  chainSync: string;
+  userStorage: string;
+  registerUserStorage: string;
+  refreshChainState: string;
+  syncLatestBattle: string;
+  recentWriteCount: string;
+  recentUnsettledWrites: string;
+  syncDigest: string;
+  lastSyncedBattle: string;
+  chainSyncStatus: string;
+  chainSyncIdleHint: string;
+  chainSyncMissingWallet: string;
   noArchivedSessions: string;
   runSnapshot: string;
   copySnapshot: string;
@@ -129,7 +167,11 @@ type UiCopy = {
   remoteSessionSyncFailed: string;
   remotePullSummary: (sessions: number, profiles: number) => string;
   remotePullFailed: string;
-  remotePushSummary: (tick: number, profiles: number, sessions: number) => string;
+  remotePushSummary: (
+    tick: number,
+    profiles: number,
+    sessions: number
+  ) => string;
   remotePushFailed: string;
   activeSlotSwitched: (slotLabel: string) => string;
   resetSlot: (slotLabel: string) => string;
@@ -175,6 +217,8 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     nextRound: "Next Round",
     restartRun: "Restart Run",
     prepHint: "Build during prep, then hand the board to combat.",
+    underDeployCapHint:
+      "You are still under your deploy cap. Field one more unit before combat for a cleaner read on the round.",
     roundResolvedHint: "Round resolved. Advance when you are ready.",
     runClosedHint: "This climb is over. Start a new run to continue testing.",
     draftShop: "Draft Shop",
@@ -227,7 +271,8 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     sessionId: "Session id",
     window: "Window",
     hp: "HP",
-    sessionClosedHint: "The current run is closed. Restart to open a fresh session.",
+    sessionClosedHint:
+      "The current run is closed. Restart to open a fresh session.",
     sessionRoundResolvedHint: "Round resolved but the run is still live.",
     sessionProgressingHint: "Current session is still progressing.",
     runMeta: "Run Meta",
@@ -241,6 +286,44 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     saveSlots: "Save Slots",
     activeSlotLabel: "Active Slot Label",
     lastRun: "Last run",
+    agentLedger: "Agent Ledger",
+    trackedAgents: "tracked agents",
+    battleAnchors: "battle anchors",
+    worldCore: "World Core",
+    chainStatus: "Chain Status",
+    wallet: "Wallet",
+    walletDisconnected: "No wallet connected.",
+    ownerAddress: "Owner",
+    network: "Network",
+    packageId: "Package",
+    dappStorageId: "DappStorage",
+    dappHubId: "DappHub",
+    frameworkPackageId: "Framework",
+    schemaTables: "Schema tables",
+    extensionPackages: "Extension packages",
+    publishPending: "Deployment not published yet. IDs are placeholders.",
+    readyToPublish: "Local ledger is ready to anchor on-chain.",
+    localLedgerBridge: "Local ledger bridge",
+    latestCheckpoint: "Latest checkpoint",
+    objectState: "Object state",
+    objectType: "Type",
+    objectDigest: "Digest",
+    objectFound: "found",
+    objectMissing: "missing",
+    objectQueryFailed: "query failed",
+    chainSync: "Chain Sync",
+    userStorage: "UserStorage",
+    registerUserStorage: "Register Storage",
+    refreshChainState: "Refresh Chain",
+    syncLatestBattle: "Sync Latest Battle",
+    recentWriteCount: "Write count",
+    recentUnsettledWrites: "Unsettled writes",
+    syncDigest: "Last digest",
+    lastSyncedBattle: "Last synced battle",
+    chainSyncStatus: "Sync status",
+    chainSyncIdleHint:
+      "Register a wallet storage, then sync the latest local battle into localnet.",
+    chainSyncMissingWallet: "Connect a wallet on localnet first.",
     noArchivedSessions: "No archived sessions yet.",
     runSnapshot: "Run Snapshot",
     copySnapshot: "Copy Snapshot",
@@ -264,7 +347,8 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     pointsShort: "pts",
     bootAwaitingRuntime: "awaiting runtime",
     inProgress: "in-progress",
-    remoteProfileSynced: (slotLabel) => `Remote profile synced for ${slotLabel}.`,
+    remoteProfileSynced: (slotLabel) =>
+      `Remote profile synced for ${slotLabel}.`,
     remoteProfileSyncFailed: "Remote profile sync failed.",
     remoteSessionSynced: (sessionId) => `Remote session synced: ${sessionId}.`,
     remoteSessionSyncFailed: "Remote session sync failed.",
@@ -275,10 +359,11 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
       `Remote push complete. tick=${tick}, profiles=${profiles}, sessions=${sessions}.`,
     remotePushFailed: "Remote push failed.",
     activeSlotSwitched: (slotLabel) => `Active slot switched to ${slotLabel}.`,
-    resetSlot: (slotLabel) => `Reset ${slotLabel} to template defaults.`,
+    resetSlot: (slotLabel) => `Reset ${slotLabel} to slot defaults.`,
     resetAllSlots: "Reset all save slots and progression data.",
     snapshotCopied: "Save matrix JSON copied to clipboard.",
-    snapshotPrepared: "Save matrix JSON prepared below. Copy manually if needed.",
+    snapshotPrepared:
+      "Save matrix JSON prepared below. Copy manually if needed.",
     snapshotImported: "Save matrix imported from JSON.",
     snapshotImportFailed: "Save matrix import failed. Check the JSON payload.",
   },
@@ -315,6 +400,8 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     nextRound: "下一回合",
     restartRun: "重新开局",
     prepHint: "准备阶段先布阵，再把棋盘交给战斗。",
+    underDeployCapHint:
+      "你还没有站满当前人口上限。再补一个单位再开战，会更容易看清这一回合的强弱差。",
     roundResolvedHint: "本回合已结算，可以继续下一回合。",
     runClosedHint: "这局已经结束，想继续测试请重新开局。",
     draftShop: "招募商店",
@@ -345,7 +432,8 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     threat: "威胁值",
     intent: "意图",
     roster: "单位池",
-    rosterHint: "Numeron 现在有 8 个起始单位，可以开始测试真正的商店与阵容决策。",
+    rosterHint:
+      "Numeron 现在有 8 个起始单位，可以开始测试真正的商店与阵容决策。",
     augmentDraft: "强化选择",
     augmentDraftHint: "先选一个强化，再继续进入战斗。",
     lockedAugments: "已锁定强化",
@@ -377,6 +465,43 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     saveSlots: "存档槽",
     activeSlotLabel: "当前槽位名称",
     lastRun: "上一局",
+    agentLedger: "Agent 台账",
+    trackedAgents: "已追踪 agent",
+    battleAnchors: "战斗锚点",
+    worldCore: "世界核心",
+    chainStatus: "链上状态",
+    wallet: "钱包",
+    walletDisconnected: "当前未连接钱包。",
+    ownerAddress: "所有者",
+    network: "网络",
+    packageId: "合约包",
+    dappStorageId: "DappStorage",
+    dappHubId: "DappHub",
+    frameworkPackageId: "Framework",
+    schemaTables: "协议表数",
+    extensionPackages: "扩展包",
+    publishPending: "当前还未正式发布，页面展示的是占位 ID。",
+    readyToPublish: "本地 ledger 已具备上链锚定前置数据。",
+    localLedgerBridge: "本地账本桥接",
+    latestCheckpoint: "最新检查点",
+    objectState: "对象状态",
+    objectType: "类型",
+    objectDigest: "摘要",
+    objectFound: "已存在",
+    objectMissing: "不存在",
+    objectQueryFailed: "查询失败",
+    chainSync: "链上同步",
+    userStorage: "用户存储",
+    registerUserStorage: "注册存储",
+    refreshChainState: "刷新链状态",
+    syncLatestBattle: "同步最新对局",
+    recentWriteCount: "写入次数",
+    recentUnsettledWrites: "未结算写入",
+    syncDigest: "最近交易",
+    lastSyncedBattle: "最近同步对局",
+    chainSyncStatus: "同步状态",
+    chainSyncIdleHint: "先注册钱包存储，再把当前本地最新一局同步到 localnet。",
+    chainSyncMissingWallet: "请先连接 localnet 钱包。",
     noArchivedSessions: "还没有归档的历史局。",
     runSnapshot: "运行快照",
     copySnapshot: "复制快照",
@@ -384,7 +509,8 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     resetActiveSlot: "重置当前槽位",
     resetAllSaves: "重置全部存档",
     snapshotJson: "快照 JSON",
-    snapshotPlaceholder: "导出的 Numeron 快照会出现在这里。也可以粘贴 JSON 进行导入。",
+    snapshotPlaceholder:
+      "导出的 Numeron 快照会出现在这里。也可以粘贴 JSON 进行导入。",
     bootHistory: "启动历史",
     projection: "投影",
     ready: "已就绪",
@@ -399,7 +525,8 @@ export const UI_COPY: Record<UiLocale, UiCopy> = {
     pointsShort: "分",
     bootAwaitingRuntime: "等待 runtime",
     inProgress: "进行中",
-    remoteProfileSynced: (slotLabel) => `已将 ${slotLabel} 的 profile 同步到远端。`,
+    remoteProfileSynced: (slotLabel) =>
+      `已将 ${slotLabel} 的 profile 同步到远端。`,
     remoteProfileSyncFailed: "远端 profile 同步失败。",
     remoteSessionSynced: (sessionId) => `远端 session 已同步：${sessionId}。`,
     remoteSessionSyncFailed: "远端 session 同步失败。",
@@ -425,7 +552,7 @@ export function getUiCopy(locale: UiLocale) {
 
 export function formatFactionLabel(
   faction: RuntimeUnitView["faction"] | RuntimeTraitView["key"],
-  locale: UiLocale,
+  locale: UiLocale
 ) {
   switch (faction) {
     case "dawn":
@@ -439,14 +566,17 @@ export function formatFactionLabel(
   }
 }
 
-export function formatRoleLabel(role: RuntimeUnitView["role"], locale: UiLocale) {
+export function formatRoleLabel(
+  role: RuntimeUnitView["role"],
+  locale: UiLocale
+) {
   return role === "vanguard"
     ? locale === "zh-CN"
       ? "前排"
       : "Vanguard"
     : locale === "zh-CN"
-      ? "游击"
-      : "Skirmisher";
+    ? "游击"
+    : "Skirmisher";
 }
 
 export function formatBadgeLabel(badge: ProgressionBadge, locale: UiLocale) {
@@ -477,7 +607,7 @@ export function formatBadgeLabel(badge: ProgressionBadge, locale: UiLocale) {
 
 export function formatPhaseLabel(
   phase: RuntimeSnapshot["world"]["slice"]["phase"],
-  locale: UiLocale,
+  locale: UiLocale
 ) {
   if (locale === "zh-CN") {
     switch (phase) {
@@ -502,7 +632,7 @@ export function formatPhaseLabel(
 
 export function formatRunResult(
   result: RuntimeSnapshot["world"]["slice"]["runResult"],
-  locale: UiLocale,
+  locale: UiLocale
 ) {
   if (locale === "zh-CN") {
     switch (result) {
@@ -527,7 +657,7 @@ export function formatRunResult(
 
 export function formatSessionStatus(
   status: MatchSessionStatus,
-  locale: UiLocale,
+  locale: UiLocale
 ) {
   if (locale === "zh-CN") {
     switch (status) {
@@ -552,10 +682,12 @@ export function formatSessionStatus(
 
 export function localizeBootMessage(message: string, locale: UiLocale) {
   return translateExact(message, locale, {
-    "Configure the shell, then launch the runtime.": "先配置壳层，再启动 runtime。",
+    "Configure the shell, then launch the runtime.":
+      "先配置壳层，再启动 runtime。",
     "Loading Bevy WASM runtime module": "正在加载 Bevy WASM runtime 模块",
     "Initializing generated wasm glue": "正在初始化生成的 wasm glue",
-    "Binding shell boot listener to the runtime": "正在把 shell 启动监听器绑定到 runtime",
+    "Binding shell boot listener to the runtime":
+      "正在把 shell 启动监听器绑定到 runtime",
     "Rust runtime entry reached for the Next.js shell":
       "已进入供 Next.js 壳层使用的 Rust runtime 入口",
     "Bevy app allocated": "Bevy app 已分配",
@@ -574,7 +706,8 @@ export function localizeRuntimeText(text: string, locale: UiLocale) {
   }
 
   const exact = translateExact(text, locale, {
-    "Stand up the first Numeron board slice.": "先跑通第一版 Numeron 棋盘切片。",
+    "Stand up the first Numeron board slice.":
+      "先跑通第一版 Numeron 棋盘切片。",
     "Waiting for board allocation.": "等待棋盘分配。",
     "Draft a compact squad, manage a lockable shop, and survive scaling enemy rounds with readable skill cadence.":
       "组建一支紧凑阵容，管理可锁定商店，并在不断增强的敌方回合中依靠可读的技能节奏存活。",
@@ -583,12 +716,14 @@ export function localizeRuntimeText(text: string, locale: UiLocale) {
       "棋盘已就绪。可以继续招募单位，或直接开始战斗。",
     "Bench primed. Deploy a unit before opening combat.":
       "备战席已就绪。开始战斗前先部署一个单位。",
-    "Shop rerolled. Draft before combat starts.": "商店已刷新。战斗前先完成招募。",
+    "Shop rerolled. Draft before combat starts.":
+      "商店已刷新。战斗前先完成招募。",
     "Shop lock engaged. Current offers will carry into the next round.":
       "商店已锁定，当前招募项会保留到下一回合。",
     "Shop lock released. Next round will refresh the offers.":
       "商店已解锁，下一回合开始时会刷新。",
-    "Scout squad: two bruisers test the board.": "侦查小队：两名前排先来试探棋盘。",
+    "Scout squad: two bruisers test the board.":
+      "侦查小队：两名前排先来试探棋盘。",
     "Pressure spike: a third body joins the enemy lane.":
       "压力上升：敌方加入第三个单位。",
     "First elite spike: the lead duelist upgrades to two stars.":
@@ -610,38 +745,48 @@ export function localizeRuntimeText(text: string, locale: UiLocale) {
     return `正在为 ${match[1]} 启动本地切片`;
   }
 
-  match = text.match(/^Combat started\. (\d+) allied units engage (\d+) enemies\.$/);
+  match = text.match(
+    /^Combat started\. (\d+) allied units engage (\d+) enemies\.$/
+  );
   if (match) {
     return `战斗开始。${match[1]} 名友军正在迎战 ${match[2]} 名敌军。`;
   }
 
   match = text.match(
-    /^Round (\d+) ready\. Locked shop carried forward\. Draft or reposition before combat\.$/,
+    /^Round (\d+) ready\. Locked shop carried forward\. Draft or reposition before combat\.$/
   );
   if (match) {
     return `第 ${match[1]} 回合已就绪。锁定商店已保留，战斗前可以继续招募或调整站位。`;
   }
 
-  match = text.match(/^Round (\d+) ready\. Draft, merge, or reposition before combat\.$/);
+  match = text.match(
+    /^Round (\d+) ready\. Draft, merge, or reposition before combat\.$/
+  );
   if (match) {
     return `第 ${match[1]} 回合已就绪。战斗前可以继续招募、合成或调整站位。`;
   }
 
-  match = text.match(/^Drafted (.+) to bench\. Bench now holds (\d+) units\.(.*)$/);
+  match = text.match(
+    /^Drafted (.+) to bench\. Bench now holds (\d+) units\.(.*)$/
+  );
   if (match) {
-    return `已将 ${match[1]} 招募到备战席。当前备战席共有 ${match[2]} 个单位。${translateMergeTail(
-      match[3],
-    )}`;
+    return `已将 ${match[1]} 招募到备战席。当前备战席共有 ${
+      match[2]
+    } 个单位。${translateMergeTail(match[3])}`;
   }
 
   match = text.match(/^Deployed (.+) into slot (\d+)\.(.*)$/);
   if (match) {
-    return `已将 ${match[1]} 部署到槽位 ${match[2]}。${translateMergeTail(match[3])}`;
+    return `已将 ${match[1]} 部署到槽位 ${match[2]}。${translateMergeTail(
+      match[3]
+    )}`;
   }
 
   match = text.match(/^Returned (.+) to bench from slot (\d+)\.(.*)$/);
   if (match) {
-    return `已将 ${match[1]} 从槽位 ${match[2]} 撤回到备战席。${translateMergeTail(match[3])}`;
+    return `已将 ${match[1]} 从槽位 ${
+      match[2]
+    } 撤回到备战席。${translateMergeTail(match[3])}`;
   }
 
   match = text.match(/^Sold (.+) for (\d+) gold\.$/);
@@ -655,36 +800,40 @@ export function localizeRuntimeText(text: string, locale: UiLocale) {
   }
 
   match = text.match(
-    /^Victory\. Enemy board collapsed\. Click Next Round to continue to round (\d+)\.$/,
+    /^Victory\. Enemy board collapsed\. Click Next Round to continue to round (\d+)\.$/
   );
   if (match) {
     return `胜利。敌方棋盘已崩溃。点击“下一回合”进入第 ${match[1]} 回合。`;
   }
 
-  match = text.match(/^Defeat\. (\d+) enemies survived\. Click Next Round to rebuild\.$/);
+  match = text.match(
+    /^Defeat\. (\d+) enemies survived\. Click Next Round to rebuild\.$/
+  );
   if (match) {
     return `失败。还有 ${match[1]} 个敌人存活。点击“下一回合”重新布阵。`;
   }
 
   match = text.match(
-    /^Run clear\. Round (\d+) collapsed the final enemy squad\. Restart to begin a new climb\.$/,
+    /^Run clear\. Round (\d+) collapsed the final enemy squad\. Restart to begin a new climb\.$/
   );
   if (match) {
     return `通关。第 ${match[1]} 回合击溃了最后一支敌军。重新开局即可开始新的爬塔。`;
   }
 
   match = text.match(
-    /^Run over\. (\d+) enemies survived the last fight and the commander fell\. Restart to try again\.$/,
+    /^Run over\. (\d+) enemies survived the last fight and the commander fell\. Restart to try again\.$/
   );
   if (match) {
     return `本局结束。最后一战仍有 ${match[1]} 个敌人存活，指挥官已经倒下。重新开局后再试一次。`;
   }
 
-  match = text.match(/^Combat underway\. (\d+) allied units vs (\d+) enemies\.(.*)$/);
+  match = text.match(
+    /^Combat underway\. (\d+) allied units vs (\d+) enemies\.(.*)$/
+  );
   if (match) {
-    return `战斗进行中。${match[1]} 名友军对阵 ${match[2]} 名敌军。${translateCombatTail(
-      match[3],
-    )}`;
+    return `战斗进行中。${match[1]} 名友军对阵 ${
+      match[2]
+    } 名敌军。${translateCombatTail(match[3])}`;
   }
 
   return text;
@@ -693,7 +842,7 @@ export function localizeRuntimeText(text: string, locale: UiLocale) {
 function translateExact(
   value: string,
   locale: UiLocale,
-  zhMap: Record<string, string>,
+  zhMap: Record<string, string>
 ) {
   if (locale === "en") {
     return value;
@@ -705,7 +854,7 @@ function translateExact(
 function translateMergeTail(tail: string) {
   return tail.replace(
     /Merged three (.+) copies into (.+)\./g,
-    "已将三个 $1 合成为 $2。",
+    "已将三个 $1 合成为 $2。"
   );
 }
 
@@ -719,6 +868,12 @@ function translateCombatTail(tail: string) {
     .replace(/ for /g, " 造成 ")
     .replace(/Bulwark Bash landed heavy\./g, "壁垒重击已触发。")
     .replace(/Piercing Volley broke through\./g, "穿透齐射已打穿前线。")
-    .replace(/Execution Arc punished a weakened target\./g, "处决弧刃命中了残血目标。")
-    .replace(/Anchor Strike cracked the enemy line\./g, "锚定打击撕开了敌方前线。");
+    .replace(
+      /Execution Arc punished a weakened target\./g,
+      "处决弧刃命中了残血目标。"
+    )
+    .replace(
+      /Anchor Strike cracked the enemy line\./g,
+      "锚定打击撕开了敌方前线。"
+    );
 }

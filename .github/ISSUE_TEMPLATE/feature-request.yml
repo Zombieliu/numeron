@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest a template-level capability or improvement
+description: Suggest a gameplay, shell, or release improvement
 title: "[Feature]: "
 labels:
   - enhancement
@@ -8,18 +8,18 @@ body:
     id: problem
     attributes:
       label: Problem
-      description: What recurring project pain should the template solve?
+      description: What player-facing or development pain should Numeron solve?
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
       label: Proposal
-      description: Describe the template-level feature you want
+      description: Describe the feature or improvement you want
     validations:
       required: true
   - type: textarea
     id: boundaries
     attributes:
       label: Constraints
-      description: Keep this focused on reusable template value, not project-specific gameplay
+      description: Call out scope, release risk, and any impact on the v0.0.1 vertical slice

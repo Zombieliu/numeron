@@ -1,0 +1,11 @@
+[package]
+name = "agent_rating_extension"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.46.3" }
+
+[addresses]
+agent_rating_extension = "0x0"
+sui = "0x2"

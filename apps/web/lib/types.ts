@@ -31,6 +31,8 @@ export type RuntimeBootRecord = {
 };
 
 export type RuntimeUnitView = {
+  agentId: string;
+  battleInstanceId: string;
   label: string;
   archetype:
     | "verdant-bruiser"
@@ -74,6 +76,28 @@ export type RuntimeAugmentView = {
   description: string;
 };
 
+export type RuntimeCombatDirectiveKey =
+  | "focus-backline"
+  | "hold-skills"
+  | "fallback-left";
+
+export type RuntimeCombatLane = "left" | "center" | "right";
+
+export type RuntimeCombatDirectiveInput = {
+  key: RuntimeCombatDirectiveKey;
+  lane?: RuntimeCombatLane | null;
+  durationTicks?: number;
+};
+
+export type RuntimeCombatDirectiveView = {
+  key: RuntimeCombatDirectiveKey;
+  label: string;
+  description: string;
+  lane: RuntimeCombatLane | null;
+  durationTicks: number;
+  remainingTicks: number;
+};
+
 export type RuntimeProjection = {
   ready: boolean;
   touchControls: boolean;
@@ -109,6 +133,8 @@ export type RuntimeProjection = {
     activeTraits: RuntimeTraitView[];
     selectedAugments: RuntimeAugmentView[];
     pendingAugments: RuntimeAugmentView[];
+    activeCombatDirective: RuntimeCombatDirectiveView | null;
+    queuedCombatDirectives: RuntimeCombatDirectiveView[];
     augmentDraftRound: number;
     enemyThreat: number;
     enemyIntent: string;
@@ -123,6 +149,7 @@ export type RuntimeProjection = {
     runOver: boolean;
     runResult: "active" | "victory" | "defeat";
     completed: boolean;
+    serializedRunState: string | null;
   };
 };
 
@@ -187,12 +214,54 @@ export type MatchSessionRecord = {
   endedAt: string | null;
 };
 
+export type RuntimeActiveRun = {
+  version: 1;
+  state: string;
+  updatedAt: string;
+  runNumber: number;
+  round: number;
+};
+
+export type RuntimeAgentRecord = {
+  id: string;
+  archetype: RuntimeUnitView["archetype"];
+  faction: RuntimeUnitView["faction"];
+  role: RuntimeUnitView["role"];
+  firstSeenAt: string;
+  lastSeenAt: string;
+  lastBattleInstanceId: string;
+  bestStars: number;
+  matchesPlayed: number;
+  wins: number;
+  losses: number;
+  lastSessionId: string | null;
+};
+
+export type RuntimeBattleRecord = {
+  id: string;
+  sessionId: string;
+  slotId: SaveSlotId;
+  runNumber: number;
+  round: number;
+  score: number;
+  result: RuntimeProjection["slice"]["runResult"];
+  status: MatchSessionStatus;
+  startedAt: string;
+  updatedAt: string;
+  endedAt: string | null;
+  playerAgentIds: string[];
+  replayState: string | null;
+};
+
 export type RuntimeSaveSlot = {
   id: SaveSlotId;
   label: string;
   profile: RuntimeProfile;
   progression: RuntimeProgression;
   recentSessions: MatchSessionRecord[];
+  activeRun: RuntimeActiveRun | null;
+  agentRoster: RuntimeAgentRecord[];
+  battleRecords: RuntimeBattleRecord[];
   updatedAt: string | null;
 };
 
@@ -242,6 +311,7 @@ export type UiIntent =
   | {
       type: "runtime.boot";
       config?: RuntimeBootConfig;
+      resumeState?: string | null;
     }
   | {
       type: "runtime.boot-config.patch";
@@ -293,6 +363,17 @@ export type UiIntent =
   | {
       type: "runtime.board.sell";
       slotIndex: number;
+    }
+  | {
+      type: "runtime.combat.directive.set";
+      directive: RuntimeCombatDirectiveInput;
+    }
+  | {
+      type: "runtime.combat.plan.replace";
+      plan: RuntimeCombatDirectiveInput[];
+    }
+  | {
+      type: "runtime.combat.directive.clear";
     };
 
 export type RuntimeEvent =
@@ -364,6 +445,8 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     activeTraits: [],
     selectedAugments: [],
     pendingAugments: [],
+    activeCombatDirective: null,
+    queuedCombatDirectives: [],
     augmentDraftRound: 0,
     enemyThreat: 0,
     enemyIntent: "Awaiting board allocation.",
@@ -378,6 +461,7 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     runOver: false,
     runResult: "active",
     completed: false,
+    serializedRunState: null,
   },
 };
 

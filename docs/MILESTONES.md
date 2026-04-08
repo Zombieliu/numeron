@@ -61,7 +61,7 @@ It should let a player:
 
 ### Units
 
-- `4` base unit archetypes
+- `8` launch archetypes in the current vertical slice
 - `2` origins or factions
 - `2` classes or roles
 - simple star-up merge path for duplicates
@@ -109,22 +109,27 @@ It should let a player:
 ### M0. Project Reset
 
 Goal:
+
 - finish converting the copied template into a `Numeron` repo
 
 Deliverables:
+
 - reset repo metadata and versioning
 - replace template framing in docs
 - define `v0.0.1` milestone and art direction
 
 Exit criteria:
+
 - repo reads as `Numeron`, not as a generic template
 
 ### M1. Combat Skeleton
 
 Goal:
+
 - replace the starter scene with a board-driven auto-battler runtime
 
 Deliverables:
+
 - board coordinate model
 - unit entity model
 - team ownership
@@ -132,14 +137,17 @@ Deliverables:
 - selection and deployment primitives
 
 Exit criteria:
+
 - a seeded player squad and enemy squad spawn into valid tiles
 
 ### M2. Round Flow
 
 Goal:
+
 - make the game loop cycle between preparation and combat
 
 Deliverables:
+
 - round state machine
 - prep timer or manual start trigger
 - combat start and stop
@@ -147,14 +155,17 @@ Deliverables:
 - player health loss and run termination
 
 Exit criteria:
+
 - a full round can be played from prep to combat to resolution
 
 ### M3. Shop And Economy
 
 Goal:
+
 - make the run strategically controllable
 
 Deliverables:
+
 - shop generation
 - buy, sell, reroll, and lock model
 - gold gain and spend rules
@@ -162,14 +173,17 @@ Deliverables:
 - duplicate merge or upgrade rule
 
 Exit criteria:
+
 - the player can meaningfully improve a squad over multiple rounds
 
 ### M4. Readable Combat
 
 Goal:
+
 - make fights legible enough to evaluate fun, not just correctness
 
 Deliverables:
+
 - health bars
 - attack feedback
 - death cleanup
@@ -177,46 +191,55 @@ Deliverables:
 - faction or class color coding
 
 Exit criteria:
+
 - a new viewer can understand who is winning by looking at the board
 
 ### M5. Shell Integration
 
 Goal:
+
 - wire the real game loop into the existing web shell
 
 Deliverables:
+
 - shell HUD for health, gold, round, and result
 - shop panel data bindings
 - bench and board actions routed into runtime intents
 - local save or resume contract for active run state
 
 Exit criteria:
+
 - web shell can start, continue, and finish a run without dev-only controls
 
 ### M6. Playtest Gate
 
 Goal:
+
 - harden the slice until it is stable enough to iterate on content
 
 Deliverables:
+
 - deterministic smoke path
 - runtime crash cleanup
 - balance notes from first playtests
-- first content tuning pass across all four archetypes
+- first content tuning pass across the launch archetypes
 
 Exit criteria:
+
 - `v0.0.1` is playable for repeated local runs on web and native
 
 ## Acceptance Criteria For v0.0.1
 
 `v0.0.1` is done when all of the following are true:
 
-- a player can complete at least one full run loop without editor intervention
-- web build and native build both boot the same combat systems
-- the shell exposes the minimum run HUD and shop controls
-- units are readable enough to support basic strategy decisions
-- save or resume works locally for the active run
-- smoke validation covers boot, start run, place units, start combat, and resolve a round
+- [x] a player can complete at least one full run loop without editor intervention
+- [x] web build and native build both boot the same combat systems
+- [x] the shell exposes the minimum run HUD and shop controls
+- [x] units are readable enough to support basic strategy decisions
+- [x] save or resume works locally for the active run
+- [x] smoke validation covers boot, start run, place units, start combat, and resolve a round
+
+See [RELEASE_CHECKLIST.md](/Users/henryliu/obelisk/ai/games/numeron/docs/RELEASE_CHECKLIST.md) for the executable ship gate that backs these checks.
 
 ## Suggested Build Order
 
@@ -238,3 +261,20 @@ If `v0.0.1` lands well, the next version should expand only one layer at a time:
   first meta layer, run modifiers, and stronger session summaries
 - `v0.1.0`
   first public demo candidate for Steam page capture and external playtest
+
+## Protocol Follow-On
+
+If the project continues toward a persistent agent world, the next protocol work should be split
+from the local vertical slice:
+
+- `World Core`
+  stable chain-indexed facts such as seasons, agents, match summaries, replay anchors, and reward claims
+- `Battle Runtime`
+  deterministic off-chain combat simulation and replay generation
+- `Extension Layer`
+  third-party developer modules keyed by `agent_id`, `match_id`, and `season_id`
+
+Reference docs:
+
+- [PROTOCOL.md](/Users/henryliu/obelisk/ai/games/numeron/docs/PROTOCOL.md)
+- [EXTENSIONS.md](/Users/henryliu/obelisk/ai/games/numeron/docs/EXTENSIONS.md)

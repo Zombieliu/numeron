@@ -21,6 +21,21 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@0xobelisk/sui-client": [
+        "./node_modules/@0xobelisk/sui-client"
+      ],
+      "@mysten/dapp-kit": [
+        "./node_modules/@mysten/dapp-kit"
+      ],
+      "@tanstack/react-query": [
+        "./node_modules/@tanstack/react-query"
+      ],
+      "numeron-contracts/deployment": [
+        "../../packages/contracts/deployment.ts"
+      ],
+      "numeron-contracts/dubhe-config": [
+        "../../packages/contracts/dubhe.config.json"
       ]
     },
     "plugins": [

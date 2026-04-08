@@ -1,6 +1,7 @@
-use crate::{GameState, RuntimeConfig, RuntimeLocale};
 use crate::web_bridge::{RuntimeCommand, take_runtime_commands};
+use crate::{GameState, RuntimeConfig, RuntimeLocale};
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub struct StarterScenePlugin;
@@ -18,7 +19,7 @@ const BUY_XP_COST: u32 = 4;
 const BUY_XP_AMOUNT: u32 = 4;
 const SELL_VALUE_BASE: u32 = 2;
 const STARTING_GOLD: u32 = 10;
-const STARTING_HEALTH: u32 = 20;
+const STARTING_HEALTH: u32 = 24;
 const ROUND_BASE_INCOME: u32 = 4;
 const PASSIVE_ROUND_XP: u32 = 1;
 const MAX_INTEREST_INCOME: u32 = 3;
@@ -62,7 +63,7 @@ impl Default for BoardConfig {
     }
 }
 
-#[derive(Resource, Clone, Debug)]
+#[derive(Resource, Clone, Debug, Serialize, Deserialize)]
 pub struct CombatState {
     pub phase: CombatPhase,
     pub round: u32,
@@ -80,6 +81,10 @@ pub struct CombatState {
     pub loss_streak: u32,
     pub player_units: usize,
     pub enemy_units: usize,
+    #[serde(default)]
+    pub active_directive: Option<CombatDirectiveOrder>,
+    #[serde(default)]
+    pub queued_directives: Vec<CombatDirectiveOrder>,
     pub status: String,
 }
 
@@ -102,6 +107,8 @@ impl Default for CombatState {
             loss_streak: 0,
             player_units: 0,
             enemy_units: 0,
+            active_directive: None,
+            queued_directives: Vec::new(),
             status: "Board ready. Draft another unit or start combat.".to_owned(),
         }
     }
@@ -110,6 +117,8 @@ impl Default for CombatState {
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 #[derive(Clone, Debug)]
 pub struct RuntimeUnitView {
+    pub agent_id: String,
+    pub battle_instance_id: String,
     pub label: String,
     pub archetype: String,
     pub faction: String,
@@ -143,6 +152,17 @@ pub struct RuntimeAugmentView {
     pub description: String,
 }
 
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[derive(Clone, Debug)]
+pub struct RuntimeCombatDirectiveView {
+    pub key: String,
+    pub label: String,
+    pub description: String,
+    pub lane: Option<String>,
+    pub duration_ticks: u32,
+    pub remaining_ticks: u32,
+}
+
 #[derive(Resource, Clone, Debug)]
 pub struct StarterSliceProjection {
     pub phase: String,
@@ -171,6 +191,8 @@ pub struct StarterSliceProjection {
     pub active_traits: Vec<RuntimeTraitView>,
     pub selected_augments: Vec<RuntimeAugmentView>,
     pub pending_augments: Vec<RuntimeAugmentView>,
+    pub active_combat_directive: Option<RuntimeCombatDirectiveView>,
+    pub queued_combat_directives: Vec<RuntimeCombatDirectiveView>,
     pub augment_draft_round: u32,
     pub enemy_threat: u32,
     pub enemy_intent: String,
@@ -185,6 +207,7 @@ pub struct StarterSliceProjection {
     pub run_over: bool,
     pub run_result: String,
     pub completed: bool,
+    pub serialized_run_state: Option<String>,
 }
 
 impl Default for StarterSliceProjection {
@@ -217,6 +240,8 @@ impl Default for StarterSliceProjection {
             active_traits: Vec::new(),
             selected_augments: Vec::new(),
             pending_augments: Vec::new(),
+            active_combat_directive: None,
+            queued_combat_directives: Vec::new(),
             augment_draft_round: 0,
             enemy_threat: 0,
             enemy_intent: "Awaiting board allocation.".to_owned(),
@@ -231,29 +256,45 @@ impl Default for StarterSliceProjection {
             run_over: false,
             run_result: RunResult::Active.as_str().to_owned(),
             completed: false,
+            serialized_run_state: None,
         }
     }
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone, Debug, Serialize, Deserialize)]
 struct ShopState {
     offers: Vec<UnitInstance>,
     reroll_cursor: usize,
     locked: bool,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Clone, Debug, Serialize, Deserialize)]
+struct IdentityState {
+    next_agent_id: u64,
+    next_battle_instance_id: u64,
+}
+
+impl Default for IdentityState {
+    fn default() -> Self {
+        Self {
+            next_agent_id: 1,
+            next_battle_instance_id: 1,
+        }
+    }
+}
+
+#[derive(Resource, Default, Clone, Debug, Serialize, Deserialize)]
 struct PlayerSquad {
     board: [Option<UnitInstance>; PLAYER_SLOTS.len()],
     bench: Vec<UnitInstance>,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone, Debug, Serialize, Deserialize)]
 struct EnemySquad {
     units: Vec<UnitInstance>,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone, Debug, Serialize, Deserialize)]
 struct AugmentState {
     selected: Vec<AugmentKind>,
     pending_choices: Vec<AugmentKind>,
@@ -280,6 +321,8 @@ struct BoardTile;
 struct UnitEntity {
     owner: UnitOwner,
     slot_index: usize,
+    agent_id: u64,
+    battle_instance_id: u64,
     archetype: UnitArchetype,
     stars: u8,
     action_counter: u32,
@@ -294,7 +337,8 @@ struct UnitHealthFrame;
 #[derive(Component)]
 struct UnitHealthFill;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum CombatPhase {
     Preparation,
     Combat,
@@ -311,7 +355,8 @@ impl CombatPhase {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum RunResult {
     Active,
     Victory,
@@ -328,13 +373,291 @@ impl RunResult {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CombatDirective {
+    FocusBackline,
+    HoldSkills,
+    FallbackLeft,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CombatDirectiveLane {
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CombatDirectiveOrder {
+    pub directive: CombatDirective,
+    pub lane: Option<CombatDirectiveLane>,
+    pub duration_ticks: u32,
+    pub remaining_ticks: u32,
+}
+
+impl CombatDirective {
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub fn from_key(value: &str) -> Option<Self> {
+        match value {
+            "focus-backline" => Some(Self::FocusBackline),
+            "hold-skills" => Some(Self::HoldSkills),
+            "fallback-left" => Some(Self::FallbackLeft),
+            _ => None,
+        }
+    }
+
+    fn key(self) -> &'static str {
+        match self {
+            Self::FocusBackline => "focus-backline",
+            Self::HoldSkills => "hold-skills",
+            Self::FallbackLeft => "fallback-left",
+        }
+    }
+
+    fn label(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::FocusBackline => localized(locale, "Focus Backline", "集火后排"),
+            Self::HoldSkills => localized(locale, "Hold Skills", "保留技能"),
+            Self::FallbackLeft => localized(locale, "Fallback Left", "左翼后撤"),
+        }
+    }
+
+    fn description(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::FocusBackline => localized(
+                locale,
+                "Player units bias target selection toward the enemy backline, optionally favoring a lane.",
+                "我方单位会优先把火力压向敌方后排，并可额外偏向指定一路。",
+            ),
+            Self::HoldSkills => localized(
+                locale,
+                "Player units suppress cadence-based skill triggers, optionally only on one lane.",
+                "我方单位会压住按节奏触发的技能，也可以只作用在某一路。",
+            ),
+            Self::FallbackLeft => localized(
+                locale,
+                "Enemy units deprioritize the protected lane, letting that flank fall back safely.",
+                "敌方会降低对受保护一路的优先级，让这一翼先后撤。",
+            ),
+        }
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    fn default_duration_ticks(self) -> u32 {
+        match self {
+            Self::FocusBackline => 3,
+            Self::HoldSkills => 2,
+            Self::FallbackLeft => 3,
+        }
+    }
+}
+
+impl CombatDirectiveLane {
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub fn from_key(value: &str) -> Option<Self> {
+        match value {
+            "left" => Some(Self::Left),
+            "center" => Some(Self::Center),
+            "right" => Some(Self::Right),
+            _ => None,
+        }
+    }
+
+    fn key(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Center => "center",
+            Self::Right => "right",
+        }
+    }
+
+    fn label(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::Left => localized(locale, "Left Lane", "左路"),
+            Self::Center => localized(locale, "Center Lane", "中路"),
+            Self::Right => localized(locale, "Right Lane", "右路"),
+        }
+    }
+}
+
+impl CombatDirectiveOrder {
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    pub fn new(
+        directive: CombatDirective,
+        lane: Option<CombatDirectiveLane>,
+        duration_ticks: Option<u32>,
+    ) -> Self {
+        let normalized_ticks = duration_ticks
+            .unwrap_or_else(|| directive.default_duration_ticks())
+            .clamp(1, 6);
+        Self {
+            directive,
+            lane,
+            duration_ticks: normalized_ticks,
+            remaining_ticks: normalized_ticks,
+        }
+    }
+
+    fn label(self, locale: RuntimeLocale) -> String {
+        match self.lane {
+            Some(lane) => format!("{} · {}", self.directive.label(locale), lane.label(locale)),
+            None => self.directive.label(locale).to_owned(),
+        }
+    }
+
+    fn description(self, locale: RuntimeLocale) -> String {
+        match locale {
+            RuntimeLocale::En => format!(
+                "{} Runs for {} ticks.",
+                self.directive.description(locale),
+                self.duration_ticks
+            ),
+            RuntimeLocale::ZhCn => format!(
+                "{} 持续 {} 个 tick。",
+                self.directive.description(locale),
+                self.duration_ticks
+            ),
+        }
+    }
+
+    fn staged_status_line(self, locale: RuntimeLocale, queued_count: usize) -> String {
+        match locale {
+            RuntimeLocale::En => format!(
+                "Combat plan staged: {} for {} ticks{}.",
+                self.label(locale),
+                self.duration_ticks,
+                if queued_count > 0 {
+                    format!(" with {} queued follow-up step(s)", queued_count)
+                } else {
+                    String::new()
+                }
+            ),
+            RuntimeLocale::ZhCn => format!(
+                "战术计划已预设：{}，持续 {} 个 tick{}。",
+                self.label(locale),
+                self.duration_ticks,
+                if queued_count > 0 {
+                    format!("，后续还有 {} 步", queued_count)
+                } else {
+                    String::new()
+                }
+            ),
+        }
+    }
+
+    fn live_status_line(self, locale: RuntimeLocale, queued_count: usize) -> String {
+        match locale {
+            RuntimeLocale::En => format!(
+                "Directive live: {}. {} tick(s) remain{}.",
+                self.label(locale),
+                self.remaining_ticks,
+                if queued_count > 0 {
+                    format!(" with {} queued step(s)", queued_count)
+                } else {
+                    String::new()
+                }
+            ),
+            RuntimeLocale::ZhCn => format!(
+                "战术生效：{}。剩余 {} 个 tick{}。",
+                self.label(locale),
+                self.remaining_ticks,
+                if queued_count > 0 {
+                    format!("，后续还有 {} 步", queued_count)
+                } else {
+                    String::new()
+                }
+            ),
+        }
+    }
+
+    fn as_view(self, locale: RuntimeLocale) -> RuntimeCombatDirectiveView {
+        RuntimeCombatDirectiveView {
+            key: self.directive.key().to_owned(),
+            label: self.label(locale),
+            description: self.description(locale),
+            lane: self.effective_lane().map(|lane| lane.key().to_owned()),
+            duration_ticks: self.duration_ticks,
+            remaining_ticks: self.remaining_ticks,
+        }
+    }
+
+    fn effective_lane(self) -> Option<CombatDirectiveLane> {
+        self.lane.or(match self.directive {
+            CombatDirective::FallbackLeft => Some(CombatDirectiveLane::Left),
+            _ => None,
+        })
+    }
+}
+
+fn replace_combat_plan(
+    combat: &mut CombatState,
+    plan: Vec<CombatDirectiveOrder>,
+    locale: RuntimeLocale,
+) {
+    let mut steps = plan.into_iter();
+    combat.active_directive = steps.next();
+    combat.queued_directives = steps.collect();
+    combat.status = combat_plan_status_line(combat, locale);
+}
+
+fn clear_combat_plan(combat: &mut CombatState, locale: RuntimeLocale) {
+    combat.active_directive = None;
+    combat.queued_directives.clear();
+    combat.status = localized(
+        locale,
+        "Combat plan cleared. Units return to baseline combat logic.",
+        "战术计划已清空，部队恢复默认战斗逻辑。",
+    )
+    .to_owned();
+}
+
+fn combat_plan_status_line(combat: &CombatState, locale: RuntimeLocale) -> String {
+    match combat.active_directive {
+        Some(directive) => {
+            let queued_count = combat.queued_directives.len();
+            match combat.phase {
+                CombatPhase::Combat => directive.live_status_line(locale, queued_count),
+                _ => directive.staged_status_line(locale, queued_count),
+            }
+        }
+        None => localized(
+            locale,
+            "Combat plan cleared. Units return to baseline combat logic.",
+            "战术计划已清空，部队恢复默认战斗逻辑。",
+        )
+        .to_owned(),
+    }
+}
+
+fn advance_combat_plan_tick(combat: &mut CombatState) {
+    let Some(mut directive) = combat.active_directive else {
+        return;
+    };
+
+    directive.remaining_ticks = directive.remaining_ticks.saturating_sub(1);
+    if directive.remaining_ticks > 0 {
+        combat.active_directive = Some(directive);
+        return;
+    }
+
+    combat.active_directive = if combat.queued_directives.is_empty() {
+        None
+    } else {
+        Some(combat.queued_directives.remove(0))
+    };
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 enum UnitOwner {
     Player,
     Enemy,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 enum AugmentKind {
     CompoundInterest,
     VanguardDoctrine,
@@ -496,7 +819,8 @@ impl UnitRole {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 enum UnitArchetype {
     VerdantBruiser,
     SignalRanger,
@@ -608,21 +932,30 @@ impl UnitArchetype {
 
     fn cast_state(self, action_counter: u32, locale: RuntimeLocale) -> &'static str {
         match self {
-            Self::VerdantBruiser
-            | Self::SignalRanger
-            | Self::IronVanguard
-            | Self::VoltJuggler => {
+            Self::VerdantBruiser | Self::SignalRanger | Self::IronVanguard | Self::VoltJuggler => {
                 if (action_counter + 1) % 2 == 0 {
                     localized(locale, "Next attack is empowered.", "下一次攻击已强化。")
                 } else {
-                    localized(locale, "One swing until the empowered cast.", "再攻击一次就会进入强化。")
+                    localized(
+                        locale,
+                        "One swing until the empowered cast.",
+                        "再攻击一次就会进入强化。",
+                    )
                 }
             }
             Self::FrostOracle => {
                 if (action_counter + 1) % 3 == 0 {
-                    localized(locale, "Next cast detonates with frost burst.", "下一次施法会引爆霜爆。")
+                    localized(
+                        locale,
+                        "Next cast detonates with frost burst.",
+                        "下一次施法会引爆霜爆。",
+                    )
                 } else {
-                    localized(locale, "Charging the next frost burst.", "正在为下一次霜爆蓄势。")
+                    localized(
+                        locale,
+                        "Charging the next frost burst.",
+                        "正在为下一次霜爆蓄势。",
+                    )
                 }
             }
             Self::EmberMedic => localized(
@@ -690,27 +1023,23 @@ impl UnitArchetype {
 
     fn faction(self) -> UnitFaction {
         match self {
-            Self::VerdantBruiser
-            | Self::SignalRanger
-            | Self::FrostOracle
-            | Self::EmberMedic => UnitFaction::Dawn,
-            Self::AshDuelist
-            | Self::IronVanguard
-            | Self::VoltJuggler
-            | Self::GraveWarden => UnitFaction::Dusk,
+            Self::VerdantBruiser | Self::SignalRanger | Self::FrostOracle | Self::EmberMedic => {
+                UnitFaction::Dawn
+            }
+            Self::AshDuelist | Self::IronVanguard | Self::VoltJuggler | Self::GraveWarden => {
+                UnitFaction::Dusk
+            }
         }
     }
 
     fn role(self) -> UnitRole {
         match self {
-            Self::VerdantBruiser
-            | Self::IronVanguard
-            | Self::EmberMedic
-            | Self::GraveWarden => UnitRole::Vanguard,
-            Self::SignalRanger
-            | Self::AshDuelist
-            | Self::FrostOracle
-            | Self::VoltJuggler => UnitRole::Skirmisher,
+            Self::VerdantBruiser | Self::IronVanguard | Self::EmberMedic | Self::GraveWarden => {
+                UnitRole::Vanguard
+            }
+            Self::SignalRanger | Self::AshDuelist | Self::FrostOracle | Self::VoltJuggler => {
+                UnitRole::Skirmisher
+            }
         }
     }
 
@@ -756,22 +1085,30 @@ impl UnitArchetype {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct UnitInstance {
+    agent_id: u64,
+    battle_instance_id: u64,
     archetype: UnitArchetype,
     stars: u8,
 }
 
 impl UnitInstance {
-    fn new(archetype: UnitArchetype) -> Self {
+    fn new(archetype: UnitArchetype, identity: &mut IdentityState) -> Self {
         Self {
+            agent_id: identity.next_agent_id(),
+            battle_instance_id: identity.next_battle_instance_id(),
             archetype,
             stars: 1,
         }
     }
 
     fn label(self, locale: RuntimeLocale) -> String {
-        format!("{} {}", self.archetype.label(locale), star_badge(self.stars))
+        format!(
+            "{} {}",
+            self.archetype.label(locale),
+            star_badge(self.stars)
+        )
     }
 
     fn sell_value(self) -> u32 {
@@ -781,6 +1118,8 @@ impl UnitInstance {
     fn base_view(self, locale: RuntimeLocale) -> RuntimeUnitView {
         let stats = scaled_stats(self);
         RuntimeUnitView {
+            agent_id: self.agent_id.to_string(),
+            battle_instance_id: self.battle_instance_id.to_string(),
             label: self.label(locale),
             archetype: self.archetype.key().to_owned(),
             faction: self.archetype.faction().key().to_owned(),
@@ -811,6 +1150,31 @@ impl UnitInstance {
     }
 }
 
+impl IdentityState {
+    fn next_agent_id(&mut self) -> u64 {
+        let id = self.next_agent_id;
+        self.next_agent_id += 1;
+        id
+    }
+
+    fn next_battle_instance_id(&mut self) -> u64 {
+        let id = self.next_battle_instance_id;
+        self.next_battle_instance_id += 1;
+        id
+    }
+}
+
+fn mint_starred_unit(
+    identity: &mut IdentityState,
+    archetype: UnitArchetype,
+    stars: u8,
+) -> UnitInstance {
+    UnitInstance {
+        stars,
+        ..UnitInstance::new(archetype, identity)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 struct TraitBuffs {
     dawn_active: bool,
@@ -836,12 +1200,57 @@ struct CombatUnitSnapshot {
     entity: Entity,
     owner: UnitOwner,
     slot_index: usize,
+    agent_id: u64,
+    battle_instance_id: u64,
     archetype: UnitArchetype,
     stars: u8,
     health: i32,
     max_health: i32,
     attack: u32,
     action_counter: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct PersistedRunState {
+    version: u8,
+    combat: CombatState,
+    shop: ShopState,
+    identity_state: IdentityState,
+    player_squad: PlayerSquad,
+    enemy_squad: EnemySquad,
+    augments: AugmentState,
+    live_units: Vec<PersistedLiveUnit>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+struct PersistedLiveUnit {
+    owner: UnitOwner,
+    slot_index: usize,
+    agent_id: u64,
+    battle_instance_id: u64,
+    archetype: UnitArchetype,
+    stars: u8,
+    health: i32,
+    max_health: i32,
+    attack: u32,
+    action_counter: u32,
+}
+
+impl From<CombatUnitSnapshot> for PersistedLiveUnit {
+    fn from(snapshot: CombatUnitSnapshot) -> Self {
+        Self {
+            owner: snapshot.owner,
+            slot_index: snapshot.slot_index,
+            agent_id: snapshot.agent_id,
+            battle_instance_id: snapshot.battle_instance_id,
+            archetype: snapshot.archetype,
+            stars: snapshot.stars,
+            health: snapshot.health,
+            max_health: snapshot.max_health,
+            attack: snapshot.attack,
+            action_counter: snapshot.action_counter,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -857,6 +1266,7 @@ impl Plugin for StarterScenePlugin {
             .init_resource::<CombatState>()
             .init_resource::<StarterSliceProjection>()
             .init_resource::<ShopState>()
+            .init_resource::<IdentityState>()
             .init_resource::<PlayerSquad>()
             .init_resource::<EnemySquad>()
             .init_resource::<AugmentState>()
@@ -881,6 +1291,7 @@ fn setup_board_scene(
     mut combat: ResMut<CombatState>,
     mut projection: ResMut<StarterSliceProjection>,
     mut shop: ResMut<ShopState>,
+    mut identity: ResMut<IdentityState>,
     mut player_squad: ResMut<PlayerSquad>,
     mut enemy_squad: ResMut<EnemySquad>,
     mut augments: ResMut<AugmentState>,
@@ -938,27 +1349,69 @@ fn setup_board_scene(
         }
     }
 
-    reset_run_state(
-        &mut commands,
-        &board,
-        config.locale,
-        &mut combat,
-        &mut shop,
-        &mut player_squad,
-        &mut enemy_squad,
-        &mut augments,
-        &mut combat_timer,
-        false,
-    );
-    update_projection_from_state(
-        &combat,
-        &shop,
-        &player_squad,
-        &enemy_squad,
-        &augments,
-        config.locale,
-        &mut projection,
-    );
+    let restored_live_units = config
+        .resume_state_json
+        .as_deref()
+        .and_then(|resume_state_json| {
+            restore_run_state(
+                &mut commands,
+                &board,
+                config.locale,
+                &mut combat,
+                &mut shop,
+                &mut identity,
+                &mut player_squad,
+                &mut enemy_squad,
+                &mut augments,
+                &mut combat_timer,
+                resume_state_json,
+            )
+        });
+
+    if restored_live_units.is_none() {
+        reset_run_state(
+            &mut commands,
+            &board,
+            config.locale,
+            &mut combat,
+            &mut shop,
+            &mut identity,
+            &mut player_squad,
+            &mut enemy_squad,
+            &mut augments,
+            &mut combat_timer,
+            false,
+        );
+    }
+
+    if combat.phase == CombatPhase::Combat
+        && restored_live_units
+            .as_ref()
+            .is_some_and(|live_units| !live_units.is_empty())
+    {
+        update_projection_from_persisted_live_state(
+            &combat,
+            &shop,
+            &identity,
+            &player_squad,
+            &enemy_squad,
+            &augments,
+            restored_live_units.as_deref().unwrap_or(&[]),
+            config.locale,
+            &mut projection,
+        );
+    } else {
+        update_projection_from_state(
+            &combat,
+            &shop,
+            &identity,
+            &player_squad,
+            &enemy_squad,
+            &augments,
+            config.locale,
+            &mut projection,
+        );
+    }
 }
 
 fn reset_run_state(
@@ -967,6 +1420,7 @@ fn reset_run_state(
     locale: RuntimeLocale,
     combat: &mut CombatState,
     shop: &mut ShopState,
+    identity: &mut IdentityState,
     player_squad: &mut PlayerSquad,
     enemy_squad: &mut EnemySquad,
     augments: &mut AugmentState,
@@ -988,11 +1442,11 @@ fn reset_run_state(
     *augments = AugmentState::default();
     player_squad.board = [None; PLAYER_SLOTS.len()];
     player_squad.bench = vec![
-        UnitInstance::new(UnitArchetype::VerdantBruiser),
-        UnitInstance::new(UnitArchetype::EmberMedic),
+        UnitInstance::new(UnitArchetype::VerdantBruiser, identity),
+        UnitInstance::new(UnitArchetype::EmberMedic, identity),
     ];
-    enemy_squad.units = seed_enemy_squad(1);
-    reroll_shop(shop, combat.round);
+    enemy_squad.units = seed_enemy_squad(1, identity);
+    reroll_shop(shop, combat.round, identity);
     combat.status = if increment_run_number {
         match locale {
             RuntimeLocale::En => format!(
@@ -1023,6 +1477,50 @@ fn reset_run_state(
     );
 }
 
+fn restore_run_state(
+    commands: &mut Commands,
+    board: &BoardConfig,
+    locale: RuntimeLocale,
+    combat: &mut CombatState,
+    shop: &mut ShopState,
+    identity: &mut IdentityState,
+    player_squad: &mut PlayerSquad,
+    enemy_squad: &mut EnemySquad,
+    augments: &mut AugmentState,
+    combat_timer: &mut CombatTickTimer,
+    resume_state_json: &str,
+) -> Option<Vec<PersistedLiveUnit>> {
+    let saved_state = serde_json::from_str::<PersistedRunState>(resume_state_json).ok()?;
+    if saved_state.version != 1 {
+        return None;
+    }
+
+    *combat = saved_state.combat;
+    *shop = saved_state.shop;
+    *identity = saved_state.identity_state;
+    *player_squad = saved_state.player_squad;
+    *enemy_squad = saved_state.enemy_squad;
+    *augments = saved_state.augments;
+    combat.deployment_cap = deploy_cap_for_level(combat.level);
+    combat_timer.0.reset();
+
+    if combat.phase == CombatPhase::Combat && !saved_state.live_units.is_empty() {
+        spawn_persisted_live_units(commands, board, &saved_state.live_units, locale, combat);
+        Some(saved_state.live_units)
+    } else {
+        spawn_round_units(
+            commands,
+            board,
+            player_squad,
+            enemy_squad,
+            augments,
+            locale,
+            combat,
+        );
+        Some(Vec::new())
+    }
+}
+
 fn handle_runtime_commands(
     mut commands: Commands,
     board: Res<BoardConfig>,
@@ -1030,6 +1528,7 @@ fn handle_runtime_commands(
     mut combat: ResMut<CombatState>,
     mut projection: ResMut<StarterSliceProjection>,
     mut shop: ResMut<ShopState>,
+    mut identity: ResMut<IdentityState>,
     mut player_squad: ResMut<PlayerSquad>,
     mut enemy_squad: ResMut<EnemySquad>,
     mut augments: ResMut<AugmentState>,
@@ -1054,15 +1553,32 @@ fn handle_runtime_commands(
                     && augments.pending_choices.is_empty()
                 {
                     combat.phase = CombatPhase::Combat;
-                    combat.status = match locale {
-                        RuntimeLocale::En => format!(
-                            "Combat started. {} allied units engage {} enemies.",
-                            combat.player_units, combat.enemy_units
-                        ),
-                        RuntimeLocale::ZhCn => format!(
-                            "战斗开始。{} 名友军正在迎战 {} 名敌军。",
-                            combat.player_units, combat.enemy_units
-                        ),
+                    combat.status = if combat.active_directive.is_some() {
+                        match locale {
+                            RuntimeLocale::En => format!(
+                                "Combat started. {} allied units engage {} enemies. {}",
+                                combat.player_units,
+                                combat.enemy_units,
+                                combat_plan_status_line(&combat, locale)
+                            ),
+                            RuntimeLocale::ZhCn => format!(
+                                "战斗开始。{} 名友军正在迎战 {} 名敌军。{}",
+                                combat.player_units,
+                                combat.enemy_units,
+                                combat_plan_status_line(&combat, locale)
+                            ),
+                        }
+                    } else {
+                        match locale {
+                            RuntimeLocale::En => format!(
+                                "Combat started. {} allied units engage {} enemies.",
+                                combat.player_units, combat.enemy_units
+                            ),
+                            RuntimeLocale::ZhCn => format!(
+                                "战斗开始。{} 名友军正在迎战 {} 名敌军。",
+                                combat.player_units, combat.enemy_units
+                            ),
+                        }
                     };
                     combat_timer.0.reset();
                 }
@@ -1077,10 +1593,12 @@ fn handle_runtime_commands(
                     let total_income = base_income + interest_income + streak_income;
                     combat.round += 1;
                     combat.phase = CombatPhase::Preparation;
+                    combat.active_directive = None;
+                    combat.queued_directives.clear();
                     combat.run_result = RunResult::Active;
                     combat.gold += total_income;
                     let levels_gained = grant_xp(&mut combat, PASSIVE_ROUND_XP);
-                    enemy_squad.units = seed_enemy_squad(combat.round);
+                    enemy_squad.units = seed_enemy_squad(combat.round, &mut identity);
                     maybe_prepare_augment_draft(&mut augments, combat.round);
                     if shop.locked {
                         combat.status = match locale {
@@ -1093,7 +1611,11 @@ fn handle_runtime_commands(
                                 streak_income,
                                 combat.level,
                                 combat.deployment_cap,
-                                if levels_gained > 0 { " after leveling." } else { "." }
+                                if levels_gained > 0 {
+                                    " after leveling."
+                                } else {
+                                    "."
+                                }
                             ),
                             RuntimeLocale::ZhCn => format!(
                                 "第 {} 回合已就绪。收入 +{}（基础 {} / 利息 {} / 连胜连败 {}）。锁定商店已保留。当前等级 {}，可部署 {} 个单位{}",
@@ -1104,11 +1626,15 @@ fn handle_runtime_commands(
                                 streak_income,
                                 combat.level,
                                 combat.deployment_cap,
-                                if levels_gained > 0 { "，并已升级。" } else { "。" }
+                                if levels_gained > 0 {
+                                    "，并已升级。"
+                                } else {
+                                    "。"
+                                }
                             ),
                         };
                     } else {
-                        reroll_shop(&mut shop, combat.round);
+                        reroll_shop(&mut shop, combat.round, &mut identity);
                         combat.status = match locale {
                             RuntimeLocale::En => format!(
                                 "Round {} ready. Income +{} (base {} / interest {} / streak {}). Draft, merge, or reposition before combat. Level {} supports {} deployed units{}.",
@@ -1119,7 +1645,11 @@ fn handle_runtime_commands(
                                 streak_income,
                                 combat.level,
                                 combat.deployment_cap,
-                                if levels_gained > 0 { " after leveling up" } else { "" }
+                                if levels_gained > 0 {
+                                    " after leveling up"
+                                } else {
+                                    ""
+                                }
                             ),
                             RuntimeLocale::ZhCn => format!(
                                 "第 {} 回合已就绪。收入 +{}（基础 {} / 利息 {} / 连胜连败 {}）。战斗前可以继续招募、合成或调整站位。当前等级 {}，可部署 {} 个单位{}",
@@ -1130,7 +1660,11 @@ fn handle_runtime_commands(
                                 streak_income,
                                 combat.level,
                                 combat.deployment_cap,
-                                if levels_gained > 0 { "，并已升级。" } else { "。" }
+                                if levels_gained > 0 {
+                                    "，并已升级。"
+                                } else {
+                                    "。"
+                                }
                             ),
                         };
                     }
@@ -1157,6 +1691,7 @@ fn handle_runtime_commands(
                     locale,
                     &mut combat,
                     &mut shop,
+                    &mut identity,
                     &mut player_squad,
                     &mut enemy_squad,
                     &mut augments,
@@ -1170,7 +1705,7 @@ fn handle_runtime_commands(
                     && combat.gold >= REROLL_COST
                 {
                     combat.gold -= REROLL_COST;
-                    reroll_shop(&mut shop, combat.round + 1);
+                    reroll_shop(&mut shop, combat.round + 1, &mut identity);
                     combat.status = localized(
                         locale,
                         "Shop rerolled. Draft before combat starts.",
@@ -1305,7 +1840,7 @@ fn handle_runtime_commands(
                     },
                     &merge_messages,
                 );
-                reroll_shop(&mut shop, combat.round + index as u32 + 2);
+                reroll_shop(&mut shop, combat.round + index as u32 + 2, &mut identity);
                 needs_respawn = true;
             }
             RuntimeCommand::DeployBenchToBoard {
@@ -1329,7 +1864,11 @@ fn handle_runtime_commands(
                 combat.status = merge_messages_for(
                     match locale {
                         RuntimeLocale::En => {
-                            format!("Deployed {} into slot {}.", deployed.label(locale), slot_index + 1)
+                            format!(
+                                "Deployed {} into slot {}.",
+                                deployed.label(locale),
+                                slot_index + 1
+                            )
                         }
                         RuntimeLocale::ZhCn => format!(
                             "已将 {} 部署到槽位 {}。",
@@ -1385,10 +1924,18 @@ fn handle_runtime_commands(
                 combat.gold += sold.sell_value();
                 combat.status = match locale {
                     RuntimeLocale::En => {
-                        format!("Sold {} for {} gold.", sold.label(locale), sold.sell_value())
+                        format!(
+                            "Sold {} for {} gold.",
+                            sold.label(locale),
+                            sold.sell_value()
+                        )
                     }
                     RuntimeLocale::ZhCn => {
-                        format!("已出售 {}，获得 {} 金币。", sold.label(locale), sold.sell_value())
+                        format!(
+                            "已出售 {}，获得 {} 金币。",
+                            sold.label(locale),
+                            sold.sell_value()
+                        )
                     }
                 };
             }
@@ -1421,6 +1968,27 @@ fn handle_runtime_commands(
                 };
                 needs_respawn = true;
             }
+            RuntimeCommand::SetCombatDirective(directive) => {
+                if combat.phase == CombatPhase::Resolution || combat.run_over {
+                    continue;
+                }
+
+                replace_combat_plan(&mut combat, vec![directive], locale);
+            }
+            RuntimeCommand::ReplaceCombatPlan(plan) => {
+                if combat.phase == CombatPhase::Resolution || combat.run_over {
+                    continue;
+                }
+
+                replace_combat_plan(&mut combat, plan, locale);
+            }
+            RuntimeCommand::ClearCombatDirective => {
+                if combat.phase == CombatPhase::Resolution || combat.run_over {
+                    continue;
+                }
+
+                clear_combat_plan(&mut combat, locale);
+            }
         }
     }
 
@@ -1440,6 +2008,7 @@ fn handle_runtime_commands(
     update_projection_from_state(
         &combat,
         &shop,
+        &identity,
         &player_squad,
         &enemy_squad,
         &augments,
@@ -1454,6 +2023,7 @@ fn run_combat_tick(
     board: Res<BoardConfig>,
     config: Res<RuntimeConfig>,
     mut combat: ResMut<CombatState>,
+    identity: Res<IdentityState>,
     player_squad: Res<PlayerSquad>,
     enemy_squad: Res<EnemySquad>,
     augments: Res<AugmentState>,
@@ -1479,6 +2049,8 @@ fn run_combat_tick(
             entity,
             owner: unit.owner,
             slot_index: unit.slot_index,
+            agent_id: unit.agent_id,
+            battle_instance_id: unit.battle_instance_id,
             archetype: unit.archetype,
             stars: unit.stars,
             health: unit.health,
@@ -1502,9 +2074,16 @@ fn run_combat_tick(
     let mut pending_damage = HashMap::<Entity, i32>::new();
     let mut pending_healing = HashMap::<Entity, i32>::new();
     let mut combat_highlights = Vec::new();
+    let active_directive = combat.active_directive;
 
     for attacker in &player_entities {
-        if let Some(action) = resolve_attack(*attacker, &player_entities, &enemy_entities, locale) {
+        if let Some(action) = resolve_attack(
+            *attacker,
+            &player_entities,
+            &enemy_entities,
+            locale,
+            active_directive,
+        ) {
             for (target_entity, damage) in action.hits {
                 *pending_damage.entry(target_entity).or_insert(0) += damage;
             }
@@ -1518,7 +2097,13 @@ fn run_combat_tick(
     }
 
     for attacker in &enemy_entities {
-        if let Some(action) = resolve_attack(*attacker, &enemy_entities, &player_entities, locale) {
+        if let Some(action) = resolve_attack(
+            *attacker,
+            &enemy_entities,
+            &player_entities,
+            locale,
+            active_directive,
+        ) {
             for (target_entity, damage) in action.hits {
                 *pending_damage.entry(target_entity).or_insert(0) += damage;
             }
@@ -1539,7 +2124,13 @@ fn run_combat_tick(
 
     for (target_entity, damage) in pending_damage {
         if let Ok(mut unit) = unit_queries.p1().get_mut(target_entity) {
-            let mitigated = mitigate_damage(unit.archetype, damage);
+            let mitigated = mitigate_damage(
+                unit.archetype,
+                damage,
+                unit.owner,
+                unit.slot_index,
+                active_directive,
+            );
             unit.health -= mitigated;
         }
     }
@@ -1580,6 +2171,8 @@ fn run_combat_tick(
 
     if combat.player_units == 0 || combat.enemy_units == 0 {
         combat.phase = CombatPhase::Resolution;
+        combat.active_directive = None;
+        combat.queued_directives.clear();
         if combat.enemy_units == 0 {
             combat.win_streak += 1;
             combat.loss_streak = 0;
@@ -1663,21 +2256,31 @@ fn run_combat_tick(
             );
         }
     } else {
+        advance_combat_plan_tick(&mut combat);
+        let directive_prefix = combat
+            .active_directive
+            .map(|directive| match locale {
+                RuntimeLocale::En => format!("Directive {} active. ", directive.label(locale)),
+                RuntimeLocale::ZhCn => format!("战术 {} 生效中。", directive.label(locale)),
+            })
+            .unwrap_or_default();
+
         combat.status = if combat_highlights.is_empty() {
             match locale {
                 RuntimeLocale::En => format!(
-                    "Combat underway. {} allied units vs {} enemies.",
-                    combat.player_units, combat.enemy_units
+                    "{}Combat underway. {} allied units vs {} enemies.",
+                    directive_prefix, combat.player_units, combat.enemy_units
                 ),
                 RuntimeLocale::ZhCn => format!(
-                    "战斗进行中。{} 名友军对阵 {} 名敌军。",
-                    combat.player_units, combat.enemy_units
+                    "{}战斗进行中。{} 名友军对阵 {} 名敌军。",
+                    directive_prefix, combat.player_units, combat.enemy_units
                 ),
             }
         } else {
             match locale {
                 RuntimeLocale::En => format!(
-                    "Combat underway. {} allied units vs {} enemies. {}",
+                    "{}Combat underway. {} allied units vs {} enemies. {}",
+                    directive_prefix,
                     combat.player_units,
                     combat.enemy_units,
                     combat_highlights
@@ -1687,7 +2290,8 @@ fn run_combat_tick(
                         .join(" ")
                 ),
                 RuntimeLocale::ZhCn => format!(
-                    "战斗进行中。{} 名友军对阵 {} 名敌军。{}",
+                    "{}战斗进行中。{} 名友军对阵 {} 名敌军。{}",
+                    directive_prefix,
                     combat.player_units,
                     combat.enemy_units,
                     combat_highlights
@@ -1707,6 +2311,8 @@ fn run_combat_tick(
             entity,
             owner: unit.owner,
             slot_index: unit.slot_index,
+            agent_id: unit.agent_id,
+            battle_instance_id: unit.battle_instance_id,
             archetype: unit.archetype,
             stars: unit.stars,
             health: unit.health,
@@ -1720,6 +2326,7 @@ fn run_combat_tick(
         update_projection_from_live_state(
             &combat,
             &shop,
+            &identity,
             &player_squad,
             &enemy_squad,
             &augments,
@@ -1731,6 +2338,7 @@ fn run_combat_tick(
         update_projection_from_state(
             &combat,
             &shop,
+            &identity,
             &player_squad,
             &enemy_squad,
             &augments,
@@ -1745,16 +2353,24 @@ fn resolve_attack(
     allies: &[CombatUnitSnapshot],
     opponents: &[CombatUnitSnapshot],
     locale: RuntimeLocale,
+    active_directive: Option<CombatDirectiveOrder>,
 ) -> Option<ResolvedCombatAction> {
-    let target = select_target(attacker.archetype, opponents)?;
+    let target = select_target(attacker, opponents, active_directive)?;
     let mut primary_damage = attacker.attack as i32;
     let mut extra_hits = Vec::new();
     let mut heals = Vec::new();
     let mut skill_note = None;
+    let hold_skills = attacker.owner == UnitOwner::Player
+        && active_directive.is_some_and(|directive| {
+            directive.directive == CombatDirective::HoldSkills
+                && directive
+                    .effective_lane()
+                    .is_none_or(|lane| is_lane_slot(attacker.owner, attacker.slot_index, lane))
+        });
 
     match attacker.archetype {
         UnitArchetype::VerdantBruiser => {
-            if (attacker.action_counter + 1) % 2 == 0 {
+            if !hold_skills && (attacker.action_counter + 1) % 2 == 0 {
                 primary_damage += 2;
                 skill_note = Some(localized(
                     locale,
@@ -1764,7 +2380,7 @@ fn resolve_attack(
             }
         }
         UnitArchetype::SignalRanger => {
-            if (attacker.action_counter + 1) % 2 == 0 {
+            if !hold_skills && (attacker.action_counter + 1) % 2 == 0 {
                 primary_damage += 2;
                 skill_note = Some(localized(
                     locale,
@@ -1774,7 +2390,7 @@ fn resolve_attack(
             }
         }
         UnitArchetype::AshDuelist => {
-            if target.health * 2 <= target.max_health {
+            if !hold_skills && target.health * 2 <= target.max_health {
                 primary_damage += 2;
                 skill_note = Some(localized(
                     locale,
@@ -1784,7 +2400,7 @@ fn resolve_attack(
             }
         }
         UnitArchetype::IronVanguard => {
-            if (attacker.action_counter + 1) % 2 == 0 {
+            if !hold_skills && (attacker.action_counter + 1) % 2 == 0 {
                 primary_damage += 1;
                 skill_note = Some(localized(
                     locale,
@@ -1794,7 +2410,7 @@ fn resolve_attack(
             }
         }
         UnitArchetype::FrostOracle => {
-            if (attacker.action_counter + 1) % 3 == 0 {
+            if !hold_skills && (attacker.action_counter + 1) % 3 == 0 {
                 primary_damage += 3;
                 skill_note = Some(localized(
                     locale,
@@ -1804,17 +2420,19 @@ fn resolve_attack(
             }
         }
         UnitArchetype::EmberMedic => {
-            if let Some(ally) = select_ally_to_heal(attacker.entity, allies) {
-                heals.push((ally.entity, 2));
-                skill_note = Some(localized(
-                    locale,
-                    "Cinder Mend patched the frontline",
-                    "炽火疗愈修补了前线",
-                ));
+            if !hold_skills {
+                if let Some(ally) = select_ally_to_heal(attacker.entity, allies) {
+                    heals.push((ally.entity, 2));
+                    skill_note = Some(localized(
+                        locale,
+                        "Cinder Mend patched the frontline",
+                        "炽火疗愈修补了前线",
+                    ));
+                }
             }
         }
         UnitArchetype::VoltJuggler => {
-            if (attacker.action_counter + 1) % 2 == 0 {
+            if !hold_skills && (attacker.action_counter + 1) % 2 == 0 {
                 if let Some(secondary) = select_secondary_target(target.entity, opponents) {
                     extra_hits.push((secondary.entity, 2));
                     skill_note = Some(localized(
@@ -1826,7 +2444,7 @@ fn resolve_attack(
             }
         }
         UnitArchetype::GraveWarden => {
-            if attacker.health * 2 <= attacker.max_health {
+            if !hold_skills && attacker.health * 2 <= attacker.max_health {
                 primary_damage += 2;
                 skill_note = Some(localized(
                     locale,
@@ -1837,8 +2455,21 @@ fn resolve_attack(
         }
     }
 
+    if hold_skills && skill_note.is_none() && cadence_skill_would_trigger(attacker, target, allies)
+    {
+        skill_note = Some(localized(
+            locale,
+            "Directive held the skill window",
+            "战术指令压住了技能窗口",
+        ));
+    }
+
     let mut hits = vec![(target.entity, primary_damage.max(1))];
-    hits.extend(extra_hits.into_iter().map(|(entity, damage)| (entity, damage.max(1))));
+    hits.extend(
+        extra_hits
+            .into_iter()
+            .map(|(entity, damage)| (entity, damage.max(1))),
+    );
 
     let highlight = if let Some(skill_note) = skill_note {
         match locale {
@@ -1881,34 +2512,141 @@ fn resolve_attack(
     })
 }
 
+fn cadence_skill_would_trigger(
+    attacker: CombatUnitSnapshot,
+    target: CombatUnitSnapshot,
+    allies: &[CombatUnitSnapshot],
+) -> bool {
+    match attacker.archetype {
+        UnitArchetype::VerdantBruiser
+        | UnitArchetype::SignalRanger
+        | UnitArchetype::IronVanguard
+        | UnitArchetype::VoltJuggler => (attacker.action_counter + 1) % 2 == 0,
+        UnitArchetype::AshDuelist => target.health * 2 <= target.max_health,
+        UnitArchetype::FrostOracle => (attacker.action_counter + 1) % 3 == 0,
+        UnitArchetype::EmberMedic => select_ally_to_heal(attacker.entity, allies).is_some(),
+        UnitArchetype::GraveWarden => attacker.health * 2 <= attacker.max_health,
+    }
+}
+
 fn select_target(
-    archetype: UnitArchetype,
+    attacker: CombatUnitSnapshot,
     opponents: &[CombatUnitSnapshot],
+    active_directive: Option<CombatDirectiveOrder>,
 ) -> Option<CombatUnitSnapshot> {
     let mut candidates = opponents.to_vec();
     if candidates.is_empty() {
         return None;
     }
 
+    candidates.sort_by_key(|candidate| {
+        let directive_bias = directive_target_bias(attacker, *candidate, active_directive);
+        (
+            directive_bias.0,
+            directive_bias.1,
+            base_target_priority(attacker.archetype, *candidate).0,
+            base_target_priority(attacker.archetype, *candidate).1,
+        )
+    });
+
+    candidates.first().copied()
+}
+
+fn base_target_priority(archetype: UnitArchetype, candidate: CombatUnitSnapshot) -> (i32, i32) {
     match archetype {
-        UnitArchetype::VerdantBruiser => {
-            candidates.sort_by_key(|candidate| (-candidate.max_health, candidate.health));
-        }
+        UnitArchetype::VerdantBruiser => (-candidate.max_health, candidate.health),
         UnitArchetype::SignalRanger
         | UnitArchetype::AshDuelist
         | UnitArchetype::EmberMedic
-        | UnitArchetype::VoltJuggler => {
-            candidates.sort_by_key(|candidate| (candidate.health, -(candidate.attack as i32)));
-        }
+        | UnitArchetype::VoltJuggler => (candidate.health, -(candidate.attack as i32)),
         UnitArchetype::IronVanguard | UnitArchetype::FrostOracle => {
-            candidates.sort_by_key(|candidate| (-(candidate.attack as i32), -candidate.health));
+            (-(candidate.attack as i32), -candidate.health)
         }
-        UnitArchetype::GraveWarden => {
-            candidates.sort_by_key(|candidate| (-candidate.max_health, -candidate.health));
-        }
+        UnitArchetype::GraveWarden => (-candidate.max_health, -candidate.health),
     }
+}
 
-    candidates.first().copied()
+fn directive_target_bias(
+    attacker: CombatUnitSnapshot,
+    candidate: CombatUnitSnapshot,
+    active_directive: Option<CombatDirectiveOrder>,
+) -> (u8, u8) {
+    match active_directive {
+        Some(directive)
+            if directive.directive == CombatDirective::FocusBackline
+                && attacker.owner == UnitOwner::Player =>
+        {
+            (
+                if is_backline_slot(candidate.owner, candidate.slot_index) {
+                    0
+                } else {
+                    1
+                },
+                if directive
+                    .effective_lane()
+                    .is_some_and(|lane| !is_lane_slot(candidate.owner, candidate.slot_index, lane))
+                {
+                    1
+                } else {
+                    0
+                },
+            )
+        }
+        Some(directive)
+            if directive.directive == CombatDirective::FallbackLeft
+                && attacker.owner == UnitOwner::Enemy =>
+        {
+            (
+                if directive
+                    .effective_lane()
+                    .is_some_and(|lane| is_lane_slot(candidate.owner, candidate.slot_index, lane))
+                {
+                    1
+                } else {
+                    0
+                },
+                0,
+            )
+        }
+        _ => (0, 0),
+    }
+}
+
+fn slot_coordinates(owner: UnitOwner, slot_index: usize) -> Option<(usize, usize)> {
+    match owner {
+        UnitOwner::Player => PLAYER_SLOTS.get(slot_index).copied(),
+        UnitOwner::Enemy => ENEMY_SLOTS.get(slot_index).copied(),
+    }
+}
+
+fn is_backline_slot(owner: UnitOwner, slot_index: usize) -> bool {
+    let Some((_, col)) = slot_coordinates(owner, slot_index) else {
+        return false;
+    };
+
+    match owner {
+        UnitOwner::Player => PLAYER_SLOTS.iter().map(|(_, value)| *value).min(),
+        UnitOwner::Enemy => ENEMY_SLOTS.iter().map(|(_, value)| *value).max(),
+    }
+    .is_some_and(|edge_col| col == edge_col)
+}
+
+fn slot_lane(owner: UnitOwner, slot_index: usize) -> Option<CombatDirectiveLane> {
+    let Some((row, _)) = slot_coordinates(owner, slot_index) else {
+        return None;
+    };
+
+    Some(if row <= 1 {
+        CombatDirectiveLane::Left
+    } else if row == 2 {
+        CombatDirectiveLane::Center
+    } else {
+        CombatDirectiveLane::Right
+    })
+}
+
+fn is_lane_slot(owner: UnitOwner, slot_index: usize, lane: CombatDirectiveLane) -> bool {
+    slot_lane(owner, slot_index) == Some(lane)
 }
 
 fn select_secondary_target(
@@ -1933,16 +2671,38 @@ fn select_ally_to_heal(
         .min_by_key(|candidate| {
             (
                 candidate.health,
-                if candidate.entity == attacker_entity { 1 } else { 0 },
+                if candidate.entity == attacker_entity {
+                    1
+                } else {
+                    0
+                },
                 candidate.max_health,
             )
         })
 }
 
-fn mitigate_damage(archetype: UnitArchetype, damage: i32) -> i32 {
+fn mitigate_damage(
+    archetype: UnitArchetype,
+    damage: i32,
+    owner: UnitOwner,
+    slot_index: usize,
+    active_directive: Option<CombatDirectiveOrder>,
+) -> i32 {
+    let directive_mitigation = if active_directive.is_some_and(|directive| {
+        directive.directive == CombatDirective::FallbackLeft
+            && owner == UnitOwner::Player
+            && directive
+                .effective_lane()
+                .is_some_and(|lane| is_lane_slot(owner, slot_index, lane))
+    }) {
+        1
+    } else {
+        0
+    };
+
     match archetype {
-        UnitArchetype::IronVanguard => (damage - 1).max(1),
-        _ => damage.max(1),
+        UnitArchetype::IronVanguard => (damage - 1 - directive_mitigation).max(1),
+        _ => (damage - directive_mitigation).max(1),
     }
 }
 
@@ -1969,12 +2729,17 @@ fn board_views_from_live_units(
 ) -> Vec<Option<RuntimeUnitView>> {
     let mut board = vec![None; slots];
 
-    for snapshot in live_snapshots.iter().filter(|snapshot| snapshot.owner == owner) {
+    for snapshot in live_snapshots
+        .iter()
+        .filter(|snapshot| snapshot.owner == owner)
+    {
         if snapshot.slot_index >= board.len() {
             continue;
         }
 
         board[snapshot.slot_index] = Some(RuntimeUnitView {
+            agent_id: snapshot.agent_id.to_string(),
+            battle_instance_id: snapshot.battle_instance_id.to_string(),
             label: format!(
                 "{} {}",
                 snapshot.archetype.label(locale),
@@ -2000,9 +2765,108 @@ fn board_views_from_live_units(
     board
 }
 
+fn board_views_from_persisted_live_units(
+    live_units: &[PersistedLiveUnit],
+    owner: UnitOwner,
+    slots: usize,
+    locale: RuntimeLocale,
+) -> Vec<Option<RuntimeUnitView>> {
+    let mut board = vec![None; slots];
+
+    for unit in live_units.iter().filter(|unit| unit.owner == owner) {
+        if unit.slot_index >= board.len() {
+            continue;
+        }
+
+        board[unit.slot_index] = Some(RuntimeUnitView {
+            agent_id: unit.agent_id.to_string(),
+            battle_instance_id: unit.battle_instance_id.to_string(),
+            label: format!(
+                "{} {}",
+                unit.archetype.label(locale),
+                star_badge(unit.stars)
+            ),
+            archetype: unit.archetype.key().to_owned(),
+            faction: unit.archetype.faction().key().to_owned(),
+            role: unit.archetype.role().key().to_owned(),
+            skill: unit.archetype.skill_label(locale).to_owned(),
+            tempo_label: unit.archetype.tempo_label(locale).to_owned(),
+            cast_state: unit
+                .archetype
+                .cast_state(unit.action_counter, locale)
+                .to_owned(),
+            target_rule: unit.archetype.target_rule(locale).to_owned(),
+            stars: unit.stars,
+            attack: unit.attack,
+            health: unit.health.max(1) as u32,
+            sell_value: SELL_VALUE_BASE * unit.stars as u32,
+        });
+    }
+
+    board
+}
+
+fn serialize_run_state(
+    combat: &CombatState,
+    shop: &ShopState,
+    identity: &IdentityState,
+    player_squad: &PlayerSquad,
+    enemy_squad: &EnemySquad,
+    augments: &AugmentState,
+    live_snapshots: Option<&[CombatUnitSnapshot]>,
+) -> Option<String> {
+    let persisted_live_units = live_snapshots
+        .unwrap_or(&[])
+        .iter()
+        .copied()
+        .map(PersistedLiveUnit::from)
+        .collect::<Vec<_>>();
+
+    serialize_run_state_from_persisted_live_units(
+        combat,
+        shop,
+        identity,
+        player_squad,
+        enemy_squad,
+        augments,
+        &persisted_live_units,
+    )
+}
+
+fn serialize_run_state_from_persisted_live_units(
+    combat: &CombatState,
+    shop: &ShopState,
+    identity: &IdentityState,
+    player_squad: &PlayerSquad,
+    enemy_squad: &EnemySquad,
+    augments: &AugmentState,
+    live_units: &[PersistedLiveUnit],
+) -> Option<String> {
+    if combat.run_over {
+        return None;
+    }
+
+    serde_json::to_string(&PersistedRunState {
+        version: 1,
+        combat: combat.clone(),
+        shop: shop.clone(),
+        identity_state: identity.clone(),
+        player_squad: player_squad.clone(),
+        enemy_squad: enemy_squad.clone(),
+        augments: augments.clone(),
+        live_units: if combat.phase == CombatPhase::Combat {
+            live_units.to_vec()
+        } else {
+            Vec::new()
+        },
+    })
+    .ok()
+}
+
 fn update_projection_from_state(
     combat: &CombatState,
     shop: &ShopState,
+    identity: &IdentityState,
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
     augments: &AugmentState,
@@ -2011,6 +2875,15 @@ fn update_projection_from_state(
 ) {
     let player_buffs = trait_buffs_for(player_squad.board.iter().flatten().copied());
     let enemy_buffs = trait_buffs_for(enemy_squad.units.iter().copied());
+    let serialized_run_state = serialize_run_state(
+        combat,
+        shop,
+        identity,
+        player_squad,
+        enemy_squad,
+        augments,
+        None,
+    );
 
     apply_common_projection_fields(
         combat,
@@ -2019,6 +2892,7 @@ fn update_projection_from_state(
         enemy_squad,
         augments,
         locale,
+        serialized_run_state,
         projection,
     );
     projection.player_board = player_squad
@@ -2040,6 +2914,7 @@ fn update_projection_from_state(
 fn update_projection_from_live_state(
     combat: &CombatState,
     shop: &ShopState,
+    identity: &IdentityState,
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
     augments: &AugmentState,
@@ -2047,6 +2922,16 @@ fn update_projection_from_live_state(
     locale: RuntimeLocale,
     projection: &mut ResMut<StarterSliceProjection>,
 ) {
+    let serialized_run_state = serialize_run_state(
+        combat,
+        shop,
+        identity,
+        player_squad,
+        enemy_squad,
+        augments,
+        Some(live_snapshots),
+    );
+
     apply_common_projection_fields(
         combat,
         shop,
@@ -2054,6 +2939,7 @@ fn update_projection_from_live_state(
         enemy_squad,
         augments,
         locale,
+        serialized_run_state,
         projection,
     );
     projection.player_board = board_views_from_live_units(
@@ -2062,8 +2948,49 @@ fn update_projection_from_live_state(
         PLAYER_SLOTS.len(),
         locale,
     );
-    projection.enemy_board = board_views_from_live_units(
-        live_snapshots,
+    projection.enemy_board =
+        board_views_from_live_units(live_snapshots, UnitOwner::Enemy, ENEMY_SLOTS.len(), locale);
+}
+
+fn update_projection_from_persisted_live_state(
+    combat: &CombatState,
+    shop: &ShopState,
+    identity: &IdentityState,
+    player_squad: &PlayerSquad,
+    enemy_squad: &EnemySquad,
+    augments: &AugmentState,
+    live_units: &[PersistedLiveUnit],
+    locale: RuntimeLocale,
+    projection: &mut ResMut<StarterSliceProjection>,
+) {
+    let serialized_run_state = serialize_run_state_from_persisted_live_units(
+        combat,
+        shop,
+        identity,
+        player_squad,
+        enemy_squad,
+        augments,
+        live_units,
+    );
+
+    apply_common_projection_fields(
+        combat,
+        shop,
+        player_squad,
+        enemy_squad,
+        augments,
+        locale,
+        serialized_run_state,
+        projection,
+    );
+    projection.player_board = board_views_from_persisted_live_units(
+        live_units,
+        UnitOwner::Player,
+        PLAYER_SLOTS.len(),
+        locale,
+    );
+    projection.enemy_board = board_views_from_persisted_live_units(
+        live_units,
         UnitOwner::Enemy,
         ENEMY_SLOTS.len(),
         locale,
@@ -2077,6 +3004,7 @@ fn apply_common_projection_fields(
     enemy_squad: &EnemySquad,
     augments: &AugmentState,
     locale: RuntimeLocale,
+    serialized_run_state: Option<String>,
     projection: &mut ResMut<StarterSliceProjection>,
 ) {
     projection.phase = combat.phase.as_str().to_owned();
@@ -2116,7 +3044,12 @@ fn apply_common_projection_fields(
         .collect();
     projection.unit_roster = UnitArchetype::all()
         .into_iter()
-        .map(UnitInstance::new)
+        .map(|archetype| UnitInstance {
+            agent_id: 0,
+            battle_instance_id: 0,
+            archetype,
+            stars: 1,
+        })
         .map(|unit| unit.base_view(locale))
         .collect();
     projection.active_traits =
@@ -2132,6 +3065,15 @@ fn apply_common_projection_fields(
         .iter()
         .copied()
         .map(|augment| augment.as_view(locale))
+        .collect();
+    projection.active_combat_directive = combat
+        .active_directive
+        .map(|directive| directive.as_view(locale));
+    projection.queued_combat_directives = combat
+        .queued_directives
+        .iter()
+        .copied()
+        .map(|directive| directive.as_view(locale))
         .collect();
     projection.augment_draft_round = augments.pending_round.unwrap_or(0);
     projection.enemy_threat = enemy_threat(enemy_squad.units.iter().copied());
@@ -2149,6 +3091,7 @@ fn apply_common_projection_fields(
     projection.run_over = combat.run_over;
     projection.run_result = combat.run_result.as_str().to_owned();
     projection.completed = combat.run_over;
+    projection.serialized_run_state = serialized_run_state;
 }
 
 fn spawn_round_units(
@@ -2205,6 +3148,54 @@ fn spawn_round_units(
     }
 }
 
+fn spawn_persisted_live_units(
+    commands: &mut Commands,
+    board: &BoardConfig,
+    live_units: &[PersistedLiveUnit],
+    locale: RuntimeLocale,
+    combat: &mut CombatState,
+) {
+    combat.player_units = 0;
+    combat.enemy_units = 0;
+
+    for unit in live_units {
+        let slots = match unit.owner {
+            UnitOwner::Player => &PLAYER_SLOTS,
+            UnitOwner::Enemy => &ENEMY_SLOTS,
+        };
+        let Some(&(row, col)) = slots.get(unit.slot_index) else {
+            continue;
+        };
+
+        spawn_unit_with_state(
+            commands,
+            board,
+            unit.owner,
+            unit.slot_index,
+            UnitInstance {
+                agent_id: unit.agent_id,
+                battle_instance_id: unit.battle_instance_id,
+                archetype: unit.archetype,
+                stars: unit.stars,
+            },
+            UnitStats {
+                attack: unit.attack,
+                max_health: unit.max_health,
+            },
+            locale,
+            row,
+            col,
+            unit.health,
+            unit.action_counter,
+        );
+
+        match unit.owner {
+            UnitOwner::Player => combat.player_units += 1,
+            UnitOwner::Enemy => combat.enemy_units += 1,
+        }
+    }
+}
+
 fn spawn_unit(
     commands: &mut Commands,
     board: &BoardConfig,
@@ -2215,6 +3206,34 @@ fn spawn_unit(
     locale: RuntimeLocale,
     row: usize,
     col: usize,
+) {
+    spawn_unit_with_state(
+        commands,
+        board,
+        owner,
+        slot_index,
+        unit,
+        stats,
+        locale,
+        row,
+        col,
+        stats.max_health,
+        0,
+    );
+}
+
+fn spawn_unit_with_state(
+    commands: &mut Commands,
+    board: &BoardConfig,
+    owner: UnitOwner,
+    slot_index: usize,
+    unit: UnitInstance,
+    stats: UnitStats,
+    locale: RuntimeLocale,
+    row: usize,
+    col: usize,
+    health: i32,
+    action_counter: u32,
 ) {
     let translation = board_to_world(board, row, col);
 
@@ -2228,10 +3247,12 @@ fn spawn_unit(
             UnitEntity {
                 owner,
                 slot_index,
+                agent_id: unit.agent_id,
+                battle_instance_id: unit.battle_instance_id,
                 archetype: unit.archetype,
                 stars: unit.stars,
-                action_counter: 0,
-                health: stats.max_health,
+                action_counter,
+                health: health.min(stats.max_health),
                 max_health: stats.max_health,
                 attack: stats.attack,
             },
@@ -2269,99 +3290,63 @@ fn despawn_units(commands: &mut Commands, units: impl Iterator<Item = Entity>) {
     }
 }
 
-fn reroll_shop(shop: &mut ShopState, round_seed: u32) {
+fn reroll_shop(shop: &mut ShopState, round_seed: u32, identity: &mut IdentityState) {
     let pool = UnitArchetype::all();
     let start = (shop.reroll_cursor + round_seed as usize) % pool.len();
     shop.offers = (0..SHOP_SIZE)
-        .map(|offset| UnitInstance::new(pool[(start + offset) % pool.len()]))
+        .map(|offset| UnitInstance::new(pool[(start + offset) % pool.len()], identity))
         .collect();
     shop.reroll_cursor = (shop.reroll_cursor + 1) % pool.len();
 }
 
-fn seed_enemy_squad(round: u32) -> Vec<UnitInstance> {
+fn seed_enemy_squad(round: u32, identity: &mut IdentityState) -> Vec<UnitInstance> {
     let mut units = match round {
         1 => vec![
-            UnitInstance::new(UnitArchetype::AshDuelist),
-            UnitInstance::new(UnitArchetype::IronVanguard),
+            UnitInstance::new(UnitArchetype::AshDuelist, identity),
+            UnitInstance::new(UnitArchetype::IronVanguard, identity),
         ],
         2 => vec![
-            UnitInstance::new(UnitArchetype::AshDuelist),
-            UnitInstance::new(UnitArchetype::IronVanguard),
-            UnitInstance::new(UnitArchetype::VoltJuggler),
+            UnitInstance::new(UnitArchetype::AshDuelist, identity),
+            UnitInstance::new(UnitArchetype::IronVanguard, identity),
+            UnitInstance::new(UnitArchetype::VoltJuggler, identity),
         ],
         3 => vec![
-            UnitInstance {
-                archetype: UnitArchetype::AshDuelist,
-                stars: 2,
-            },
-            UnitInstance::new(UnitArchetype::IronVanguard),
-            UnitInstance::new(UnitArchetype::VoltJuggler),
+            mint_starred_unit(identity, UnitArchetype::AshDuelist, 2),
+            UnitInstance::new(UnitArchetype::IronVanguard, identity),
+            UnitInstance::new(UnitArchetype::VoltJuggler, identity),
         ],
         4 => vec![
-            UnitInstance {
-                archetype: UnitArchetype::AshDuelist,
-                stars: 2,
-            },
-            UnitInstance {
-                archetype: UnitArchetype::IronVanguard,
-                stars: 2,
-            },
-            UnitInstance::new(UnitArchetype::VoltJuggler),
-            UnitInstance::new(UnitArchetype::GraveWarden),
+            mint_starred_unit(identity, UnitArchetype::AshDuelist, 2),
+            mint_starred_unit(identity, UnitArchetype::IronVanguard, 2),
+            UnitInstance::new(UnitArchetype::VoltJuggler, identity),
+            UnitInstance::new(UnitArchetype::GraveWarden, identity),
         ],
         5 => vec![
-            UnitInstance {
-                archetype: UnitArchetype::IronVanguard,
-                stars: 2,
-            },
-            UnitInstance::new(UnitArchetype::SignalRanger),
-            UnitInstance::new(UnitArchetype::VoltJuggler),
-            UnitInstance::new(UnitArchetype::GraveWarden),
+            mint_starred_unit(identity, UnitArchetype::IronVanguard, 2),
+            UnitInstance::new(UnitArchetype::SignalRanger, identity),
+            UnitInstance::new(UnitArchetype::VoltJuggler, identity),
+            UnitInstance::new(UnitArchetype::GraveWarden, identity),
         ],
         6 => vec![
-            UnitInstance {
-                archetype: UnitArchetype::IronVanguard,
-                stars: 2,
-            },
-            UnitInstance {
-                archetype: UnitArchetype::SignalRanger,
-                stars: 2,
-            },
-            UnitInstance::new(UnitArchetype::VoltJuggler),
-            UnitInstance::new(UnitArchetype::GraveWarden),
-            UnitInstance::new(UnitArchetype::AshDuelist),
+            mint_starred_unit(identity, UnitArchetype::IronVanguard, 2),
+            mint_starred_unit(identity, UnitArchetype::SignalRanger, 2),
+            UnitInstance::new(UnitArchetype::VoltJuggler, identity),
+            UnitInstance::new(UnitArchetype::GraveWarden, identity),
+            UnitInstance::new(UnitArchetype::AshDuelist, identity),
         ],
         7 => vec![
-            UnitInstance {
-                archetype: UnitArchetype::SignalRanger,
-                stars: 2,
-            },
-            UnitInstance {
-                archetype: UnitArchetype::VoltJuggler,
-                stars: 2,
-            },
-            UnitInstance::new(UnitArchetype::GraveWarden),
-            UnitInstance::new(UnitArchetype::IronVanguard),
-            UnitInstance::new(UnitArchetype::AshDuelist),
+            mint_starred_unit(identity, UnitArchetype::SignalRanger, 2),
+            mint_starred_unit(identity, UnitArchetype::VoltJuggler, 2),
+            UnitInstance::new(UnitArchetype::GraveWarden, identity),
+            UnitInstance::new(UnitArchetype::IronVanguard, identity),
+            UnitInstance::new(UnitArchetype::AshDuelist, identity),
         ],
         _ => vec![
-            UnitInstance {
-                archetype: UnitArchetype::SignalRanger,
-                stars: 2,
-            },
-            UnitInstance {
-                archetype: UnitArchetype::VoltJuggler,
-                stars: 2,
-            },
-            UnitInstance {
-                archetype: UnitArchetype::GraveWarden,
-                stars: 2,
-            },
-            UnitInstance {
-                archetype: UnitArchetype::IronVanguard,
-                stars: 2,
-            },
-            UnitInstance::new(UnitArchetype::AshDuelist),
+            mint_starred_unit(identity, UnitArchetype::SignalRanger, 2),
+            mint_starred_unit(identity, UnitArchetype::VoltJuggler, 2),
+            mint_starred_unit(identity, UnitArchetype::GraveWarden, 2),
+            mint_starred_unit(identity, UnitArchetype::IronVanguard, 2),
+            UnitInstance::new(UnitArchetype::AshDuelist, identity),
         ],
     };
 
@@ -2484,10 +3469,21 @@ fn normalize_player_squad(player_squad: &mut PlayerSquad, locale: RuntimeLocale)
                         UnitLocation::Board(index) => Some(*index),
                         UnitLocation::Bench(_) => None,
                     });
+                    let anchor_unit = consumed
+                        .iter()
+                        .find_map(|location| unit_at_location(player_squad, *location))
+                        .unwrap_or(UnitInstance {
+                            agent_id: 0,
+                            battle_instance_id: 0,
+                            archetype,
+                            stars,
+                        });
 
                     remove_locations(player_squad, &consumed);
 
                     let upgraded = UnitInstance {
+                        agent_id: anchor_unit.agent_id,
+                        battle_instance_id: anchor_unit.battle_instance_id,
                         archetype,
                         stars: stars + 1,
                     };
@@ -2555,6 +3551,13 @@ fn matching_locations(
     );
 
     matches
+}
+
+fn unit_at_location(player_squad: &PlayerSquad, location: UnitLocation) -> Option<UnitInstance> {
+    match location {
+        UnitLocation::Board(index) => player_squad.board.get(index).copied().flatten(),
+        UnitLocation::Bench(index) => player_squad.bench.get(index).copied(),
+    }
 }
 
 fn remove_locations(player_squad: &mut PlayerSquad, locations: &[UnitLocation]) {
@@ -2670,11 +3673,7 @@ fn deploy_cap_for_level(level: u32) -> usize {
 }
 
 fn xp_to_next_level(level: u32) -> u32 {
-    if level >= max_level() {
-        0
-    } else {
-        4
-    }
+    if level >= max_level() { 0 } else { 4 }
 }
 
 fn grant_xp(combat: &mut CombatState, amount: u32) -> u32 {
@@ -2821,5 +3820,562 @@ fn tile_color(row: usize, col: usize) -> Color {
         Color::linear_rgba(0.17, 0.11, 0.14, 0.96)
     } else {
         Color::linear_rgba(0.14, 0.08, 0.11, 0.96)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn snapshot(
+        entity_id: u32,
+        owner: UnitOwner,
+        slot_index: usize,
+        archetype: UnitArchetype,
+        health: i32,
+        max_health: i32,
+        attack: u32,
+        action_counter: u32,
+    ) -> CombatUnitSnapshot {
+        CombatUnitSnapshot {
+            entity: Entity::from_raw_u32(entity_id).expect("valid entity"),
+            owner,
+            slot_index,
+            agent_id: entity_id as u64,
+            battle_instance_id: entity_id as u64,
+            archetype,
+            stars: 1,
+            health,
+            max_health,
+            attack,
+            action_counter,
+        }
+    }
+
+    fn seeded_identity() -> IdentityState {
+        IdentityState::default()
+    }
+
+    fn seeded_squads() -> (IdentityState, PlayerSquad, EnemySquad) {
+        let mut identity = seeded_identity();
+        let player_squad = PlayerSquad {
+            board: [
+                Some(UnitInstance::new(
+                    UnitArchetype::VerdantBruiser,
+                    &mut identity,
+                )),
+                Some(UnitInstance::new(UnitArchetype::EmberMedic, &mut identity)),
+                None,
+                None,
+                None,
+            ],
+            bench: vec![UnitInstance::new(
+                UnitArchetype::SignalRanger,
+                &mut identity,
+            )],
+        };
+        let enemy_squad = EnemySquad {
+            units: seed_enemy_squad(3, &mut identity),
+        };
+
+        (identity, player_squad, enemy_squad)
+    }
+
+    fn directive_order(
+        directive: CombatDirective,
+        lane: Option<CombatDirectiveLane>,
+        duration_ticks: u32,
+    ) -> CombatDirectiveOrder {
+        CombatDirectiveOrder::new(directive, lane, Some(duration_ticks))
+    }
+
+    #[test]
+    fn merges_three_matching_copies_across_board_and_bench() {
+        let mut identity = IdentityState::default();
+        let mut squad = PlayerSquad {
+            board: [
+                Some(UnitInstance::new(
+                    UnitArchetype::VerdantBruiser,
+                    &mut identity,
+                )),
+                None,
+                None,
+                None,
+                None,
+            ],
+            bench: vec![
+                UnitInstance::new(UnitArchetype::VerdantBruiser, &mut identity),
+                UnitInstance::new(UnitArchetype::VerdantBruiser, &mut identity),
+            ],
+        };
+
+        let anchor_agent_id = squad.board[0].map(|unit| unit.agent_id).unwrap_or_default();
+        let anchor_battle_instance_id = squad.board[0]
+            .map(|unit| unit.battle_instance_id)
+            .unwrap_or_default();
+
+        let messages = normalize_player_squad(&mut squad, RuntimeLocale::En);
+
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].contains("Verdant Bruiser II"));
+        assert_eq!(
+            squad.board[0],
+            Some(UnitInstance {
+                agent_id: anchor_agent_id,
+                battle_instance_id: anchor_battle_instance_id,
+                archetype: UnitArchetype::VerdantBruiser,
+                stars: 2,
+            })
+        );
+        assert!(squad.bench.is_empty());
+    }
+
+    #[test]
+    fn focus_backline_directive_biases_player_targeting() {
+        let attacker = snapshot(
+            1,
+            UnitOwner::Player,
+            0,
+            UnitArchetype::SignalRanger,
+            10,
+            10,
+            5,
+            0,
+        );
+        let enemy_front = snapshot(
+            2,
+            UnitOwner::Enemy,
+            4,
+            UnitArchetype::IronVanguard,
+            4,
+            16,
+            3,
+            0,
+        );
+        let enemy_back = snapshot(
+            3,
+            UnitOwner::Enemy,
+            1,
+            UnitArchetype::FrostOracle,
+            9,
+            9,
+            6,
+            0,
+        );
+
+        let baseline_target =
+            select_target(attacker, &[enemy_front, enemy_back], None).expect("target");
+        let focused_target = select_target(
+            attacker,
+            &[enemy_front, enemy_back],
+            Some(directive_order(CombatDirective::FocusBackline, None, 3)),
+        )
+        .expect("target");
+
+        assert_eq!(baseline_target.entity, enemy_front.entity);
+        assert_eq!(focused_target.entity, enemy_back.entity);
+    }
+
+    #[test]
+    fn hold_skills_directive_suppresses_cadence_bonus_damage() {
+        let attacker = snapshot(
+            1,
+            UnitOwner::Player,
+            0,
+            UnitArchetype::SignalRanger,
+            10,
+            10,
+            5,
+            1,
+        );
+        let target = snapshot(
+            2,
+            UnitOwner::Enemy,
+            0,
+            UnitArchetype::VerdantBruiser,
+            14,
+            14,
+            4,
+            0,
+        );
+
+        let baseline = resolve_attack(attacker, &[attacker], &[target], RuntimeLocale::En, None)
+            .expect("baseline action");
+        let held = resolve_attack(
+            attacker,
+            &[attacker],
+            &[target],
+            RuntimeLocale::En,
+            Some(directive_order(CombatDirective::HoldSkills, None, 2)),
+        )
+        .expect("held action");
+
+        assert_eq!(baseline.hits[0].1, 7);
+        assert_eq!(held.hits[0].1, 5);
+        assert!(held.highlight.contains("held the skill window"));
+    }
+
+    #[test]
+    fn fallback_left_directive_deprioritizes_left_wing_targets() {
+        let enemy_attacker = snapshot(
+            9,
+            UnitOwner::Enemy,
+            0,
+            UnitArchetype::SignalRanger,
+            10,
+            10,
+            5,
+            0,
+        );
+        let left_wing = snapshot(
+            10,
+            UnitOwner::Player,
+            0,
+            UnitArchetype::VerdantBruiser,
+            4,
+            15,
+            4,
+            0,
+        );
+        let center_lane = snapshot(
+            11,
+            UnitOwner::Player,
+            2,
+            UnitArchetype::AshDuelist,
+            8,
+            12,
+            4,
+            0,
+        );
+
+        let redirected = select_target(
+            enemy_attacker,
+            &[left_wing, center_lane],
+            Some(directive_order(CombatDirective::FallbackLeft, None, 3)),
+        )
+        .expect("redirected target");
+
+        assert_eq!(redirected.entity, center_lane.entity);
+        assert_eq!(
+            mitigate_damage(
+                left_wing.archetype,
+                4,
+                left_wing.owner,
+                left_wing.slot_index,
+                Some(directive_order(CombatDirective::FallbackLeft, None, 3)),
+            ),
+            3
+        );
+    }
+
+    #[test]
+    fn focus_backline_lane_bias_prefers_matching_backline_target() {
+        let attacker = snapshot(
+            1,
+            UnitOwner::Player,
+            0,
+            UnitArchetype::SignalRanger,
+            10,
+            10,
+            5,
+            0,
+        );
+        let left_back = snapshot(
+            2,
+            UnitOwner::Enemy,
+            1,
+            UnitArchetype::FrostOracle,
+            9,
+            9,
+            6,
+            0,
+        );
+        let right_back = snapshot(
+            3,
+            UnitOwner::Enemy,
+            3,
+            UnitArchetype::VoltJuggler,
+            11,
+            11,
+            5,
+            0,
+        );
+
+        let focused_target = select_target(
+            attacker,
+            &[left_back, right_back],
+            Some(directive_order(
+                CombatDirective::FocusBackline,
+                Some(CombatDirectiveLane::Right),
+                3,
+            )),
+        )
+        .expect("target");
+
+        assert_eq!(focused_target.entity, right_back.entity);
+    }
+
+    #[test]
+    fn hold_skills_lane_only_suppresses_units_on_that_lane() {
+        let left_attacker = snapshot(
+            1,
+            UnitOwner::Player,
+            0,
+            UnitArchetype::SignalRanger,
+            10,
+            10,
+            5,
+            1,
+        );
+        let right_attacker = snapshot(
+            2,
+            UnitOwner::Player,
+            3,
+            UnitArchetype::SignalRanger,
+            10,
+            10,
+            5,
+            1,
+        );
+        let target = snapshot(
+            3,
+            UnitOwner::Enemy,
+            0,
+            UnitArchetype::VerdantBruiser,
+            14,
+            14,
+            4,
+            0,
+        );
+        let directive = directive_order(
+            CombatDirective::HoldSkills,
+            Some(CombatDirectiveLane::Left),
+            2,
+        );
+
+        let left_action = resolve_attack(
+            left_attacker,
+            &[left_attacker, right_attacker],
+            &[target],
+            RuntimeLocale::En,
+            Some(directive),
+        )
+        .expect("left action");
+        let right_action = resolve_attack(
+            right_attacker,
+            &[left_attacker, right_attacker],
+            &[target],
+            RuntimeLocale::En,
+            Some(directive),
+        )
+        .expect("right action");
+
+        assert_eq!(left_action.hits[0].1, 5);
+        assert_eq!(right_action.hits[0].1, 7);
+    }
+
+    #[test]
+    fn replace_combat_plan_sets_active_and_queue() {
+        let mut combat = CombatState::default();
+        combat.phase = CombatPhase::Preparation;
+
+        replace_combat_plan(
+            &mut combat,
+            vec![
+                directive_order(CombatDirective::HoldSkills, None, 2),
+                directive_order(
+                    CombatDirective::FocusBackline,
+                    Some(CombatDirectiveLane::Right),
+                    3,
+                ),
+            ],
+            RuntimeLocale::En,
+        );
+
+        assert_eq!(
+            combat.active_directive.map(|directive| directive.directive),
+            Some(CombatDirective::HoldSkills)
+        );
+        assert_eq!(combat.queued_directives.len(), 1);
+        assert_eq!(
+            combat.queued_directives[0].lane,
+            Some(CombatDirectiveLane::Right)
+        );
+    }
+
+    #[test]
+    fn combat_plan_advances_after_duration_expires() {
+        let mut combat = CombatState::default();
+        combat.phase = CombatPhase::Combat;
+
+        replace_combat_plan(
+            &mut combat,
+            vec![
+                directive_order(CombatDirective::HoldSkills, None, 1),
+                directive_order(
+                    CombatDirective::FocusBackline,
+                    Some(CombatDirectiveLane::Right),
+                    3,
+                ),
+            ],
+            RuntimeLocale::En,
+        );
+
+        advance_combat_plan_tick(&mut combat);
+
+        let active = combat.active_directive.expect("promoted directive");
+        assert_eq!(active.directive, CombatDirective::FocusBackline);
+        assert_eq!(active.remaining_ticks, 3);
+        assert!(combat.queued_directives.is_empty());
+    }
+
+    #[test]
+    fn clear_combat_plan_empties_active_and_queue() {
+        let mut combat = CombatState::default();
+
+        replace_combat_plan(
+            &mut combat,
+            vec![
+                directive_order(CombatDirective::HoldSkills, None, 2),
+                directive_order(CombatDirective::FallbackLeft, None, 3),
+            ],
+            RuntimeLocale::ZhCn,
+        );
+        clear_combat_plan(&mut combat, RuntimeLocale::ZhCn);
+
+        assert!(combat.active_directive.is_none());
+        assert!(combat.queued_directives.is_empty());
+    }
+
+    #[test]
+    fn round_income_preview_respects_interest_caps_and_streaks() {
+        let standard = round_income_preview(25, 4, &[]);
+        assert_eq!(standard, (ROUND_BASE_INCOME, MAX_INTEREST_INCOME, 2));
+
+        let with_compound_interest = round_income_preview(25, 4, &[AugmentKind::CompoundInterest]);
+        assert_eq!(
+            with_compound_interest,
+            (ROUND_BASE_INCOME, MAX_INTEREST_INCOME + 1, 2)
+        );
+    }
+
+    #[test]
+    fn grant_xp_levels_up_and_unlocks_extra_deployment_capacity() {
+        let mut combat = CombatState::default();
+        combat.xp = 3;
+
+        let levels_gained = grant_xp(&mut combat, 1);
+
+        assert_eq!(levels_gained, 1);
+        assert_eq!(combat.level, 2);
+        assert_eq!(combat.xp, 0);
+        assert_eq!(combat.deployment_cap, deploy_cap_for_level(2));
+    }
+
+    #[test]
+    fn resolved_stats_stack_traits_and_augments_for_readable_builds() {
+        let mut identity = seeded_identity();
+        let unit = UnitInstance::new(UnitArchetype::SignalRanger, &mut identity);
+
+        let stats = resolved_stats(
+            unit,
+            TraitBuffs {
+                dawn_active: true,
+                dusk_active: false,
+                vanguard_active: false,
+                skirmisher_active: true,
+            },
+            &[AugmentKind::SkirmisherDrive, AugmentKind::DawnPulse],
+        );
+
+        assert_eq!(stats.attack, 9);
+        assert_eq!(stats.max_health, unit.archetype.base_health());
+    }
+
+    #[test]
+    fn seed_enemy_squad_scales_to_the_final_board_cap() {
+        let mut identity = seeded_identity();
+        let opening = seed_enemy_squad(1, &mut identity);
+        let late_game = seed_enemy_squad(FINAL_ROUND, &mut identity);
+
+        assert_eq!(opening.len(), 2);
+        assert_eq!(late_game.len(), ENEMY_SLOTS.len());
+        assert!(late_game.iter().filter(|unit| unit.stars == 2).count() >= 3);
+    }
+
+    #[test]
+    fn serialize_run_state_tracks_live_combat_and_skips_finished_runs() {
+        let (identity, player_squad, enemy_squad) = seeded_squads();
+        let shop = ShopState::default();
+        let augments = AugmentState::default();
+
+        let prep_combat = CombatState::default();
+        let prep_serialized = serialize_run_state_from_persisted_live_units(
+            &prep_combat,
+            &shop,
+            &identity,
+            &player_squad,
+            &enemy_squad,
+            &augments,
+            &[PersistedLiveUnit {
+                owner: UnitOwner::Player,
+                slot_index: 0,
+                agent_id: 11,
+                battle_instance_id: 22,
+                archetype: UnitArchetype::VerdantBruiser,
+                stars: 1,
+                health: 12,
+                max_health: 15,
+                attack: 4,
+                action_counter: 1,
+            }],
+        )
+        .expect("prep state should serialize");
+        let prep_state = serde_json::from_str::<PersistedRunState>(&prep_serialized)
+            .expect("prep state should deserialize");
+        assert!(prep_state.live_units.is_empty());
+
+        let mut combat_state = CombatState::default();
+        combat_state.phase = CombatPhase::Combat;
+        let combat_serialized = serialize_run_state_from_persisted_live_units(
+            &combat_state,
+            &shop,
+            &identity,
+            &player_squad,
+            &enemy_squad,
+            &augments,
+            &[PersistedLiveUnit {
+                owner: UnitOwner::Enemy,
+                slot_index: 1,
+                agent_id: 33,
+                battle_instance_id: 44,
+                archetype: UnitArchetype::IronVanguard,
+                stars: 2,
+                health: 20,
+                max_health: 28,
+                attack: 6,
+                action_counter: 2,
+            }],
+        )
+        .expect("combat state should serialize");
+        let combat_state = serde_json::from_str::<PersistedRunState>(&combat_serialized)
+            .expect("combat state should deserialize");
+        assert_eq!(combat_state.live_units.len(), 1);
+        assert_eq!(combat_state.live_units[0].owner, UnitOwner::Enemy);
+
+        let mut completed_run = CombatState::default();
+        completed_run.run_over = true;
+        assert!(
+            serialize_run_state_from_persisted_live_units(
+                &completed_run,
+                &shop,
+                &identity,
+                &player_squad,
+                &enemy_squad,
+                &augments,
+                &[],
+            )
+            .is_none()
+        );
     }
 }

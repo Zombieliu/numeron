@@ -43,6 +43,7 @@ pub struct RuntimeConfig {
     pub player_name: String,
     pub touch_controls: bool,
     pub locale: RuntimeLocale,
+    pub resume_state_json: Option<String>,
 }
 
 impl Default for RuntimeConfig {
@@ -51,6 +52,7 @@ impl Default for RuntimeConfig {
             player_name: "Pilot".to_owned(),
             touch_controls: true,
             locale: RuntimeLocale::En,
+            resume_state_json: None,
         }
     }
 }

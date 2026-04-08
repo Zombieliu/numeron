@@ -1,6 +1,6 @@
 ## Summary
 
-Describe the template change and the downstream user impact.
+Describe the Numeron change and the player or release impact.
 
 ## Verification
 
@@ -9,14 +9,14 @@ Describe the template change and the downstream user impact.
 - [ ] `pnpm build`
 - [ ] `pnpm smoke:web`
 
-## Template Impact
+## Change Area
 
 - [ ] shared runtime bootstrap
 - [ ] web shell
 - [ ] starter scene
 - [ ] release / deployment workflow
-- [ ] docs / onboarding
+- [ ] docs / release notes
 
-## Migration Notes
+## Follow-Up Notes
 
-List anything downstream template users would need to update or re-check.
+List anything that still blocks or meaningfully affects the `v0.0.1` ship gate.

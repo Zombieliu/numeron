@@ -1,0 +1,41 @@
+{
+  "name": "numeron-contracts",
+  "private": true,
+  "version": "0.0.1",
+  "exports": {
+    "./deployment": "./deployment.ts",
+    "./dubhe-config": "./dubhe.config.json",
+    "./metadata": "./metadata.json",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "account:gen": "./node_modules/.bin/dubhe generate-key",
+    "check-balance": "./node_modules/.bin/dubhe check-balance --network",
+    "config:store": "./node_modules/.bin/dubhe store-config --output-ts-path ./deployment.ts --network",
+    "deploy": "./node_modules/.bin/dubhe publish --network",
+    "deploy:localnet": "./node_modules/.bin/dubhe publish --network localnet",
+    "faucet": "./node_modules/.bin/dubhe faucet --network",
+    "faucet:localnet": "./node_modules/.bin/dubhe faucet --network localnet",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "generate": "node ./scripts/generate.mjs",
+    "build:move": "sui move build -e testnet --path ./src/numeron",
+    "start:localnet": "./node_modules/.bin/dubhe node --force",
+    "setup:localnet": "pnpm generate && pnpm account:gen && pnpm faucet:localnet && pnpm deploy:localnet && ./node_modules/.bin/dubhe store-config --network localnet --output-ts-path ./deployment.ts",
+    "test:move": "sui move test --build-env testnet --path ./src/numeron",
+    "type-check": "tsc --noEmit",
+    "upgrade": "./node_modules/.bin/dubhe upgrade --network",
+    "validate": "pnpm format:check && pnpm type-check"
+  },
+  "dependencies": {
+    "@0xobelisk/sui-cli": "1.2.0-pre.117",
+    "@0xobelisk/sui-client": "1.2.0-pre.117",
+    "@0xobelisk/sui-common": "1.2.0-pre.117",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "prettier": "3.3.3",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,5753 @@
+{
+  "agent_profile": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "agent_profile",
+    "friends": [
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "numeron_system"
+      }
+    ],
+    "structs": {
+      "AgentProfile": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop",
+            "Store"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "owner",
+            "type": "Address"
+          },
+          {
+            "name": "archetype",
+            "type": "U8"
+          },
+          {
+            "name": "faction",
+            "type": "U8"
+          },
+          {
+            "name": "role",
+            "type": "U8"
+          },
+          {
+            "name": "created_at_ms",
+            "type": "U64"
+          },
+          {
+            "name": "last_seen_at_ms",
+            "type": "U64"
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "archetype": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "created_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "decode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Vector": "U8"
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "agent_profile",
+              "name": "AgentProfile",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "delete": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "encode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "Address",
+          "U8",
+          "U8",
+          "U8",
+          "U64",
+          "U64"
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "encode_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "agent_profile",
+              "name": "AgentProfile",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "ensure_has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "ensure_has_not": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "faction": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "get": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Address",
+          "U8",
+          "U8",
+          "U8",
+          "U64",
+          "U64"
+        ]
+      },
+      "get_archetype": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "get_created_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_faction": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "get_last_seen_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_owner": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Address"
+        ]
+      },
+      "get_role": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "get_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "agent_profile",
+              "name": "AgentProfile",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "last_seen_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "new": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "Address",
+          "U8",
+          "U8",
+          "U8",
+          "U64",
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "agent_profile",
+              "name": "AgentProfile",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "owner": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "Address"
+        ]
+      },
+      "role": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "set": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "Address",
+          "U8",
+          "U8",
+          "U8",
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_archetype": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_created_at_ms": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_faction": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_last_seen_at_ms": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_owner": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "Address",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_role": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_struct": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "agent_profile",
+              "name": "AgentProfile",
+              "typeArguments": []
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "update_archetype": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          },
+          "U8"
+        ],
+        "return": []
+      },
+      "update_created_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_faction": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          },
+          "U8"
+        ],
+        "return": []
+      },
+      "update_last_seen_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_owner": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          },
+          "Address"
+        ],
+        "return": []
+      },
+      "update_role": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "agent_profile",
+                "name": "AgentProfile",
+                "typeArguments": []
+              }
+            }
+          },
+          "U8"
+        ],
+        "return": []
+      }
+    }
+  },
+  "dapp_key": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "dapp_key",
+    "friends": [
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "agent_profile"
+      },
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "extension_registry"
+      },
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "genesis"
+      },
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "match_participation"
+      },
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "match_record"
+      },
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "replay_anchor"
+      },
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "reward_claim"
+      },
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "season_config"
+      }
+    ],
+    "structs": {
+      "DappKey": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "dummy_field",
+            "type": "Bool"
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "eq": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [
+          {
+            "abilities": [
+              "Copy",
+              "Drop"
+            ]
+          },
+          {
+            "abilities": [
+              "Copy",
+              "Drop"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "Reference": {
+              "TypeParameter": 0
+            }
+          },
+          {
+            "Reference": {
+              "TypeParameter": 1
+            }
+          }
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "new": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "dapp_key",
+              "name": "DappKey",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "package_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          "Address"
+        ]
+      },
+      "to_string": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x1",
+              "module": "ascii",
+              "name": "String",
+              "typeArguments": []
+            }
+          }
+        ]
+      }
+    }
+  },
+  "deploy_hook": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "deploy_hook",
+    "friends": [
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "genesis"
+      }
+    ],
+    "structs": {},
+    "exposedFunctions": {
+      "run": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "DappStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      }
+    }
+  },
+  "extension_registry": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "extension_registry",
+    "friends": [
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "numeron_system"
+      }
+    ],
+    "structs": {
+      "ExtensionRegistry": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop",
+            "Store"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "publisher",
+            "type": "Address"
+          },
+          {
+            "name": "namespace",
+            "type": "U64"
+          },
+          {
+            "name": "schema_version",
+            "type": "U32"
+          },
+          {
+            "name": "target_kind",
+            "type": "U8"
+          },
+          {
+            "name": "enabled",
+            "type": "Bool"
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "decode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Vector": "U8"
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "extension_registry",
+              "name": "ExtensionRegistry",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "delete": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "enabled": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "extension_registry",
+                "name": "ExtensionRegistry",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "encode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "Address",
+          "U64",
+          "U32",
+          "U8",
+          "Bool"
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "encode_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "extension_registry",
+              "name": "ExtensionRegistry",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "ensure_has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "ensure_has_not": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "get": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Address",
+          "U64",
+          "U32",
+          "U8",
+          "Bool"
+        ]
+      },
+      "get_enabled": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "get_namespace": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_publisher": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Address"
+        ]
+      },
+      "get_schema_version": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U32"
+        ]
+      },
+      "get_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "extension_registry",
+              "name": "ExtensionRegistry",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "get_target_kind": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "namespace": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "extension_registry",
+                "name": "ExtensionRegistry",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "new": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "Address",
+          "U64",
+          "U32",
+          "U8",
+          "Bool"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "extension_registry",
+              "name": "ExtensionRegistry",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "publisher": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "extension_registry",
+                "name": "ExtensionRegistry",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "Address"
+        ]
+      },
+      "schema_version": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "extension_registry",
+                "name": "ExtensionRegistry",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U32"
+        ]
+      },
+      "set": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "Address",
+          "U64",
+          "U32",
+          "U8",
+          "Bool",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_enabled": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "Bool",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_namespace": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_publisher": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "Address",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_schema_version": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U32",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_struct": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "extension_registry",
+              "name": "ExtensionRegistry",
+              "typeArguments": []
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_target_kind": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "target_kind": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "extension_registry",
+                "name": "ExtensionRegistry",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "update_enabled": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "extension_registry",
+                "name": "ExtensionRegistry",
+                "typeArguments": []
+              }
+            }
+          },
+          "Bool"
+        ],
+        "return": []
+      },
+      "update_namespace": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "extension_registry",
+                "name": "ExtensionRegistry",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_publisher": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "extension_registry",
+                "name": "ExtensionRegistry",
+                "typeArguments": []
+              }
+            }
+          },
+          "Address"
+        ],
+        "return": []
+      },
+      "update_schema_version": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "extension_registry",
+                "name": "ExtensionRegistry",
+                "typeArguments": []
+              }
+            }
+          },
+          "U32"
+        ],
+        "return": []
+      },
+      "update_target_kind": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "extension_registry",
+                "name": "ExtensionRegistry",
+                "typeArguments": []
+              }
+            }
+          },
+          "U8"
+        ],
+        "return": []
+      }
+    }
+  },
+  "genesis": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "genesis",
+    "friends": [],
+    "structs": {},
+    "exposedFunctions": {
+      "migrate": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "DappStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "run": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "clock",
+                "name": "Clock",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      }
+    }
+  },
+  "match_participation": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "match_participation",
+    "friends": [
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "numeron_system"
+      }
+    ],
+    "structs": {
+      "MatchParticipation": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop",
+            "Store"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "participation_id",
+            "type": "U64"
+          },
+          {
+            "name": "battle_instance_id",
+            "type": "U64"
+          },
+          {
+            "name": "team",
+            "type": "U8"
+          },
+          {
+            "name": "placement",
+            "type": "U8"
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "battle_instance_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_participation",
+                "name": "MatchParticipation",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "decode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Vector": "U8"
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "match_participation",
+              "name": "MatchParticipation",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "delete": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "encode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U64",
+          "U64",
+          "U8",
+          "U8"
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "encode_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "match_participation",
+              "name": "MatchParticipation",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "ensure_has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": []
+      },
+      "ensure_has_not": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": []
+      },
+      "get": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "U64",
+          "U64",
+          "U8",
+          "U8"
+        ]
+      },
+      "get_battle_instance_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_participation_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_placement": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "get_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "match_participation",
+              "name": "MatchParticipation",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "get_team": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "new": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U64",
+          "U64",
+          "U8",
+          "U8"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "match_participation",
+              "name": "MatchParticipation",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "participation_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_participation",
+                "name": "MatchParticipation",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "placement": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_participation",
+                "name": "MatchParticipation",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "set": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U64",
+          "U64",
+          "U8",
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_battle_instance_id": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_participation_id": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_placement": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_struct": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "match_participation",
+              "name": "MatchParticipation",
+              "typeArguments": []
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_team": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "team": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_participation",
+                "name": "MatchParticipation",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "update_battle_instance_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_participation",
+                "name": "MatchParticipation",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_participation_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_participation",
+                "name": "MatchParticipation",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_placement": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_participation",
+                "name": "MatchParticipation",
+                "typeArguments": []
+              }
+            }
+          },
+          "U8"
+        ],
+        "return": []
+      },
+      "update_team": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_participation",
+                "name": "MatchParticipation",
+                "typeArguments": []
+              }
+            }
+          },
+          "U8"
+        ],
+        "return": []
+      }
+    }
+  },
+  "match_record": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "match_record",
+    "friends": [
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "numeron_system"
+      }
+    ],
+    "structs": {
+      "MatchRecord": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop",
+            "Store"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "season_id",
+            "type": "U64"
+          },
+          {
+            "name": "result",
+            "type": "U8"
+          },
+          {
+            "name": "round",
+            "type": "U32"
+          },
+          {
+            "name": "score",
+            "type": "U64"
+          },
+          {
+            "name": "started_at_ms",
+            "type": "U64"
+          },
+          {
+            "name": "ended_at_ms",
+            "type": "U64"
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "decode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Vector": "U8"
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "match_record",
+              "name": "MatchRecord",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "delete": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "encode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U64",
+          "U8",
+          "U32",
+          "U64",
+          "U64",
+          "U64"
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "encode_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "match_record",
+              "name": "MatchRecord",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "ended_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "ensure_has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "ensure_has_not": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "get": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64",
+          "U8",
+          "U32",
+          "U64",
+          "U64",
+          "U64"
+        ]
+      },
+      "get_ended_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_result": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "get_round": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U32"
+        ]
+      },
+      "get_score": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_season_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_started_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "match_record",
+              "name": "MatchRecord",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "new": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U64",
+          "U8",
+          "U32",
+          "U64",
+          "U64",
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "match_record",
+              "name": "MatchRecord",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "result": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "round": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U32"
+        ]
+      },
+      "score": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "season_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "set": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U8",
+          "U32",
+          "U64",
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_ended_at_ms": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_result": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_round": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U32",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_score": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_season_id": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_started_at_ms": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_struct": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "match_record",
+              "name": "MatchRecord",
+              "typeArguments": []
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "started_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "update_ended_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_result": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          },
+          "U8"
+        ],
+        "return": []
+      },
+      "update_round": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          },
+          "U32"
+        ],
+        "return": []
+      },
+      "update_score": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_season_id": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_started_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "match_record",
+                "name": "MatchRecord",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      }
+    }
+  },
+  "migrate": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "migrate",
+    "friends": [],
+    "structs": {},
+    "exposedFunctions": {
+      "on_chain_version": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [],
+        "return": [
+          "U32"
+        ]
+      }
+    }
+  },
+  "numeron_system": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "numeron_system",
+    "friends": [],
+    "structs": {},
+    "exposedFunctions": {
+      "anchor_replay": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U128",
+          "U128",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "claim_reward": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U8",
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "record_match": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U8",
+          "U32",
+          "U64",
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "record_match_participation": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U64",
+          "U64",
+          "U8",
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "register_extension": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "Address",
+          "U64",
+          "U32",
+          "U8",
+          "Bool",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "upsert_agent_profile": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "Address",
+          "U8",
+          "U8",
+          "U8",
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "upsert_season_config": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U32",
+          "U64",
+          "U64",
+          "Bool",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      }
+    }
+  },
+  "replay_anchor": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "replay_anchor",
+    "friends": [
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "numeron_system"
+      }
+    ],
+    "structs": {
+      "ReplayAnchor": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop",
+            "Store"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "walrus_blob_epoch",
+            "type": "U64"
+          },
+          {
+            "name": "replay_digest_hi",
+            "type": "U128"
+          },
+          {
+            "name": "replay_digest_lo",
+            "type": "U128"
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "decode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Vector": "U8"
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "replay_anchor",
+              "name": "ReplayAnchor",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "delete": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "encode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U64",
+          "U128",
+          "U128"
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "encode_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "replay_anchor",
+              "name": "ReplayAnchor",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "ensure_has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "ensure_has_not": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "get": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64",
+          "U128",
+          "U128"
+        ]
+      },
+      "get_replay_digest_hi": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U128"
+        ]
+      },
+      "get_replay_digest_lo": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U128"
+        ]
+      },
+      "get_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "replay_anchor",
+              "name": "ReplayAnchor",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "get_walrus_blob_epoch": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "new": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U64",
+          "U128",
+          "U128"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "replay_anchor",
+              "name": "ReplayAnchor",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "replay_digest_hi": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "replay_anchor",
+                "name": "ReplayAnchor",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U128"
+        ]
+      },
+      "replay_digest_lo": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "replay_anchor",
+                "name": "ReplayAnchor",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U128"
+        ]
+      },
+      "set": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U128",
+          "U128",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_replay_digest_hi": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U128",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_replay_digest_lo": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U128",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_struct": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "replay_anchor",
+              "name": "ReplayAnchor",
+              "typeArguments": []
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_walrus_blob_epoch": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "update_replay_digest_hi": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "replay_anchor",
+                "name": "ReplayAnchor",
+                "typeArguments": []
+              }
+            }
+          },
+          "U128"
+        ],
+        "return": []
+      },
+      "update_replay_digest_lo": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "replay_anchor",
+                "name": "ReplayAnchor",
+                "typeArguments": []
+              }
+            }
+          },
+          "U128"
+        ],
+        "return": []
+      },
+      "update_walrus_blob_epoch": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "replay_anchor",
+                "name": "ReplayAnchor",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "walrus_blob_epoch": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "replay_anchor",
+                "name": "ReplayAnchor",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      }
+    }
+  },
+  "reward_claim": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "reward_claim",
+    "friends": [
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "numeron_system"
+      }
+    ],
+    "structs": {
+      "RewardClaim": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop",
+            "Store"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "reward_type",
+            "type": "U8"
+          },
+          {
+            "name": "amount",
+            "type": "U64"
+          },
+          {
+            "name": "claimed_at_ms",
+            "type": "U64"
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "amount": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "reward_claim",
+                "name": "RewardClaim",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "claimed_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "reward_claim",
+                "name": "RewardClaim",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "decode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Vector": "U8"
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "reward_claim",
+              "name": "RewardClaim",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "delete": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "encode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U8",
+          "U64",
+          "U64"
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "encode_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "reward_claim",
+              "name": "RewardClaim",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "ensure_has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": []
+      },
+      "ensure_has_not": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": []
+      },
+      "get": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "U8",
+          "U64",
+          "U64"
+        ]
+      },
+      "get_amount": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_claimed_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_reward_type": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "get_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "reward_claim",
+              "name": "RewardClaim",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64"
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "new": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U8",
+          "U64",
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "reward_claim",
+              "name": "RewardClaim",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "reward_type": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "reward_claim",
+                "name": "RewardClaim",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U8"
+        ]
+      },
+      "set": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U8",
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_amount": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_claimed_at_ms": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_reward_type": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          "U8",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_struct": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "reward_claim",
+              "name": "RewardClaim",
+              "typeArguments": []
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "update_amount": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "reward_claim",
+                "name": "RewardClaim",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_claimed_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "reward_claim",
+                "name": "RewardClaim",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_reward_type": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "reward_claim",
+                "name": "RewardClaim",
+                "typeArguments": []
+              }
+            }
+          },
+          "U8"
+        ],
+        "return": []
+      }
+    }
+  },
+  "season_config": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "season_config",
+    "friends": [
+      {
+        "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+        "name": "numeron_system"
+      }
+    ],
+    "structs": {
+      "SeasonConfig": {
+        "abilities": {
+          "abilities": [
+            "Copy",
+            "Drop",
+            "Store"
+          ]
+        },
+        "typeParameters": [],
+        "fields": [
+          {
+            "name": "ruleset_version",
+            "type": "U32"
+          },
+          {
+            "name": "start_at_ms",
+            "type": "U64"
+          },
+          {
+            "name": "end_at_ms",
+            "type": "U64"
+          },
+          {
+            "name": "active",
+            "type": "Bool"
+          }
+        ]
+      }
+    },
+    "exposedFunctions": {
+      "active": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "season_config",
+                "name": "SeasonConfig",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "decode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Vector": "U8"
+          }
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "season_config",
+              "name": "SeasonConfig",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "delete": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "encode": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U32",
+          "U64",
+          "U64",
+          "Bool"
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "encode_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "season_config",
+              "name": "SeasonConfig",
+              "typeArguments": []
+            }
+          }
+        ],
+        "return": [
+          {
+            "Vector": {
+              "Vector": "U8"
+            }
+          }
+        ]
+      },
+      "end_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "season_config",
+                "name": "SeasonConfig",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "ensure_has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "ensure_has_not": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "get": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U32",
+          "U64",
+          "U64",
+          "Bool"
+        ]
+      },
+      "get_active": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "get_end_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_ruleset_version": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U32"
+        ]
+      },
+      "get_start_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "get_struct": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "season_config",
+              "name": "SeasonConfig",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "has": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": [
+          "Bool"
+        ]
+      },
+      "new": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          "U32",
+          "U64",
+          "U64",
+          "Bool"
+        ],
+        "return": [
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "season_config",
+              "name": "SeasonConfig",
+              "typeArguments": []
+            }
+          }
+        ]
+      },
+      "ruleset_version": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "season_config",
+                "name": "SeasonConfig",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U32"
+        ]
+      },
+      "set": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U32",
+          "U64",
+          "U64",
+          "Bool",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_active": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "Bool",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_end_at_ms": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_ruleset_version": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U32",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_start_at_ms": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          "U64",
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "set_struct": {
+        "visibility": "Friend",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "UserStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64",
+          {
+            "Struct": {
+              "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+              "module": "season_config",
+              "name": "SeasonConfig",
+              "typeArguments": []
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      },
+      "start_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "season_config",
+                "name": "SeasonConfig",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": [
+          "U64"
+        ]
+      },
+      "update_active": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "season_config",
+                "name": "SeasonConfig",
+                "typeArguments": []
+              }
+            }
+          },
+          "Bool"
+        ],
+        "return": []
+      },
+      "update_end_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "season_config",
+                "name": "SeasonConfig",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      },
+      "update_ruleset_version": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "season_config",
+                "name": "SeasonConfig",
+                "typeArguments": []
+              }
+            }
+          },
+          "U32"
+        ],
+        "return": []
+      },
+      "update_start_at_ms": {
+        "visibility": "Public",
+        "isEntry": false,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+                "module": "season_config",
+                "name": "SeasonConfig",
+                "typeArguments": []
+              }
+            }
+          },
+          "U64"
+        ],
+        "return": []
+      }
+    }
+  },
+  "user_storage_init": {
+    "fileFormatVersion": 6,
+    "address": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+    "name": "user_storage_init",
+    "friends": [],
+    "structs": {},
+    "exposedFunctions": {
+      "init_user_storage": {
+        "visibility": "Public",
+        "isEntry": true,
+        "typeParameters": [],
+        "parameters": [
+          {
+            "Reference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "DappHub",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+                "module": "dapp_service",
+                "name": "DappStorage",
+                "typeArguments": []
+              }
+            }
+          },
+          {
+            "MutableReference": {
+              "Struct": {
+                "address": "0x2",
+                "module": "tx_context",
+                "name": "TxContext",
+                "typeArguments": []
+              }
+            }
+          }
+        ],
+        "return": []
+      }
+    }
+  }
+}

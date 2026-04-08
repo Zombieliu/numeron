@@ -150,10 +150,11 @@ async function runSmoke(url) {
 
     await page.goto(url, { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "简体中文", exact: true }).click();
+    await page.getByTestId("boot-overlay").waitFor({ timeout: 10_000 });
     await page.locator("text=数据模式").first().waitFor({ timeout: 10_000 });
     await page.getByRole("button", { name: "English", exact: true }).click();
     await page.locator("text=Data Mode").first().waitFor({ timeout: 10_000 });
-    const launchButton = page.getByRole("button", { name: "Launch Runtime" });
+    const launchButton = page.getByTestId("canvas-launch-runtime");
     await launchButton.waitFor({ state: "visible" });
     await page.waitForFunction(() => {
       const button = Array.from(document.querySelectorAll("button")).find(
@@ -173,47 +174,70 @@ async function runSmoke(url) {
 
     await launchButton.click();
 
-    await page.locator("text=/scene-ready/i").first().waitFor({ timeout: 30_000 });
+    await page.getByTestId("shop-offer-0").waitFor({ timeout: 30_000 });
+    const operationsDrawer = page.getByTestId("operations-drawer");
+    const drawerExpanded = await operationsDrawer.evaluate((element) => {
+      return element instanceof HTMLDetailsElement && element.open;
+    });
+    if (!drawerExpanded) {
+      await operationsDrawer.locator("summary").click();
+    }
+    await page.getByTestId("status-panel").waitFor({ state: "visible", timeout: 30_000 });
     await page.getByTestId("lock-shop").click();
     await page.getByTestId("lock-shop").waitFor({ state: "visible" });
 
     await page.getByTestId("shop-offer-0").click();
-    await page.getByTestId("bench-slot-1").click();
+    await page.getByTestId("bench-slot-0").click();
     await page.getByTestId("board-slot-0").click();
+    await page.getByTestId("bench-slot-0").click();
+    await page.getByTestId("board-slot-1").click();
     await page.waitForFunction(() => {
       const boardSlot = document.querySelector('[data-testid="board-slot-0"]');
       return Boolean(boardSlot?.textContent && !/Empty Slot/i.test(boardSlot.textContent));
     }, null, { timeout: 10_000 });
     await page.getByTestId("start-combat").click();
-    await page.waitForFunction(() => {
-      const panels = Array.from(document.querySelectorAll("section.panel"));
-      const status = panels.find((panel) => panel.textContent?.includes("Round state:"));
-      return /Resolution phase|Victory|Defeat/i.test(status?.textContent ?? "");
-    }, null, { timeout: 15_000 });
+    await page.waitForFunction(
+      () => {
+        const status = document.querySelector('[data-testid="status-panel"]');
+        return /Resolution phase|Victory|Defeat/i.test(status?.textContent ?? "");
+      },
+      null,
+      { timeout: 15_000 },
+    );
     await page.getByTestId("next-round").click();
-    await page.waitForFunction(() => {
-      const panels = Array.from(document.querySelectorAll("section.panel"));
-      const status = panels.find((panel) => panel.textContent?.includes("Round state:"));
-      return /Round 2 ready|Round 2/i.test(status?.textContent ?? "");
-    }, null, { timeout: 10_000 });
+    await page.waitForFunction(
+      () => {
+        const topbarRound = document.querySelector('[data-testid="topbar-round"]');
+        const battleControls = document.querySelector(
+          '[data-testid="battle-controls-panel"]',
+        );
+        const nextRoundButton = document.querySelector('[data-testid="next-round"]');
+        const roundText = topbarRound?.textContent ?? "";
+        const controlsText = battleControls?.textContent ?? "";
+        const nextRoundDisabled =
+          nextRoundButton instanceof HTMLButtonElement && nextRoundButton.disabled;
 
-    const statusPanel = page.locator("section.panel").filter({ hasText: "Status" }).first();
-    const statusText = await statusPanel.innerText();
-    const progressionPanel = page
-      .locator("section.panel")
-      .filter({ hasText: "Run Meta" })
-      .first();
-    const progressionText = await progressionPanel.innerText();
-    const sessionPanel = page
-      .locator("section.panel")
-      .filter({ hasText: "Active Run" })
-      .first();
-    const sessionText = await sessionPanel.innerText();
-    const dataModePanel = page
-      .locator("section.panel")
-      .filter({ hasText: "Data Mode" })
-      .first();
-    const dataModeText = await dataModePanel.innerText();
+        return /(?:^|\D)2(?:\D|$)/.test(roundText) &&
+          /Phase(?:Preparation|Prep)/i.test(controlsText) &&
+          nextRoundDisabled;
+      },
+      null,
+      { timeout: 10_000 },
+    );
+
+    const statusText = (await page.getByTestId("status-panel").textContent()) ?? "";
+    const topbarRoundText = (await page.getByTestId("topbar-round").textContent()) ?? "";
+    const battleControlsText =
+      (await page.getByTestId("battle-controls-panel").textContent()) ?? "";
+    const progressionText =
+      (await page.getByTestId("progression-panel").textContent()) ?? "";
+    const sessionText = (await page.getByTestId("session-panel").textContent()) ?? "";
+    const dataModeText =
+      (await page
+        .locator("section.panel")
+        .filter({ hasText: "Data Mode" })
+        .first()
+        .textContent()) ?? "";
 
     if (!/Runtime active:\s+ready/i.test(statusText)) {
       throw new Error(`Smoke failed: runtime never became active.\n${statusText}`);
@@ -223,24 +247,24 @@ async function runSmoke(url) {
       throw new Error(`Smoke failed: board state did not materialize.\n${statusText}`);
     }
 
-    const benchPanel = page.getByTestId("bench-panel");
-    const benchText = await benchPanel.innerText();
-    const synergyPanel = page
-      .locator("section.panel")
-      .filter({ hasText: "Synergies" })
-      .first();
-    const synergyText = await synergyPanel.innerText();
-    const enemyPanel = page
-      .locator("section.panel")
-      .filter({ hasText: "Enemy Lineup" })
-      .first();
-    const enemyText = await enemyPanel.innerText();
+    const benchText = (await page.getByTestId("bench-panel").textContent()) ?? "";
+    const synergyText =
+      (await page
+        .locator("section.panel")
+        .filter({ hasText: "Synergies" })
+        .first()
+        .textContent()) ?? "";
+    const enemyText = (await page.getByTestId("enemy-panel").textContent()) ?? "";
 
     if (!/Bench/i.test(benchText) || !/Click to select|Selected for deployment|Buy from the shop/i.test(benchText)) {
       throw new Error(`Smoke failed: bench panel did not materialize.\n${benchText}`);
     }
 
-    if (!/Unlock Shop|Locked offers will carry into the next round/i.test(await page.locator('[data-testid="draft-shop"]').innerText())) {
+    if (
+      !/Unlock Shop|Locked offers will carry into the next round/i.test(
+        (await page.locator('[data-testid="draft-shop"]').textContent()) ?? "",
+      )
+    ) {
       throw new Error("Smoke failed: shop lock state did not toggle.");
     }
 
@@ -252,7 +276,11 @@ async function runSmoke(url) {
       throw new Error(`Smoke failed: enemy preview panel did not materialize.\n${enemyText}`);
     }
 
-    if (!/Round state:\s+Round 2 ready|Round state:\s+Round 2/i.test(statusText)) {
+    if (
+      !/Round state:\s+Round 2 (?:ready|augment draft ready)/i.test(statusText) ||
+      !/(?:^|\D)2(?:\D|$)/.test(topbarRoundText) ||
+      !/Phase(?:Preparation|Prep)/i.test(battleControlsText)
+    ) {
       throw new Error(`Smoke failed: next-round flow never returned to preparation.\n${statusText}`);
     }
 
@@ -260,7 +288,13 @@ async function runSmoke(url) {
       throw new Error(`Smoke failed: progression panel did not update.\n${progressionText}`);
     }
 
-    if (!/Status/i.test(sessionText) || !/slot-1-run-1/i.test(sessionText) || !/\b2\b/i.test(sessionText)) {
+    if (
+      !/Active Run/i.test(sessionText) ||
+      !/Status/i.test(sessionText) ||
+      !/slot-1-run-1/i.test(sessionText) ||
+      !/staging/i.test(sessionText) ||
+      !/R2|Round\s*2/i.test(sessionText)
+    ) {
       throw new Error(`Smoke failed: session contract did not materialize.\n${sessionText}`);
     }
 
@@ -268,7 +302,12 @@ async function runSmoke(url) {
       throw new Error(`Smoke failed: remote mode did not stay active.\n${dataModeText}`);
     }
 
-    await page.locator("summary").filter({ hasText: "Operations & Saves" }).click();
+    const operationsDrawerExpanded = await operationsDrawer.evaluate((element) => {
+      return element instanceof HTMLDetailsElement && element.open;
+    });
+    if (!operationsDrawerExpanded) {
+      await operationsDrawer.locator("summary").click();
+    }
     await page.getByRole("button", { name: "Copy Snapshot" }).click();
     const profileJson = await page.locator("textarea.profile-textarea").inputValue();
 

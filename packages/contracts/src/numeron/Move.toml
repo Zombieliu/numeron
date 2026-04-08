@@ -1,0 +1,10 @@
+[package]
+name = "numeron"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+Dubhe = { local = "../dubhe" }
+
+[addresses]
+numeron = "0x0"

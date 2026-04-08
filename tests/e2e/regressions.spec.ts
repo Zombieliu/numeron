@@ -2,12 +2,14 @@ import { expect, test } from "@playwright/test";
 
 import {
   advanceToNextRound,
+  buyOfferAtIndex,
   deployBenchUnitAtIndex,
   ensureOperationsDrawerOpen,
   launchRuntime,
   openShell,
   readGold,
   readShopOfferTitles,
+  rerollShop,
   switchToChinese,
   switchToEnglish,
   waitForRoundResolution,
@@ -61,17 +63,18 @@ test("buying the third matching copy merges into a two-star unit", async ({ page
   let boughtCopies = 0;
 
   for (let cycle = 0; cycle < 12 && boughtCopies < 2; cycle += 1) {
-    for (let index = 0; index < 4 && boughtCopies < 2; index += 1) {
-      const offer = page.getByTestId(`shop-offer-${index}`);
-      if ((await offer.innerText()).match(/Verdant Bruiser|翠卫斗士/)) {
-        await offer.click();
-        boughtCopies += 1;
-      }
+    const titles = await readShopOfferTitles(page);
+    const matchingIndex = titles.findIndex((title) =>
+      title.match(/Verdant Bruiser|翠卫斗士/),
+    );
+
+    if (matchingIndex >= 0) {
+      await buyOfferAtIndex(page, matchingIndex);
+      boughtCopies += 1;
+      continue;
     }
 
-    if (boughtCopies < 2) {
-      await page.getByTestId("reroll-shop").click();
-    }
+    await rerollShop(page);
   }
 
   expect(boughtCopies).toBe(2);

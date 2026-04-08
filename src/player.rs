@@ -37,11 +37,15 @@ fn move_player(
         player_transform.translation += movement;
         player_transform.translation.x = player_transform.translation.x.clamp(
             scene.origin.x - scene.cell_size * 0.5,
-            scene.origin.x + (scene.cols.saturating_sub(1) as f32 * scene.cell_size) + scene.cell_size * 0.5,
+            scene.origin.x
+                + (scene.cols.saturating_sub(1) as f32 * scene.cell_size)
+                + scene.cell_size * 0.5,
         );
         player_transform.translation.y = player_transform.translation.y.clamp(
             scene.origin.y - scene.cell_size * 0.5,
-            scene.origin.y + (scene.rows.saturating_sub(1) as f32 * scene.cell_size) + scene.cell_size * 0.5,
+            scene.origin.y
+                + (scene.rows.saturating_sub(1) as f32 * scene.cell_size)
+                + scene.cell_size * 0.5,
         );
     }
 }

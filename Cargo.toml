@@ -1,9 +1,9 @@
 [package]
 name = "numeron"
-version = "0.1.0"
+version = "0.0.1"
 publish = false
 edition = "2024"
-description = "Hybrid Bevy template with shared native and Next.js + WASM runtime bootstrap."
+description = "Hybrid auto-battler project with a shared native and Next.js + WASM runtime."
 license = "CC0-1.0"
 readme = "README.md"
 repository = "https://github.com/Zombieliu/numeron"
@@ -66,6 +66,8 @@ webbrowser = { version = "1", features = ["hardened"] }
 js-sys = "0.3.72"
 wasm-bindgen = "0.2.95"
 console_error_panic_hook = "0.1.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 # keep the following in sync with Bevy's dependencies
 winit = { version = "0.30", default-features = false }

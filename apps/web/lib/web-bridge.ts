@@ -13,14 +13,17 @@ import {
 } from "@/lib/types";
 import {
   buyRuntimeXp,
+  clearRuntimeCombatDirective,
   buyRuntimeShopOffer,
   chooseRuntimeAugment,
   deployRuntimeBenchUnit,
   getRuntimeBootSnapshot,
   launchRuntime,
+  replaceRuntimeCombatPlan,
   rerollRuntimeShop,
   resetRuntimeRound,
   restartRuntimeRun,
+  setRuntimeCombatDirective,
   toggleRuntimeShopLock,
   sellRuntimeBenchUnit,
   sellRuntimeBoardUnit,
@@ -69,15 +72,17 @@ export function bootRuntimeBridge(
   }
 
   if (!unsubscribeFromRuntime) {
-    unsubscribeFromRuntime = subscribeToRuntimeBootStatus((nextBootSnapshot) => {
-      runtimeBootSnapshot = nextBootSnapshot;
-      syncSnapshot("boot-status");
-      emit({
-        type: "runtime.boot-status.changed",
-        record: currentSnapshot.boot.current,
-        snapshot: currentSnapshot,
-      });
-    });
+    unsubscribeFromRuntime = subscribeToRuntimeBootStatus(
+      (nextBootSnapshot) => {
+        runtimeBootSnapshot = nextBootSnapshot;
+        syncSnapshot("boot-status");
+        emit({
+          type: "runtime.boot-status.changed",
+          record: currentSnapshot.boot.current,
+          snapshot: currentSnapshot,
+        });
+      },
+    );
   }
 
   if (!unsubscribeFromRuntimeEvents) {
@@ -97,7 +102,9 @@ export function bootRuntimeBridge(
   return currentSnapshot;
 }
 
-export async function dispatchUiIntent(intent: UiIntent): Promise<RuntimeSnapshot> {
+export async function dispatchUiIntent(
+  intent: UiIntent,
+): Promise<RuntimeSnapshot> {
   switch (intent.type) {
     case "runtime.boot-config.patch": {
       bootConfig = sanitizeRuntimeBootConfig({
@@ -119,7 +126,7 @@ export async function dispatchUiIntent(intent: UiIntent): Promise<RuntimeSnapsho
         bootConfig = sanitizeRuntimeBootConfig(intent.config);
       }
 
-      await launchRuntime(bootConfig);
+      await launchRuntime(bootConfig, intent.resumeState);
       return currentSnapshot;
     }
     case "runtime.round.start": {
@@ -170,10 +177,24 @@ export async function dispatchUiIntent(intent: UiIntent): Promise<RuntimeSnapsho
       sellRuntimeBoardUnit(intent.slotIndex);
       return currentSnapshot;
     }
+    case "runtime.combat.directive.set": {
+      setRuntimeCombatDirective(intent.directive);
+      return currentSnapshot;
+    }
+    case "runtime.combat.plan.replace": {
+      replaceRuntimeCombatPlan(intent.plan);
+      return currentSnapshot;
+    }
+    case "runtime.combat.directive.clear": {
+      clearRuntimeCombatDirective();
+      return currentSnapshot;
+    }
   }
 }
 
-export function subscribeRuntimeEvents(listener: (event: RuntimeEvent) => void) {
+export function subscribeRuntimeEvents(
+  listener: (event: RuntimeEvent) => void,
+) {
   listeners.add(listener);
 
   if (bridgeReady) {
@@ -206,7 +227,8 @@ export function sanitizeRuntimeBootConfig(
       typeof value?.touchControls === "boolean"
         ? value.touchControls
         : DEFAULT_RUNTIME_BOOT_CONFIG.touchControls,
-    locale: value?.locale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_BOOT_CONFIG.locale,
+    locale:
+      value?.locale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_BOOT_CONFIG.locale,
   };
 }
 
@@ -221,7 +243,9 @@ function clampAxis(value: number) {
   return Math.max(-1, Math.min(1, value));
 }
 
-function syncSnapshot(reason: "boot-config" | "boot-status" | "input" | "world") {
+function syncSnapshot(
+  reason: "boot-config" | "boot-status" | "input" | "world",
+) {
   currentSnapshot = buildSnapshot();
 
   emit({
@@ -266,11 +290,12 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
         }
       : null,
     slice: {
-      phase:
-        projection.slice?.phase || DEFAULT_RUNTIME_PROJECTION.slice.phase,
+      phase: projection.slice?.phase || DEFAULT_RUNTIME_PROJECTION.slice.phase,
       objective:
-        projection.slice?.objective || DEFAULT_RUNTIME_PROJECTION.slice.objective,
-      status: projection.slice?.status || DEFAULT_RUNTIME_PROJECTION.slice.status,
+        projection.slice?.objective ||
+        DEFAULT_RUNTIME_PROJECTION.slice.objective,
+      status:
+        projection.slice?.status || DEFAULT_RUNTIME_PROJECTION.slice.status,
       score: Number(projection.slice?.score ?? 0),
       gold: Number(
         projection.slice?.gold ?? DEFAULT_RUNTIME_PROJECTION.slice.gold,
@@ -291,7 +316,8 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
         projection.slice?.round ?? DEFAULT_RUNTIME_PROJECTION.slice.round,
       ),
       runNumber: Number(
-        projection.slice?.runNumber ?? DEFAULT_RUNTIME_PROJECTION.slice.runNumber,
+        projection.slice?.runNumber ??
+          DEFAULT_RUNTIME_PROJECTION.slice.runNumber,
       ),
       level: Number(
         projection.slice?.level ?? DEFAULT_RUNTIME_PROJECTION.slice.level,
@@ -309,7 +335,8 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
           DEFAULT_RUNTIME_PROJECTION.slice.rerollCost,
       ),
       xpBuyCost: Number(
-        projection.slice?.xpBuyCost ?? DEFAULT_RUNTIME_PROJECTION.slice.xpBuyCost,
+        projection.slice?.xpBuyCost ??
+          DEFAULT_RUNTIME_PROJECTION.slice.xpBuyCost,
       ),
       shopLocked: Boolean(
         projection.slice?.shopLocked ??
@@ -343,6 +370,18 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       pendingAugments: Array.isArray(projection.slice?.pendingAugments)
         ? projection.slice.pendingAugments.map(normalizeRuntimeAugmentView)
         : DEFAULT_RUNTIME_PROJECTION.slice.pendingAugments,
+      activeCombatDirective: projection.slice?.activeCombatDirective
+        ? normalizeRuntimeCombatDirectiveView(
+            projection.slice.activeCombatDirective,
+          )
+        : null,
+      queuedCombatDirectives: Array.isArray(
+        projection.slice?.queuedCombatDirectives,
+      )
+        ? projection.slice.queuedCombatDirectives.map(
+            normalizeRuntimeCombatDirectiveView,
+          )
+        : DEFAULT_RUNTIME_PROJECTION.slice.queuedCombatDirectives,
       augmentDraftRound: normalizeNumber(
         projection.slice?.augmentDraftRound,
         DEFAULT_RUNTIME_PROJECTION.slice.augmentDraftRound,
@@ -371,7 +410,8 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
         projection.slice?.streak ?? DEFAULT_RUNTIME_PROJECTION.slice.streak,
       ),
       baseIncome: Number(
-        projection.slice?.baseIncome ?? DEFAULT_RUNTIME_PROJECTION.slice.baseIncome,
+        projection.slice?.baseIncome ??
+          DEFAULT_RUNTIME_PROJECTION.slice.baseIncome,
       ),
       interestIncome: Number(
         projection.slice?.interestIncome ??
@@ -396,6 +436,11 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       completed: Boolean(
         projection.slice?.completed ?? projection.slice?.runOver,
       ),
+      serializedRunState:
+        typeof projection.slice?.serializedRunState === "string" &&
+        projection.slice.serializedRunState.trim()
+          ? projection.slice.serializedRunState
+          : null,
     },
   };
 }
@@ -411,6 +456,8 @@ function normalizeRuntimeUnitView(value: unknown) {
   const record = unit as Record<string, unknown>;
 
   return {
+    agentId: String(record.agentId ?? "0"),
+    battleInstanceId: String(record.battleInstanceId ?? "0"),
     label: String(record.label ?? "Unknown Unit"),
     archetype: normalizeArchetype(record.archetype),
     faction: normalizeFaction(record.faction),
@@ -448,6 +495,20 @@ function normalizeRuntimeAugmentView(value: unknown) {
     key: normalizeAugmentKey(record.key),
     label: String(record.label ?? "Augment"),
     description: String(record.description ?? ""),
+  } as const;
+}
+
+function normalizeRuntimeCombatDirectiveView(value: unknown) {
+  const directive = typeof value === "object" && value ? value : {};
+  const record = directive as Record<string, unknown>;
+
+  return {
+    key: normalizeCombatDirectiveKey(record.key),
+    label: String(record.label ?? "Combat Directive"),
+    description: String(record.description ?? ""),
+    lane: normalizeCombatDirectiveLane(record.lane),
+    durationTicks: normalizeNumber(record.durationTicks, 1),
+    remainingTicks: normalizeNumber(record.remainingTicks, 1),
   } as const;
 }
 
@@ -503,5 +564,27 @@ function normalizeAugmentKey(value: unknown) {
       return value;
     default:
       return "compound-interest";
+  }
+}
+
+function normalizeCombatDirectiveKey(value: unknown) {
+  switch (value) {
+    case "focus-backline":
+    case "hold-skills":
+    case "fallback-left":
+      return value;
+    default:
+      return "focus-backline";
+  }
+}
+
+function normalizeCombatDirectiveLane(value: unknown) {
+  switch (value) {
+    case "left":
+    case "center":
+    case "right":
+      return value;
+    default:
+      return null;
   }
 }

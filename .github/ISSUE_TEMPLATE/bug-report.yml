@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a regression or broken template behavior
+description: Report a gameplay, shell, or release regression
 title: "[Bug]: "
 labels:
   - bug
@@ -8,14 +8,14 @@ body:
     id: summary
     attributes:
       label: Summary
-      description: What broke in the template?
+      description: What broke in Numeron?
     validations:
       required: true
   - type: textarea
     id: reproduction
     attributes:
       label: Reproduction
-      description: Exact steps to reproduce from a clean checkout or from a fresh repo generated from the template
+      description: Exact steps to reproduce from a clean checkout
       placeholder: |
         1. pnpm install
         2. pnpm dev
@@ -32,7 +32,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: OS, browser, Rust version, Node version, and whether this was the template repo or a generated repo
+      description: OS, browser, Rust version, Node version, and whether this affected web, native, or release flow
     validations:
       required: true
   - type: checkboxes

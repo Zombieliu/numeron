@@ -1,6 +1,6 @@
 # Headless Backend Reference
 
-This crate is an optional reference backend for the hybrid template.
+This crate is an optional reference backend for `Numeron`.
 
 It is intentionally not required by the main web/native runtime path.
 
@@ -65,5 +65,6 @@ The stock `apps/web` shell can talk to this backend directly.
 4. use `Pull Remote` to hydrate local slot/session state from `/snapshot`
 5. launch the runtime to push the active profile plus live session updates back through `/profiles/:slot_id` and `/sessions`
 
-The backend keeps everything in memory by default, so treat it as a template
-reference and replace persistence/auth when you build a real game service.
+The backend keeps everything in memory by default, so treat it as an
+experimental reference and replace persistence/auth before shipping a real game
+service.

@@ -1,7 +1,13 @@
 use crate::starter_scene::{
-    BoardAnchor, RuntimeAugmentView, RuntimeTraitView, RuntimeUnitView, StarterSliceProjection,
+    BoardAnchor, CombatDirectiveOrder, RuntimeAugmentView, RuntimeCombatDirectiveView,
+    RuntimeTraitView, RuntimeUnitView, StarterSliceProjection,
 };
 use bevy::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+use crate::starter_scene::{CombatDirective, CombatDirectiveLane};
+#[cfg(target_arch = "wasm32")]
+use serde::Deserialize;
 
 #[cfg(target_arch = "wasm32")]
 use crate::{RuntimeConfig, RuntimeLocale};
@@ -41,6 +47,7 @@ struct PendingSessionConfig {
     player_name: String,
     touch_controls: bool,
     locale_code: String,
+    resume_state_json: Option<String>,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -50,6 +57,7 @@ impl Default for PendingSessionConfig {
             player_name: "Pilot".to_owned(),
             touch_controls: true,
             locale_code: "en".to_owned(),
+            resume_state_json: None,
         }
     }
 }
@@ -79,6 +87,18 @@ pub enum RuntimeCommand {
     WithdrawBoardUnit(usize),
     SellBenchUnit(usize),
     SellBoardUnit(usize),
+    SetCombatDirective(CombatDirectiveOrder),
+    ReplaceCombatPlan(Vec<CombatDirectiveOrder>),
+    ClearCombatDirective,
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CombatDirectiveInputPayload {
+    key: String,
+    lane: Option<String>,
+    duration_ticks: Option<u32>,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -118,19 +138,27 @@ pub fn clear_runtime_event_sink() {
 pub fn set_runtime_session_config(player_name: String, touch_controls: bool, locale: String) {
     SESSION_CONFIG.with(|config| {
         let trimmed_name = player_name.trim();
-        *config.borrow_mut() = PendingSessionConfig {
-            player_name: if trimmed_name.is_empty() {
-                "Pilot".to_owned()
-            } else {
-                trimmed_name.chars().take(16).collect()
-            },
-            touch_controls,
-            locale_code: if locale == "zh-CN" {
-                "zh-CN".to_owned()
-            } else {
-                "en".to_owned()
-            },
+        let mut pending = config.borrow_mut();
+        pending.player_name = if trimmed_name.is_empty() {
+            "Pilot".to_owned()
+        } else {
+            trimmed_name.chars().take(16).collect()
         };
+        pending.touch_controls = touch_controls;
+        pending.locale_code = if locale == "zh-CN" {
+            "zh-CN".to_owned()
+        } else {
+            "en".to_owned()
+        };
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = setRuntimeResumeState)]
+pub fn set_runtime_resume_state(resume_state_json: Option<String>) {
+    SESSION_CONFIG.with(|config| {
+        let mut pending = config.borrow_mut();
+        pending.resume_state_json = resume_state_json.filter(|state| !state.trim().is_empty());
     });
 }
 
@@ -255,6 +283,68 @@ pub fn sell_runtime_board_unit(slot_index: u32) {
 }
 
 #[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = setRuntimeCombatDirective)]
+pub fn set_runtime_combat_directive(directive_key: String, lane_key: String, duration_ticks: u32) {
+    let Some(directive) = CombatDirective::from_key(directive_key.trim()) else {
+        return;
+    };
+    let lane = CombatDirectiveLane::from_key(lane_key.trim());
+    let directive = CombatDirectiveOrder::new(
+        directive,
+        lane,
+        if duration_ticks == 0 {
+            None
+        } else {
+            Some(duration_ticks)
+        },
+    );
+
+    COMMAND_QUEUE.with(|queue| {
+        queue
+            .borrow_mut()
+            .push(RuntimeCommand::SetCombatDirective(directive));
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = replaceRuntimeCombatPlan)]
+pub fn replace_runtime_combat_plan(plan_json: String) {
+    let Ok(parsed) = serde_json::from_str::<Vec<CombatDirectiveInputPayload>>(&plan_json) else {
+        return;
+    };
+
+    let plan = parsed
+        .into_iter()
+        .filter_map(|step| {
+            let directive = CombatDirective::from_key(step.key.trim())?;
+            Some(CombatDirectiveOrder::new(
+                directive,
+                step.lane
+                    .as_deref()
+                    .and_then(|lane| CombatDirectiveLane::from_key(lane.trim())),
+                step.duration_ticks,
+            ))
+        })
+        .collect::<Vec<_>>();
+
+    COMMAND_QUEUE.with(|queue| {
+        queue
+            .borrow_mut()
+            .push(RuntimeCommand::ReplaceCombatPlan(plan));
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = clearRuntimeCombatDirective)]
+pub fn clear_runtime_combat_directive() {
+    COMMAND_QUEUE.with(|queue| {
+        queue
+            .borrow_mut()
+            .push(RuntimeCommand::ClearCombatDirective);
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = bootRuntime)]
 pub fn boot_runtime() {
     console_error_panic_hook::set_once();
@@ -270,6 +360,7 @@ pub fn boot_runtime() {
         player_name: pending_config.player_name,
         touch_controls: pending_config.touch_controls,
         locale: RuntimeLocale::from_code(&pending_config.locale_code),
+        resume_state_json: pending_config.resume_state_json,
     });
 
     publish_status("app-created", "Bevy app allocated");
@@ -374,6 +465,8 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         active_traits: slice.active_traits,
         selected_augments: slice.selected_augments,
         pending_augments: slice.pending_augments,
+        active_combat_directive: slice.active_combat_directive,
+        queued_combat_directives: slice.queued_combat_directives,
         augment_draft_round: slice.augment_draft_round,
         enemy_threat: slice.enemy_threat,
         enemy_intent: slice.enemy_intent,
@@ -388,6 +481,7 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         run_over: slice.run_over,
         run_result: slice.run_result,
         completed: slice.completed,
+        serialized_run_state: slice.serialized_run_state,
     }
 }
 
@@ -424,6 +518,8 @@ struct ProjectionPayload {
     active_traits: Vec<RuntimeTraitView>,
     selected_augments: Vec<RuntimeAugmentView>,
     pending_augments: Vec<RuntimeAugmentView>,
+    active_combat_directive: Option<RuntimeCombatDirectiveView>,
+    queued_combat_directives: Vec<RuntimeCombatDirectiveView>,
     augment_draft_round: u32,
     enemy_threat: u32,
     enemy_intent: String,
@@ -438,6 +534,7 @@ struct ProjectionPayload {
     run_over: bool,
     run_result: String,
     completed: bool,
+    serialized_run_state: Option<String>,
 }
 
 fn publish_status(phase: &str, message: &str) {
@@ -515,11 +612,7 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 &"xpToNextLevel".into(),
                 &projection.xp_to_next_level.into(),
             );
-            let _ = Reflect::set(
-                &slice,
-                &"maxLevel".into(),
-                &projection.max_level.into(),
-            );
+            let _ = Reflect::set(&slice, &"maxLevel".into(), &projection.max_level.into());
             let _ = Reflect::set(&slice, &"rerollCost".into(), &projection.reroll_cost.into());
             let _ = Reflect::set(&slice, &"xpBuyCost".into(), &projection.xp_buy_cost.into());
             let _ = Reflect::set(&slice, &"shopLocked".into(), &projection.shop_locked.into());
@@ -563,19 +656,30 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
             for augment in &projection.selected_augments {
                 selected_augments.push(&runtime_augment_view_object(augment));
             }
-            let _ = Reflect::set(
-                &slice,
-                &"selectedAugments".into(),
-                &selected_augments,
-            );
+            let _ = Reflect::set(&slice, &"selectedAugments".into(), &selected_augments);
             let pending_augments = js_sys::Array::new();
             for augment in &projection.pending_augments {
                 pending_augments.push(&runtime_augment_view_object(augment));
             }
+            let _ = Reflect::set(&slice, &"pendingAugments".into(), &pending_augments);
+            let active_combat_directive = projection
+                .active_combat_directive
+                .as_ref()
+                .map(runtime_combat_directive_view_object)
+                .unwrap_or(JsValue::NULL);
             let _ = Reflect::set(
                 &slice,
-                &"pendingAugments".into(),
-                &pending_augments,
+                &"activeCombatDirective".into(),
+                &active_combat_directive,
+            );
+            let queued_combat_directives = js_sys::Array::new();
+            for directive in &projection.queued_combat_directives {
+                queued_combat_directives.push(&runtime_combat_directive_view_object(directive));
+            }
+            let _ = Reflect::set(
+                &slice,
+                &"queuedCombatDirectives".into(),
+                &queued_combat_directives,
             );
             let _ = Reflect::set(
                 &slice,
@@ -608,11 +712,7 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 &projection.deployment_cap.into(),
             );
             let _ = Reflect::set(&slice, &"streak".into(), &projection.streak.into());
-            let _ = Reflect::set(
-                &slice,
-                &"baseIncome".into(),
-                &projection.base_income.into(),
-            );
+            let _ = Reflect::set(&slice, &"baseIncome".into(), &projection.base_income.into());
             let _ = Reflect::set(
                 &slice,
                 &"interestIncome".into(),
@@ -635,6 +735,12 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 &projection.run_result.clone().into(),
             );
             let _ = Reflect::set(&slice, &"completed".into(), &projection.completed.into());
+            let serialized_run_state = projection
+                .serialized_run_state
+                .clone()
+                .map(JsValue::from)
+                .unwrap_or(JsValue::NULL);
+            let _ = Reflect::set(&slice, &"serializedRunState".into(), &serialized_run_state);
             let _ = Reflect::set(&projection_object, &"slice".into(), &slice);
             let _ = Reflect::set(&payload, &"projection".into(), &projection_object);
             let _ = callback.call1(&JsValue::NULL, &payload);
@@ -648,6 +754,12 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
 #[cfg(target_arch = "wasm32")]
 fn runtime_unit_view_object(view: &RuntimeUnitView) -> JsValue {
     let payload = Object::new();
+    let _ = Reflect::set(&payload, &"agentId".into(), &view.agent_id.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"battleInstanceId".into(),
+        &view.battle_instance_id.clone().into(),
+    );
     let _ = Reflect::set(&payload, &"label".into(), &view.label.clone().into());
     let _ = Reflect::set(
         &payload,
@@ -704,6 +816,35 @@ fn runtime_augment_view_object(view: &RuntimeAugmentView) -> JsValue {
         &payload,
         &"description".into(),
         &view.description.clone().into(),
+    );
+    payload.into()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn runtime_combat_directive_view_object(view: &RuntimeCombatDirectiveView) -> JsValue {
+    let payload = Object::new();
+    let _ = Reflect::set(&payload, &"key".into(), &view.key.clone().into());
+    let _ = Reflect::set(&payload, &"label".into(), &view.label.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"description".into(),
+        &view.description.clone().into(),
+    );
+    let lane_value = view
+        .lane
+        .as_ref()
+        .map(|lane| JsValue::from_str(lane))
+        .unwrap_or(JsValue::NULL);
+    let _ = Reflect::set(&payload, &"lane".into(), &lane_value);
+    let _ = Reflect::set(
+        &payload,
+        &"durationTicks".into(),
+        &view.duration_ticks.into(),
+    );
+    let _ = Reflect::set(
+        &payload,
+        &"remainingTicks".into(),
+        &view.remaining_ticks.into(),
     );
     payload.into()
 }

@@ -1,5 +1,5 @@
-import { GameShell } from "@/components/game-shell";
+import { HomeClient } from "./home-client";
 
 export default function HomePage() {
-  return <GameShell />;
+  return <HomeClient />;
 }

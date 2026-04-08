@@ -1,0 +1,17 @@
+[package]
+published-at = "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e"
+name = "Dubhe"
+edition = "2024"
+version = "1.0.0"
+license = "apache2.0"
+authors = ["Obelisk Labs"]
+
+[dependencies]
+Sui = { local = "../../vendor/sui-framework/sui-framework" }
+
+[addresses]
+dubhe = "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e"
+
+[environments]
+testnet = "4c78adac"
+mainnet = "35834a8a"

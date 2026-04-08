@@ -14,7 +14,7 @@ on:
 env:
   # This variable is used to name release output files.
   GAME_EXECUTABLE_NAME: numeron
-  GAME_OSX_APP_NAME: NumeronTemplate
+  GAME_OSX_APP_NAME: Numeron
 
 permissions:
   contents: write
@@ -23,9 +23,20 @@ jobs:
   get-version:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Get tag
         id: tag
         run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+      - name: Validate VERSION file
+        env:
+          REQUESTED_VERSION: ${{ inputs.version || steps.tag.outputs.tag }}
+        run: |
+          expected="v$(tr -d '\n' < VERSION)"
+          if [ "$REQUESTED_VERSION" != "$expected" ]; then
+            echo "Release version mismatch: requested $REQUESTED_VERSION but VERSION contains $expected"
+            exit 1
+          fi
     outputs:
       version: ${{ inputs.version || steps.tag.outputs.tag }}
 

@@ -2,6 +2,7 @@ target/
 server/headless_runtime/target/
 .idea/
 .DS_Store
+mprocs.log
 
 dist/
 node_modules/
@@ -12,3 +13,12 @@ apps/web/tsconfig.tsbuildinfo
 out/
 output/playwright/
 _incoming_assets/
+
+packages/contracts/.env
+packages/contracts/Pub.localnet.toml
+packages/contracts/.chk/
+packages/contracts/vendor/
+packages/contracts/src/**/.history/
+packages/contracts/src/**/Published.toml
+packages/contracts/src/**/build/
+packages/agent-rating-extension/build/

@@ -31,6 +31,13 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+      - name: Validate VERSION file
+        run: |
+          expected="v$(tr -d '\n' < VERSION)"
+          if [ "${{ inputs.version }}" != "$expected" ]; then
+            echo "Release version mismatch: requested ${{ inputs.version }} but VERSION contains $expected"
+            exit 1
+          fi
       - uses: dtolnay/rust-toolchain@stable
       - name: Add iOS targets
         run: rustup target add aarch64-apple-ios

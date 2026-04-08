@@ -1,0 +1,9 @@
+{
+  "name": "agent-rating-extension",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "build": "sui move build -e testnet --path .",
+    "test": "sui move test --build-env testnet --path ."
+  }
+}

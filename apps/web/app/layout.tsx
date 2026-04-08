@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Providers } from "./providers";
 import "./globals.css";
+import "@mysten/dapp-kit/dist/index.css";
 
 export const metadata: Metadata = {
   title: "Numeron",
@@ -12,8 +14,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

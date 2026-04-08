@@ -4,6 +4,7 @@ import {
   DEFAULT_VIRTUAL_INPUT_STATE,
   type RuntimeAdapterEventPayload,
   type RuntimeBootConfig,
+  type RuntimeCombatDirectiveInput,
   type RuntimeBootPhase,
   type RuntimeBootRecord,
   type RuntimeProjection,
@@ -26,13 +27,16 @@ type RuntimeModule = {
     callback: (payload: { phase?: RuntimeBootPhase; message?: string }) => void,
   ) => void;
   clearRuntimeBootStatusSink?: () => void;
-  setRuntimeEventSink?: (callback: (payload: RuntimeAdapterEventPayload) => void) => void;
+  setRuntimeEventSink?: (
+    callback: (payload: RuntimeAdapterEventPayload) => void,
+  ) => void;
   clearRuntimeEventSink?: () => void;
   setRuntimeSessionConfig?: (
     playerName: string,
     touchControls: boolean,
     locale: "en" | "zh-CN",
   ) => void;
+  setRuntimeResumeState?: (resumeStateJson?: string | null) => void;
   setRuntimeVirtualInput?: (x: number, y: number) => void;
   startRuntimeCombat?: () => void;
   resetRuntimeRound?: () => void;
@@ -46,20 +50,34 @@ type RuntimeModule = {
   withdrawRuntimeBoardUnit?: (slotIndex: number) => void;
   sellRuntimeBenchUnit?: (benchIndex: number) => void;
   sellRuntimeBoardUnit?: (slotIndex: number) => void;
+  setRuntimeCombatDirective?: (
+    directiveKey: string,
+    laneKey: string,
+    durationTicks: number,
+  ) => void;
+  replaceRuntimeCombatPlan?: (planJson: string) => void;
+  clearRuntimeCombatDirective?: () => void;
 };
 
 const listeners = new Set<(snapshot: RuntimeBootSnapshot) => void>();
-const runtimeEventListeners = new Set<(event: RuntimeAdapterEventPayload) => void>();
+const runtimeEventListeners = new Set<
+  (event: RuntimeAdapterEventPayload) => void
+>();
 
 let nextBootEventId = 1;
 let bootPromise: Promise<void> | null = null;
 let runtimeStarted = false;
 let runtimeModule: RuntimeModule | null = null;
 let pendingSessionConfig = DEFAULT_RUNTIME_BOOT_CONFIG;
+let pendingResumeState: string | null = null;
 let pendingVirtualInput = DEFAULT_VIRTUAL_INPUT_STATE;
 
 let currentSnapshot: RuntimeBootSnapshot = {
-  current: createEvent("idle", "Configure the shell, then launch the runtime.", "shell"),
+  current: createEvent(
+    "idle",
+    "Configure the shell, then launch the runtime.",
+    "shell",
+  ),
   history: [],
 };
 
@@ -72,7 +90,9 @@ export function getRuntimeBootSnapshot(): RuntimeBootSnapshot {
   return currentSnapshot;
 }
 
-export function subscribeToRuntimeBootStatus(listener: (snapshot: RuntimeBootSnapshot) => void) {
+export function subscribeToRuntimeBootStatus(
+  listener: (snapshot: RuntimeBootSnapshot) => void,
+) {
   listeners.add(listener);
   listener(currentSnapshot);
 
@@ -93,9 +113,11 @@ export function subscribeToRuntimeEvents(
 
 export function setRuntimeSessionConfig(config: RuntimeBootConfig) {
   pendingSessionConfig = {
-    playerName: config.playerName.trim() || DEFAULT_RUNTIME_BOOT_CONFIG.playerName,
+    playerName:
+      config.playerName.trim() || DEFAULT_RUNTIME_BOOT_CONFIG.playerName,
     touchControls: config.touchControls,
-    locale: config.locale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_BOOT_CONFIG.locale,
+    locale:
+      config.locale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_BOOT_CONFIG.locale,
   };
 
   runtimeModule?.setRuntimeSessionConfig?.(
@@ -111,11 +133,24 @@ export function setRuntimeVirtualInput(input: VirtualInputState) {
     y: clampAxis(input.y),
   };
 
-  runtimeModule?.setRuntimeVirtualInput?.(pendingVirtualInput.x, pendingVirtualInput.y);
+  runtimeModule?.setRuntimeVirtualInput?.(
+    pendingVirtualInput.x,
+    pendingVirtualInput.y,
+  );
 }
 
-export function launchRuntime(config: RuntimeBootConfig) {
+export function setRuntimeResumeState(resumeState: string | null | undefined) {
+  pendingResumeState =
+    typeof resumeState === "string" && resumeState.trim() ? resumeState : null;
+  runtimeModule?.setRuntimeResumeState?.(pendingResumeState ?? undefined);
+}
+
+export function launchRuntime(
+  config: RuntimeBootConfig,
+  resumeState?: string | null,
+) {
   setRuntimeSessionConfig(config);
+  setRuntimeResumeState(resumeState);
   return ensureRuntimeBoot();
 }
 
@@ -167,6 +202,24 @@ export function sellRuntimeBoardUnit(slotIndex: number) {
   runtimeModule?.sellRuntimeBoardUnit?.(slotIndex);
 }
 
+export function setRuntimeCombatDirective(
+  directive: RuntimeCombatDirectiveInput,
+) {
+  runtimeModule?.setRuntimeCombatDirective?.(
+    directive.key,
+    directive.lane ?? "",
+    Math.max(0, Math.floor(directive.durationTicks ?? 0)),
+  );
+}
+
+export function replaceRuntimeCombatPlan(plan: RuntimeCombatDirectiveInput[]) {
+  runtimeModule?.replaceRuntimeCombatPlan?.(JSON.stringify(plan));
+}
+
+export function clearRuntimeCombatDirective() {
+  runtimeModule?.clearRuntimeCombatDirective?.();
+}
+
 function ensureRuntimeBoot() {
   if (bootPromise) {
     return bootPromise;
@@ -202,7 +255,9 @@ function publish(
   source: RuntimeBootRecord["source"],
 ) {
   const nextEvent = createEvent(phase, message, source);
-  const history = [...currentSnapshot.history, nextEvent].slice(-MAX_BOOT_EVENTS);
+  const history = [...currentSnapshot.history, nextEvent].slice(
+    -MAX_BOOT_EVENTS,
+  );
 
   currentSnapshot = {
     current: nextEvent,
@@ -235,7 +290,11 @@ async function bootRuntime() {
   applyPendingRuntimeState(loadedRuntime);
 
   if (typeof loadedRuntime.setRuntimeBootStatusSink === "function") {
-    publish("binding-status-sink", "Binding shell boot listener to the runtime", "shell");
+    publish(
+      "binding-status-sink",
+      "Binding shell boot listener to the runtime",
+      "shell",
+    );
     loadedRuntime.setRuntimeBootStatusSink((payload) => {
       if (!payload.phase || !payload.message) {
         return;
@@ -252,7 +311,11 @@ async function bootRuntime() {
   }
 
   if (typeof loadedRuntime.bootRuntime !== "function") {
-    publish("error", "Runtime package loaded, but boot entry is missing.", "shell");
+    publish(
+      "error",
+      "Runtime package loaded, but boot entry is missing.",
+      "shell",
+    );
     return;
   }
 
@@ -271,7 +334,11 @@ function applyPendingRuntimeState(runtime: RuntimeModule) {
     pendingSessionConfig.touchControls,
     pendingSessionConfig.locale,
   );
-  runtime.setRuntimeVirtualInput?.(pendingVirtualInput.x, pendingVirtualInput.y);
+  runtime.setRuntimeResumeState?.(pendingResumeState ?? undefined);
+  runtime.setRuntimeVirtualInput?.(
+    pendingVirtualInput.x,
+    pendingVirtualInput.y,
+  );
 }
 
 function publishRuntimeEvent(event: RuntimeAdapterEventPayload) {
@@ -302,8 +369,10 @@ function normalizeRuntimeEventPayload(
         phase:
           projection.slice?.phase || DEFAULT_RUNTIME_PROJECTION.slice.phase,
         objective:
-          projection.slice?.objective || DEFAULT_RUNTIME_PROJECTION.slice.objective,
-        status: projection.slice?.status || DEFAULT_RUNTIME_PROJECTION.slice.status,
+          projection.slice?.objective ||
+          DEFAULT_RUNTIME_PROJECTION.slice.objective,
+        status:
+          projection.slice?.status || DEFAULT_RUNTIME_PROJECTION.slice.status,
         score: Number(projection.slice?.score ?? 0),
         gold: Number(
           projection.slice?.gold ?? DEFAULT_RUNTIME_PROJECTION.slice.gold,
@@ -324,7 +393,8 @@ function normalizeRuntimeEventPayload(
           projection.slice?.round ?? DEFAULT_RUNTIME_PROJECTION.slice.round,
         ),
         runNumber: Number(
-          projection.slice?.runNumber ?? DEFAULT_RUNTIME_PROJECTION.slice.runNumber,
+          projection.slice?.runNumber ??
+            DEFAULT_RUNTIME_PROJECTION.slice.runNumber,
         ),
         level: Number(
           projection.slice?.level ?? DEFAULT_RUNTIME_PROJECTION.slice.level,
@@ -335,14 +405,16 @@ function normalizeRuntimeEventPayload(
             DEFAULT_RUNTIME_PROJECTION.slice.xpToNextLevel,
         ),
         maxLevel: Number(
-          projection.slice?.maxLevel ?? DEFAULT_RUNTIME_PROJECTION.slice.maxLevel,
+          projection.slice?.maxLevel ??
+            DEFAULT_RUNTIME_PROJECTION.slice.maxLevel,
         ),
         rerollCost: Number(
           projection.slice?.rerollCost ??
             DEFAULT_RUNTIME_PROJECTION.slice.rerollCost,
         ),
         xpBuyCost: Number(
-          projection.slice?.xpBuyCost ?? DEFAULT_RUNTIME_PROJECTION.slice.xpBuyCost,
+          projection.slice?.xpBuyCost ??
+            DEFAULT_RUNTIME_PROJECTION.slice.xpBuyCost,
         ),
         shopLocked: Boolean(
           projection.slice?.shopLocked ??
@@ -376,6 +448,18 @@ function normalizeRuntimeEventPayload(
         pendingAugments: Array.isArray(projection.slice?.pendingAugments)
           ? projection.slice.pendingAugments.map(normalizeRuntimeAugmentView)
           : DEFAULT_RUNTIME_PROJECTION.slice.pendingAugments,
+        activeCombatDirective: projection.slice?.activeCombatDirective
+          ? normalizeRuntimeCombatDirectiveView(
+              projection.slice.activeCombatDirective,
+            )
+          : DEFAULT_RUNTIME_PROJECTION.slice.activeCombatDirective,
+        queuedCombatDirectives: Array.isArray(
+          projection.slice?.queuedCombatDirectives,
+        )
+          ? projection.slice.queuedCombatDirectives.map(
+              normalizeRuntimeCombatDirectiveView,
+            )
+          : DEFAULT_RUNTIME_PROJECTION.slice.queuedCombatDirectives,
         augmentDraftRound: clampPositiveNumber(
           projection.slice?.augmentDraftRound,
           DEFAULT_RUNTIME_PROJECTION.slice.augmentDraftRound,
@@ -404,7 +488,8 @@ function normalizeRuntimeEventPayload(
           projection.slice?.streak ?? DEFAULT_RUNTIME_PROJECTION.slice.streak,
         ),
         baseIncome: Number(
-          projection.slice?.baseIncome ?? DEFAULT_RUNTIME_PROJECTION.slice.baseIncome,
+          projection.slice?.baseIncome ??
+            DEFAULT_RUNTIME_PROJECTION.slice.baseIncome,
         ),
         interestIncome: Number(
           projection.slice?.interestIncome ??
@@ -429,6 +514,11 @@ function normalizeRuntimeEventPayload(
         completed: Boolean(
           projection.slice?.completed ?? projection.slice?.runOver,
         ),
+        serializedRunState:
+          typeof projection.slice?.serializedRunState === "string" &&
+          projection.slice.serializedRunState.trim()
+            ? projection.slice.serializedRunState
+            : null,
       },
     },
   };
@@ -451,6 +541,8 @@ function normalizeRuntimeUnitView(value: unknown) {
   const record = unit as Record<string, unknown>;
 
   return {
+    agentId: String(record.agentId ?? "0"),
+    battleInstanceId: String(record.battleInstanceId ?? "0"),
     label: String(record.label ?? "Unknown Unit"),
     archetype: normalizeArchetype(record.archetype),
     faction: normalizeFaction(record.faction),
@@ -488,6 +580,31 @@ function normalizeRuntimeAugmentView(value: unknown) {
     key: normalizeAugmentKey(record.key),
     label: String(record.label ?? "Augment"),
     description: String(record.description ?? ""),
+  } as const;
+}
+
+function normalizeRuntimeCombatDirectiveView(value: unknown) {
+  const directive = typeof value === "object" && value ? value : {};
+  const record = directive as Record<string, unknown>;
+  const key = record.key;
+  const lane = record.lane;
+
+  return {
+    key:
+      key === "focus-backline" ||
+      key === "hold-skills" ||
+      key === "fallback-left"
+        ? key
+        : "fallback-left",
+    label: String(record.label ?? "Fallback Left"),
+    description: String(
+      record.description ??
+        "Shift left and buy time before recommitting the board.",
+    ),
+    lane:
+      lane === "left" || lane === "center" || lane === "right" ? lane : null,
+    durationTicks: clampPositiveNumber(record.durationTicks, 1),
+    remainingTicks: clampPositiveNumber(record.remainingTicks, 1),
   } as const;
 }
 
@@ -557,5 +674,7 @@ function normalizeBasePath(value: string | undefined) {
     return "";
   }
 
-  return trimmed.startsWith("/") ? trimmed.replace(/\/$/, "") : `/${trimmed.replace(/\/$/, "")}`;
+  return trimmed.startsWith("/")
+    ? trimmed.replace(/\/$/, "")
+    : `/${trimmed.replace(/\/$/, "")}`;
 }

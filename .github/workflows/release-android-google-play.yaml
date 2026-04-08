@@ -32,9 +32,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      - uses: actions/checkout@v4
+      - name: Validate VERSION file
+        run: |
+          expected="v$(tr -d '\n' < VERSION)"
+          if [ "${{ inputs.version }}" != "$expected" ]; then
+            echo "Release version mismatch: requested ${{ inputs.version }} but VERSION contains $expected"
+            exit 1
+          fi
       - name: Install Dependencies
         run: sudo apt-get update; sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libwayland-dev lld llvm
-      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Add Android targets
         run: rustup target add aarch64-linux-android armv7-linux-androideabi

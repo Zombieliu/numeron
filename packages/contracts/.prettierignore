@@ -1,0 +1,5 @@
+src/**/*.move
+src/**/.history/**
+src/**/build/**
+Pub.*.toml
+metadata.json

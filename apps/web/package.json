@@ -8,7 +8,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@0xobelisk/react": "1.2.0-pre.117",
+    "@0xobelisk/sui-client": "1.2.0-pre.117",
+    "@mysten/dapp-kit": "0.16.14",
+    "@tanstack/react-query": "^5.90.5",
     "next": "16.2.1",
+    "numeron-contracts": "workspace:*",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },

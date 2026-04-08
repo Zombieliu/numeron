@@ -1,6 +1,6 @@
 [package]
 name = "mobile"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
 publish = false
 
@@ -20,7 +20,7 @@ objc2-avf-audio = { version = "0.3.0", features = [
 
 [package.metadata.android]
 package = "com.zombieliu.numeron"
-apk_name = "NumeronTemplate"
+apk_name = "Numeron"
 assets = "../assets"
 strip = "strip"
 resources = "../build/android/res"

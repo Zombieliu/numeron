@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
   basePath: configuredBasePath || undefined,
   output: "export",
   reactStrictMode: true,
+  transpilePackages: [
+    "numeron-contracts",
+    "@0xobelisk/react",
+    "@0xobelisk/sui-client",
+    "@mysten/dapp-kit",
+    "@tanstack/react-query",
+  ],
   trailingSlash: true,
 };
 

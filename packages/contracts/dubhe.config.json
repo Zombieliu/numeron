@@ -1,0 +1,261 @@
+{
+  "resources": [
+    {
+      "season_config": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "season_id": "u64"
+          },
+          {
+            "ruleset_version": "u32"
+          },
+          {
+            "start_at_ms": "u64"
+          },
+          {
+            "end_at_ms": "u64"
+          },
+          {
+            "active": "bool"
+          }
+        ],
+        "keys": [
+          "entity_id",
+          "season_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "agent_profile": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "agent_id": "u64"
+          },
+          {
+            "owner": "address"
+          },
+          {
+            "archetype": "u8"
+          },
+          {
+            "faction": "u8"
+          },
+          {
+            "role": "u8"
+          },
+          {
+            "created_at_ms": "u64"
+          },
+          {
+            "last_seen_at_ms": "u64"
+          }
+        ],
+        "keys": [
+          "entity_id",
+          "agent_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "match_record": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "match_id": "u64"
+          },
+          {
+            "season_id": "u64"
+          },
+          {
+            "result": "u8"
+          },
+          {
+            "round": "u32"
+          },
+          {
+            "score": "u64"
+          },
+          {
+            "started_at_ms": "u64"
+          },
+          {
+            "ended_at_ms": "u64"
+          }
+        ],
+        "keys": [
+          "entity_id",
+          "match_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "match_participation": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "participation_id": "u64"
+          },
+          {
+            "match_id": "u64"
+          },
+          {
+            "agent_id": "u64"
+          },
+          {
+            "battle_instance_id": "u64"
+          },
+          {
+            "team": "u8"
+          },
+          {
+            "placement": "u8"
+          }
+        ],
+        "keys": [
+          "entity_id",
+          "match_id",
+          "agent_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "replay_anchor": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "match_id": "u64"
+          },
+          {
+            "walrus_blob_epoch": "u64"
+          },
+          {
+            "replay_digest_hi": "u128"
+          },
+          {
+            "replay_digest_lo": "u128"
+          }
+        ],
+        "keys": [
+          "entity_id",
+          "match_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "reward_claim": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "match_id": "u64"
+          },
+          {
+            "agent_id": "u64"
+          },
+          {
+            "reward_type": "u8"
+          },
+          {
+            "amount": "u64"
+          },
+          {
+            "claimed_at_ms": "u64"
+          }
+        ],
+        "keys": [
+          "entity_id",
+          "match_id",
+          "agent_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "extension_registry": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "extension_id": "u64"
+          },
+          {
+            "publisher": "address"
+          },
+          {
+            "namespace": "u64"
+          },
+          {
+            "schema_version": "u32"
+          },
+          {
+            "target_kind": "u8"
+          },
+          {
+            "enabled": "bool"
+          }
+        ],
+        "keys": [
+          "entity_id",
+          "extension_id"
+        ],
+        "offchain": false
+      }
+    },
+    {
+      "dapp_fee_state": {
+        "fields": [
+          {
+            "entity_id": "String"
+          },
+          {
+            "base_fee": "u256"
+          },
+          {
+            "bytes_fee": "u256"
+          },
+          {
+            "free_credit": "u256"
+          },
+          {
+            "credit_pool": "u256"
+          },
+          {
+            "total_settled": "u256"
+          },
+          {
+            "suspended": "bool"
+          }
+        ],
+        "keys": [
+          "entity_id"
+        ],
+        "offchain": false
+      }
+    }
+  ],
+  "enums": [],
+  "original_package_id": "0x689c687d9a402b84cd23a5fc465fde4a83e16618b9692f1ac71b89f0be1038ed",
+  "dubhe_object_id": "0xfd03226761e72a89b8c305cd930bc202ecc0abd517b881262a68c9184b30ffc7",
+  "original_dubhe_package_id": "0x21ae32a9d5cb79e6babc0a76d9e85fd9f83eec7de6fa633f6e50f63a032ea07e",
+  "start_checkpoint": "142",
+  "dapp_storage_id": "0xd902b5a0bde8152b087e962e96c79b87ef7d5a0b763957d12e58526207d75a5e"
+}

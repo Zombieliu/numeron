@@ -1,6 +1,6 @@
 [package]
 name = "numeron_headless_backend"
-version = "0.1.0"
+version = "0.0.1"
 publish = false
 edition = "2024"
 description = "Optional headless Bevy backend reference for the Numeron."
