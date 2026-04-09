@@ -19,6 +19,7 @@ use bevy::app::App;
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 pub use crate::runtime_app::{
     DEFAULT_WINDOW_TITLE, RuntimeBootstrap, RuntimeMode, build_native_app, build_runtime_app,
@@ -43,6 +44,7 @@ pub struct RuntimeConfig {
     pub player_name: String,
     pub touch_controls: bool,
     pub locale: RuntimeLocale,
+    pub starter_doctrine: RuntimeStarterDoctrine,
     pub resume_state_json: Option<String>,
 }
 
@@ -52,7 +54,40 @@ impl Default for RuntimeConfig {
             player_name: "Pilot".to_owned(),
             touch_controls: true,
             locale: RuntimeLocale::En,
+            starter_doctrine: RuntimeStarterDoctrine::Balanced,
             resume_state_json: None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RuntimeStarterDoctrine {
+    Balanced,
+    DawnRelay,
+    DuskRaid,
+    IronWall,
+    OpenMarket,
+}
+
+impl RuntimeStarterDoctrine {
+    pub fn from_code(value: &str) -> Self {
+        match value {
+            "dawn-relay" => Self::DawnRelay,
+            "dusk-raid" => Self::DuskRaid,
+            "iron-wall" => Self::IronWall,
+            "open-market" => Self::OpenMarket,
+            _ => Self::Balanced,
+        }
+    }
+
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::Balanced => "balanced",
+            Self::DawnRelay => "dawn-relay",
+            Self::DuskRaid => "dusk-raid",
+            Self::IronWall => "iron-wall",
+            Self::OpenMarket => "open-market",
         }
     }
 }

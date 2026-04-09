@@ -35,6 +35,12 @@ type RuntimeModule = {
     playerName: string,
     touchControls: boolean,
     locale: "en" | "zh-CN",
+    starterDoctrine:
+      | "balanced"
+      | "dawn-relay"
+      | "dusk-raid"
+      | "iron-wall"
+      | "open-market",
   ) => void;
   setRuntimeResumeState?: (resumeStateJson?: string | null) => void;
   setRuntimeVirtualInput?: (x: number, y: number) => void;
@@ -119,12 +125,20 @@ export function setRuntimeSessionConfig(config: RuntimeBootConfig) {
     touchControls: config.touchControls,
     locale:
       config.locale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_BOOT_CONFIG.locale,
+    starterDoctrine:
+      config.starterDoctrine === "dawn-relay" ||
+      config.starterDoctrine === "dusk-raid" ||
+      config.starterDoctrine === "iron-wall" ||
+      config.starterDoctrine === "open-market"
+        ? config.starterDoctrine
+        : DEFAULT_RUNTIME_BOOT_CONFIG.starterDoctrine,
   };
 
   runtimeModule?.setRuntimeSessionConfig?.(
     pendingSessionConfig.playerName,
     pendingSessionConfig.touchControls,
     pendingSessionConfig.locale,
+    pendingSessionConfig.starterDoctrine,
   );
 }
 
@@ -338,6 +352,7 @@ function applyPendingRuntimeState(runtime: RuntimeModule) {
     pendingSessionConfig.playerName,
     pendingSessionConfig.touchControls,
     pendingSessionConfig.locale,
+    pendingSessionConfig.starterDoctrine,
   );
   runtime.setRuntimeResumeState?.(pendingResumeState ?? undefined);
   runtime.setRuntimeVirtualInput?.(
@@ -453,6 +468,9 @@ function normalizeRuntimeEventPayload(
         pendingAugments: Array.isArray(projection.slice?.pendingAugments)
           ? projection.slice.pendingAugments.map(normalizeRuntimeAugmentView)
           : DEFAULT_RUNTIME_PROJECTION.slice.pendingAugments,
+        starterDoctrine: projection.slice?.starterDoctrine
+          ? normalizeRuntimeStarterDoctrineView(projection.slice.starterDoctrine)
+          : DEFAULT_RUNTIME_PROJECTION.slice.starterDoctrine,
         runModifier: projection.slice?.runModifier
           ? normalizeRuntimeRunModifierView(projection.slice.runModifier)
           : DEFAULT_RUNTIME_PROJECTION.slice.runModifier,
@@ -462,6 +480,11 @@ function normalizeRuntimeEventPayload(
         roundHistory: Array.isArray(projection.slice?.roundHistory)
           ? projection.slice.roundHistory.map(normalizeRuntimeRoundSummaryView)
           : DEFAULT_RUNTIME_PROJECTION.slice.roundHistory,
+        performanceLeaders: Array.isArray(projection.slice?.performanceLeaders)
+          ? projection.slice.performanceLeaders.map(
+              normalizeRuntimePerformanceView,
+            )
+          : DEFAULT_RUNTIME_PROJECTION.slice.performanceLeaders,
         activeCombatDirective: projection.slice?.activeCombatDirective
           ? normalizeRuntimeCombatDirectiveView(
               projection.slice.activeCombatDirective,
@@ -663,6 +686,19 @@ function normalizeRuntimeRunModifierView(value: unknown) {
   } as const;
 }
 
+function normalizeRuntimeStarterDoctrineView(value: unknown) {
+  const doctrine = typeof value === "object" && value ? value : {};
+  const record = doctrine as Record<string, unknown>;
+
+  return {
+    key: normalizeStarterDoctrineKey(record.key),
+    label: String(record.label ?? "Balanced Prep"),
+    description: String(record.description ?? ""),
+    openingPlan: String(record.openingPlan ?? ""),
+    bonusLabel: String(record.bonusLabel ?? ""),
+  } as const;
+}
+
 function normalizeRuntimeRoundEventView(value: unknown) {
   const event = typeof value === "object" && value ? value : {};
   const record = event as Record<string, unknown>;
@@ -685,6 +721,21 @@ function normalizeRuntimeRoundSummaryView(value: unknown) {
     incomeTotal: clampPositiveNumber(record.incomeTotal, 0),
     threat: clampPositiveNumber(record.threat, 0),
     summary: String(record.summary ?? ""),
+  } as const;
+}
+
+function normalizeRuntimePerformanceView(value: unknown) {
+  const performance = typeof value === "object" && value ? value : {};
+  const record = performance as Record<string, unknown>;
+
+  return {
+    agentId: String(record.agentId ?? "0"),
+    battleInstanceId: String(record.battleInstanceId ?? "0"),
+    label: String(record.label ?? "Unknown Unit"),
+    damageDealt: clampPositiveNumber(record.damageDealt, 0),
+    damageTaken: clampPositiveNumber(record.damageTaken, 0),
+    healingDone: clampPositiveNumber(record.healingDone, 0),
+    kills: clampPositiveNumber(record.kills, 0),
   } as const;
 }
 
@@ -756,6 +807,19 @@ function normalizeRunModifierKey(value: unknown) {
       return value;
     default:
       return "rich-opening";
+  }
+}
+
+function normalizeStarterDoctrineKey(value: unknown) {
+  switch (value) {
+    case "dawn-relay":
+    case "dusk-raid":
+    case "iron-wall":
+    case "open-market":
+    case "balanced":
+      return value;
+    default:
+      return "balanced";
   }
 }
 

@@ -8,11 +8,13 @@ import {
   type RuntimeAugmentView,
   type RuntimeBattleRecord,
   type RuntimeBootConfig,
+  type RuntimePerformanceView,
   type RuntimeProgression,
   type RuntimeRoundSummaryView,
   type RuntimeRunModifierView,
   type RuntimeSaveCollection,
   type RuntimeSaveSlot,
+  type RuntimeStarterDoctrineView,
   type RuntimeTraitView,
   type RuntimeUnitView,
   type SaveSlotId,
@@ -93,6 +95,7 @@ export function profileToBootConfig(slot: RuntimeSaveSlot): RuntimeBootConfig {
     playerName: slot.profile.preferredPlayerName,
     touchControls: slot.profile.preferredTouchControls,
     locale: slot.profile.preferredLocale,
+    starterDoctrine: slot.profile.preferredStarterDoctrine,
   };
 }
 
@@ -382,6 +385,7 @@ function sanitizeBattleRecord(
       typeof value?.replayState === "string" && value.replayState.trim()
         ? value.replayState
         : null,
+    starterDoctrine: sanitizeStarterDoctrineView(value?.starterDoctrine),
     runModifier: sanitizeRunModifierView(value?.runModifier),
     selectedAugments: Array.isArray(value?.selectedAugments)
       ? value.selectedAugments.map(sanitizeAugmentView).slice(0, 8)
@@ -394,6 +398,9 @@ function sanitizeBattleRecord(
       : [],
     roundHistory: Array.isArray(value?.roundHistory)
       ? value.roundHistory.map(sanitizeRoundSummaryView).slice(0, 8)
+      : [],
+    performanceLeaders: Array.isArray(value?.performanceLeaders)
+      ? value.performanceLeaders.map(sanitizePerformanceView).slice(0, 8)
       : [],
     incomeBaseTotal: Math.max(0, Number(value?.incomeBaseTotal ?? 0) || 0),
     incomeInterestTotal: Math.max(
@@ -449,6 +456,33 @@ function sanitizeRunModifierView(
   };
 }
 
+function sanitizeStarterDoctrineView(value: {
+  key?: unknown;
+  label?: unknown;
+  description?: unknown;
+  openingPlan?: unknown;
+  bonusLabel?: unknown;
+} | null | undefined): RuntimeStarterDoctrineView {
+  const key: RuntimeStarterDoctrineView["key"] =
+    value?.key === "dawn-relay" ||
+    value?.key === "dusk-raid" ||
+    value?.key === "iron-wall" ||
+    value?.key === "open-market"
+      ? value.key
+      : "balanced";
+
+  return {
+    key,
+    label:
+      typeof value?.label === "string" && value.label.trim()
+        ? value.label
+        : "Balanced Prep",
+    description: typeof value?.description === "string" ? value.description : "",
+    openingPlan: typeof value?.openingPlan === "string" ? value.openingPlan : "",
+    bonusLabel: typeof value?.bonusLabel === "string" ? value.bonusLabel : "",
+  };
+}
+
 function sanitizeRoundSummaryView(
   value: Partial<RuntimeRoundSummaryView> | null | undefined
 ): RuntimeRoundSummaryView {
@@ -458,6 +492,30 @@ function sanitizeRoundSummaryView(
     incomeTotal: Math.max(0, Number(value?.incomeTotal ?? 0) || 0),
     threat: Math.max(0, Number(value?.threat ?? 0) || 0),
     summary: typeof value?.summary === "string" ? value.summary : "",
+  };
+}
+
+function sanitizePerformanceView(
+  value: Partial<RuntimePerformanceView> | null | undefined
+): RuntimePerformanceView {
+  return {
+    agentId:
+      typeof value?.agentId === "string" && value.agentId.trim()
+        ? value.agentId
+        : "0",
+    battleInstanceId:
+      typeof value?.battleInstanceId === "string" &&
+      value.battleInstanceId.trim()
+        ? value.battleInstanceId
+        : "0",
+    label:
+      typeof value?.label === "string" && value.label.trim()
+        ? value.label
+        : "Unknown Unit",
+    damageDealt: Math.max(0, Number(value?.damageDealt ?? 0) || 0),
+    damageTaken: Math.max(0, Number(value?.damageTaken ?? 0) || 0),
+    healingDone: Math.max(0, Number(value?.healingDone ?? 0) || 0),
+    kills: Math.max(0, Number(value?.kills ?? 0) || 0),
   };
 }
 

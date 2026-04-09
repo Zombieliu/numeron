@@ -15,6 +15,12 @@ export type RuntimeBootConfig = {
   playerName: string;
   touchControls: boolean;
   locale: "en" | "zh-CN";
+  starterDoctrine:
+    | "balanced"
+    | "dawn-relay"
+    | "dusk-raid"
+    | "iron-wall"
+    | "open-market";
 };
 
 export type VirtualInputState = {
@@ -95,6 +101,21 @@ export type RuntimeRunModifierView = {
   routeHint: string;
 };
 
+export type RuntimeStarterDoctrineKey =
+  | "balanced"
+  | "dawn-relay"
+  | "dusk-raid"
+  | "iron-wall"
+  | "open-market";
+
+export type RuntimeStarterDoctrineView = {
+  key: RuntimeStarterDoctrineKey;
+  label: string;
+  description: string;
+  openingPlan: string;
+  bonusLabel: string;
+};
+
 export type RuntimeRoundEventKey =
   | "standard"
   | "training-day"
@@ -114,6 +135,16 @@ export type RuntimeRoundSummaryView = {
   incomeTotal: number;
   threat: number;
   summary: string;
+};
+
+export type RuntimePerformanceView = {
+  agentId: string;
+  battleInstanceId: string;
+  label: string;
+  damageDealt: number;
+  damageTaken: number;
+  healingDone: number;
+  kills: number;
 };
 
 export type RuntimeCombatDirectiveKey =
@@ -173,9 +204,11 @@ export type RuntimeProjection = {
     activeTraits: RuntimeTraitView[];
     selectedAugments: RuntimeAugmentView[];
     pendingAugments: RuntimeAugmentView[];
+    starterDoctrine: RuntimeStarterDoctrineView;
     runModifier: RuntimeRunModifierView;
     roundEvent: RuntimeRoundEventView;
     roundHistory: RuntimeRoundSummaryView[];
+    performanceLeaders: RuntimePerformanceView[];
     activeCombatDirective: RuntimeCombatDirectiveView | null;
     queuedCombatDirectives: RuntimeCombatDirectiveView[];
     combatFeed: string[];
@@ -219,6 +252,7 @@ export type RuntimeProfile = {
   preferredPlayerName: string;
   preferredTouchControls: boolean;
   preferredLocale: "en" | "zh-CN";
+  preferredStarterDoctrine: RuntimeStarterDoctrineKey;
   runsLaunched: number;
   bestScore: number;
   bestRound: number;
@@ -301,11 +335,13 @@ export type RuntimeBattleRecord = {
   endedAt: string | null;
   playerAgentIds: string[];
   replayState: string | null;
+  starterDoctrine: RuntimeStarterDoctrineView;
   runModifier: RuntimeRunModifierView;
   selectedAugments: RuntimeAugmentView[];
   activeTraits: RuntimeTraitView[];
   finalBoard: RuntimeUnitView[];
   roundHistory: RuntimeRoundSummaryView[];
+  performanceLeaders: RuntimePerformanceView[];
   incomeBaseTotal: number;
   incomeInterestTotal: number;
   incomeStreakTotal: number;
@@ -476,6 +512,7 @@ export const DEFAULT_RUNTIME_BOOT_CONFIG: RuntimeBootConfig = {
   playerName: "Pilot",
   touchControls: true,
   locale: "en",
+  starterDoctrine: "balanced",
 };
 
 export const DEFAULT_VIRTUAL_INPUT_STATE: VirtualInputState = {
@@ -514,6 +551,13 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     activeTraits: [],
     selectedAugments: [],
     pendingAugments: [],
+    starterDoctrine: {
+      key: "balanced",
+      label: "Balanced Prep",
+      description: "A stable opener that keeps your first shop and board decisions flexible.",
+      openingPlan: "Start with a balanced frontline and pivot toward the clearest 4-piece capstone.",
+      bonusLabel: "No extra opener bonus",
+    },
     runModifier: {
       key: "rich-opening",
       label: "Rich Opening",
@@ -527,6 +571,7 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
       stakes: "Play the strongest board and convert clean tempo.",
     },
     roundHistory: [],
+    performanceLeaders: [],
     activeCombatDirective: null,
     queuedCombatDirectives: [],
     combatFeed: [],
@@ -559,6 +604,7 @@ export const DEFAULT_RUNTIME_PROFILE: RuntimeProfile = {
   preferredPlayerName: DEFAULT_RUNTIME_BOOT_CONFIG.playerName,
   preferredTouchControls: DEFAULT_RUNTIME_BOOT_CONFIG.touchControls,
   preferredLocale: DEFAULT_RUNTIME_BOOT_CONFIG.locale,
+  preferredStarterDoctrine: DEFAULT_RUNTIME_BOOT_CONFIG.starterDoctrine,
   runsLaunched: 0,
   bestScore: 0,
   bestRound: 0,

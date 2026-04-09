@@ -33,6 +33,19 @@ export async function launchRuntime(page: Page) {
   await waitForShopOffers(page);
 }
 
+export async function selectStarterDoctrine(
+  page: Page,
+  doctrine:
+    | "balanced"
+    | "dawn-relay"
+    | "dusk-raid"
+    | "iron-wall"
+    | "open-market",
+) {
+  await ensureOperationsDrawerOpen(page);
+  await page.getByTestId(`starter-doctrine-${doctrine}`).click();
+}
+
 export async function buyFirstOffer(page: Page) {
   await buyOfferAtIndex(page, 0);
 }

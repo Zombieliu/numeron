@@ -50,6 +50,9 @@ export function profileToBootConfig(profile: RuntimeProfile): RuntimeBootConfig 
       profile.preferredPlayerName || DEFAULT_RUNTIME_BOOT_CONFIG.playerName,
     touchControls: profile.preferredTouchControls,
     locale: profile.preferredLocale || DEFAULT_RUNTIME_BOOT_CONFIG.locale,
+    starterDoctrine:
+      profile.preferredStarterDoctrine ||
+      DEFAULT_RUNTIME_BOOT_CONFIG.starterDoctrine,
   };
 }
 
@@ -79,6 +82,13 @@ export function sanitizeRuntimeProfile(
         : DEFAULT_RUNTIME_PROFILE.preferredTouchControls,
     preferredLocale:
       value?.preferredLocale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_PROFILE.preferredLocale,
+    preferredStarterDoctrine:
+      value?.preferredStarterDoctrine === "dawn-relay" ||
+      value?.preferredStarterDoctrine === "dusk-raid" ||
+      value?.preferredStarterDoctrine === "iron-wall" ||
+      value?.preferredStarterDoctrine === "open-market"
+        ? value.preferredStarterDoctrine
+        : DEFAULT_RUNTIME_PROFILE.preferredStarterDoctrine,
     runsLaunched: Math.max(0, Number(value?.runsLaunched ?? 0) || 0),
     bestScore: Math.max(0, Number(value?.bestScore ?? 0) || 0),
     bestRound: Math.max(0, Number(value?.bestRound ?? 0) || 0),

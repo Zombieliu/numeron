@@ -622,6 +622,11 @@ textarea {
   text-align: left;
 }
 
+.offer-card.selected {
+  border-color: rgba(191, 227, 143, 0.68);
+  background: rgba(110, 211, 183, 0.12);
+}
+
 .formation-card {
   border: 1px solid var(--line);
   border-radius: 16px;

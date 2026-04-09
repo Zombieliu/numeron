@@ -1,5 +1,5 @@
 use crate::web_bridge::{RuntimeCommand, take_runtime_commands};
-use crate::{GameState, RuntimeConfig, RuntimeLocale};
+use crate::{GameState, RuntimeConfig, RuntimeLocale, RuntimeStarterDoctrine};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -75,8 +75,39 @@ pub struct RoundHistoryEntry {
     summary: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct CombatPerformanceEntry {
+    agent_id: u64,
+    battle_instance_id: u64,
+    archetype: UnitArchetype,
+    stars: u8,
+    damage_dealt: u32,
+    damage_taken: u32,
+    healing_done: u32,
+    kills: u32,
+}
+
+impl Default for CombatPerformanceEntry {
+    fn default() -> Self {
+        Self {
+            agent_id: 0,
+            battle_instance_id: 0,
+            archetype: UnitArchetype::VerdantBruiser,
+            stars: 1,
+            damage_dealt: 0,
+            damage_taken: 0,
+            healing_done: 0,
+            kills: 0,
+        }
+    }
+}
+
 fn default_run_modifier() -> RunModifierKind {
     RunModifierKind::RichOpening
+}
+
+fn default_starter_doctrine() -> RuntimeStarterDoctrine {
+    RuntimeStarterDoctrine::Balanced
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -111,6 +142,8 @@ pub struct CombatState {
     pub run_number: u32,
     #[serde(default = "default_run_modifier")]
     pub run_modifier: RunModifierKind,
+    #[serde(default = "default_starter_doctrine")]
+    pub starter_doctrine: RuntimeStarterDoctrine,
     pub run_over: bool,
     pub run_result: RunResult,
     pub player_health: u32,
@@ -145,6 +178,8 @@ pub struct CombatState {
     #[serde(default)]
     pub round_history: Vec<RoundHistoryEntry>,
     #[serde(default)]
+    performance_log: Vec<CombatPerformanceEntry>,
+    #[serde(default)]
     pub round_diagnosis: String,
     pub status: String,
 }
@@ -156,6 +191,7 @@ impl Default for CombatState {
             round: 1,
             run_number: 1,
             run_modifier: default_run_modifier(),
+            starter_doctrine: RuntimeStarterDoctrine::Balanced,
             run_over: false,
             run_result: RunResult::Active,
             player_health: STARTING_HEALTH,
@@ -179,6 +215,7 @@ impl Default for CombatState {
             queued_directives: Vec::new(),
             recent_highlights: Vec::new(),
             round_history: Vec::new(),
+            performance_log: Vec::new(),
             round_diagnosis: "Build toward a two-piece trait and preserve board tempo.".to_owned(),
             status: "Board ready. Draft another unit or start combat.".to_owned(),
         }
@@ -236,6 +273,16 @@ pub struct RuntimeRunModifierView {
 
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 #[derive(Clone, Debug)]
+pub struct RuntimeStarterDoctrineView {
+    pub key: String,
+    pub label: String,
+    pub description: String,
+    pub opening_plan: String,
+    pub bonus_label: String,
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[derive(Clone, Debug)]
 pub struct RuntimeRoundEventView {
     pub key: String,
     pub label: String,
@@ -251,6 +298,18 @@ pub struct RuntimeRoundSummaryView {
     pub income_total: u32,
     pub threat: u32,
     pub summary: String,
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[derive(Clone, Debug)]
+pub struct RuntimePerformanceView {
+    pub agent_id: String,
+    pub battle_instance_id: String,
+    pub label: String,
+    pub damage_dealt: u32,
+    pub damage_taken: u32,
+    pub healing_done: u32,
+    pub kills: u32,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
@@ -292,9 +351,11 @@ pub struct StarterSliceProjection {
     pub active_traits: Vec<RuntimeTraitView>,
     pub selected_augments: Vec<RuntimeAugmentView>,
     pub pending_augments: Vec<RuntimeAugmentView>,
+    pub starter_doctrine: RuntimeStarterDoctrineView,
     pub run_modifier: RuntimeRunModifierView,
     pub round_event: RuntimeRoundEventView,
     pub round_history: Vec<RuntimeRoundSummaryView>,
+    pub performance_leaders: Vec<RuntimePerformanceView>,
     pub active_combat_directive: Option<RuntimeCombatDirectiveView>,
     pub queued_combat_directives: Vec<RuntimeCombatDirectiveView>,
     pub combat_feed: Vec<String>,
@@ -351,6 +412,7 @@ impl Default for StarterSliceProjection {
             active_traits: Vec::new(),
             selected_augments: Vec::new(),
             pending_augments: Vec::new(),
+            starter_doctrine: RuntimeStarterDoctrine::Balanced.as_view(RuntimeLocale::En),
             run_modifier: RuntimeRunModifierView {
                 key: "rich-opening".to_owned(),
                 label: "Rich Opening".to_owned(),
@@ -364,6 +426,7 @@ impl Default for StarterSliceProjection {
                 stakes: "Play the strongest board and convert clean tempo.".to_owned(),
             },
             round_history: Vec::new(),
+            performance_leaders: Vec::new(),
             active_combat_directive: None,
             queued_combat_directives: Vec::new(),
             combat_feed: Vec::new(),
@@ -946,6 +1009,139 @@ impl UnitRole {
                 "2 Skirmishers: all allies gain +1 attack. 4 Skirmishers: skirmishers gain extra attack and dive deeper.",
                 "2 游击：所有友军获得 +1 攻击。4 游击：游击单位额外获得攻击并更深入切后排。",
             ),
+        }
+    }
+}
+
+impl RuntimeStarterDoctrine {
+    fn label(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::Balanced => localized(locale, "Balanced Prep", "均衡备战"),
+            Self::DawnRelay => localized(locale, "Dawn Relay", "黎明接力"),
+            Self::DuskRaid => localized(locale, "Dusk Raid", "黄昏突袭"),
+            Self::IronWall => localized(locale, "Iron Wall", "铁壁开局"),
+            Self::OpenMarket => localized(locale, "Open Market", "开放黑市"),
+        }
+    }
+
+    fn description(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::Balanced => localized(
+                locale,
+                "Stable opener with no forced bonus. Stay flexible until a route clearly appears.",
+                "稳定开局，没有强制加成。等路线信号足够清晰后再锁方向。",
+            ),
+            Self::DawnRelay => localized(
+                locale,
+                "Open with Dawn sustain pieces and a little more commander life to hold streaks.",
+                "以黎明续航组件开局，并带着更多指挥官血量去稳住节奏。",
+            ),
+            Self::DuskRaid => localized(
+                locale,
+                "Open with a Dusk backline pair and one extra gold to buy early tempo.",
+                "以黄昏后排对子开局，并带 1 金币去抢前中期节奏。",
+            ),
+            Self::IronWall => localized(
+                locale,
+                "Open with a tank-heavy shell and extra commander life for slower scaling games.",
+                "以前排重壳开局，并带额外血量去打更慢的养成局。",
+            ),
+            Self::OpenMarket => localized(
+                locale,
+                "Open with extra gold and flexible backliners so you can pivot around the first shops.",
+                "带着更多金币和灵活后排开局，围绕前几轮商店快速转型。",
+            ),
+        }
+    }
+
+    fn opening_plan(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::Balanced => localized(
+                locale,
+                "Field the strongest pair and chase whichever 4-piece capstone comes together first.",
+                "先上最强对子，再追最先成型的四件套满羁绊。",
+            ),
+            Self::DawnRelay => localized(
+                locale,
+                "Use the early sustain shell to protect HP, then complete Dawn or Vanguard first.",
+                "先用续航壳保血，再优先补齐黎明或前排羁绊。",
+            ),
+            Self::DuskRaid => localized(
+                locale,
+                "Spend for an early spike if the Dusk shop appears, then keep pressure on the backline race.",
+                "如果黄昏商店来了就果断花钱冲强度，然后持续打后排爆发竞速。",
+            ),
+            Self::IronWall => localized(
+                locale,
+                "Anchor the board with tanks, then decide whether to branch into Dawn sustain or Dusk bruisers.",
+                "先用前排站稳，再决定转向黎明续航还是黄昏重装。",
+            ),
+            Self::OpenMarket => localized(
+                locale,
+                "Use the extra gold to hit pairs early and pivot hard around your first augment or event shop.",
+                "用额外金币尽快做出对子，并围绕第一轮强化或事件商店大转型。",
+            ),
+        }
+    }
+
+    fn bonus_label(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::Balanced => localized(locale, "No extra opener bonus", "没有额外开局加成"),
+            Self::DawnRelay => localized(locale, "+2 commander health", "指挥官生命 +2"),
+            Self::DuskRaid => localized(locale, "+1 opening gold", "开局金币 +1"),
+            Self::IronWall => localized(locale, "+3 commander health", "指挥官生命 +3"),
+            Self::OpenMarket => localized(locale, "+2 opening gold", "开局金币 +2"),
+        }
+    }
+
+    fn opening_gold_bonus(self) -> u32 {
+        match self {
+            Self::DuskRaid => 1,
+            Self::OpenMarket => 2,
+            _ => 0,
+        }
+    }
+
+    fn opening_health_bonus(self) -> u32 {
+        match self {
+            Self::DawnRelay => 2,
+            Self::IronWall => 3,
+            _ => 0,
+        }
+    }
+
+    fn starting_bench(self, identity: &mut IdentityState) -> Vec<UnitInstance> {
+        match self {
+            Self::Balanced => vec![
+                UnitInstance::new(UnitArchetype::VerdantBruiser, identity),
+                UnitInstance::new(UnitArchetype::EmberMedic, identity),
+            ],
+            Self::DawnRelay => vec![
+                UnitInstance::new(UnitArchetype::VerdantBruiser, identity),
+                UnitInstance::new(UnitArchetype::LumenSentinel, identity),
+            ],
+            Self::DuskRaid => vec![
+                UnitInstance::new(UnitArchetype::AshDuelist, identity),
+                UnitInstance::new(UnitArchetype::ShadeRunner, identity),
+            ],
+            Self::IronWall => vec![
+                UnitInstance::new(UnitArchetype::IronVanguard, identity),
+                UnitInstance::new(UnitArchetype::GraveWarden, identity),
+            ],
+            Self::OpenMarket => vec![
+                UnitInstance::new(UnitArchetype::SignalRanger, identity),
+                UnitInstance::new(UnitArchetype::FrostOracle, identity),
+            ],
+        }
+    }
+
+    fn as_view(self, locale: RuntimeLocale) -> RuntimeStarterDoctrineView {
+        RuntimeStarterDoctrineView {
+            key: self.code().to_owned(),
+            label: self.label(locale).to_owned(),
+            description: self.description(locale).to_owned(),
+            opening_plan: self.opening_plan(locale).to_owned(),
+            bonus_label: self.bonus_label(locale).to_owned(),
         }
     }
 }
@@ -1901,6 +2097,7 @@ fn setup_board_scene(
             &mut commands,
             &board,
             config.locale,
+            config.starter_doctrine,
             &mut combat,
             &mut shop,
             &mut identity,
@@ -1946,6 +2143,7 @@ fn reset_run_state(
     commands: &mut Commands,
     board: &BoardConfig,
     locale: RuntimeLocale,
+    starter_doctrine: RuntimeStarterDoctrine,
     combat: &mut CombatState,
     shop: &mut ShopState,
     identity: &mut IdentityState,
@@ -1963,10 +2161,13 @@ fn reset_run_state(
 
     *combat = CombatState::default();
     combat.run_number = next_run_number;
+    combat.starter_doctrine = starter_doctrine;
     combat.run_modifier = RunModifierKind::for_run(next_run_number);
     combat.free_reroll_available = RoundEventKind::for_round(combat.round).grants_free_reroll();
     combat.round_diagnosis = RoundEventKind::for_round(combat.round).stakes(locale).to_owned();
     combat.gold += combat.run_modifier.opening_gold_bonus();
+    combat.gold += starter_doctrine.opening_gold_bonus();
+    combat.player_health += starter_doctrine.opening_health_bonus();
     combat.recent_highlights.clear();
     combat_timer.0.reset();
 
@@ -1974,10 +2175,7 @@ fn reset_run_state(
     shop.offers.clear();
     *augments = AugmentState::default();
     player_squad.board = [None; PLAYER_SLOTS.len()];
-    player_squad.bench = vec![
-        UnitInstance::new(UnitArchetype::VerdantBruiser, identity),
-        UnitInstance::new(UnitArchetype::EmberMedic, identity),
-    ];
+    player_squad.bench = starter_doctrine.starting_bench(identity);
     enemy_squad.units = seed_enemy_squad(1, identity);
     reroll_shop(
         shop,
@@ -2004,12 +2202,14 @@ fn reset_run_state(
     } else {
         match locale {
             RuntimeLocale::En => format!(
-                "Bench primed under {}. Deploy up to your current cap before opening combat.",
-                combat.run_modifier.label(locale)
+                "Bench primed under {} with {}. Deploy up to your current cap before opening combat.",
+                combat.run_modifier.label(locale),
+                combat.starter_doctrine.label(locale)
             ),
             RuntimeLocale::ZhCn => format!(
-                "{} 已生效。备战席已就绪，开始战斗前可先部署到当前人口上限。",
-                combat.run_modifier.label(locale)
+                "{} 与 {} 已生效。备战席已就绪，开始战斗前可先部署到当前人口上限。",
+                combat.run_modifier.label(locale),
+                combat.starter_doctrine.label(locale)
             ),
         }
     };
@@ -2265,6 +2465,7 @@ fn handle_runtime_commands(
                     &mut commands,
                     &board,
                     locale,
+                    config.starter_doctrine,
                     &mut combat,
                     &mut shop,
                     &mut identity,
@@ -2724,6 +2925,7 @@ fn run_combat_tick(
         .collect::<Vec<_>>();
 
     let mut pending_damage = HashMap::<Entity, i32>::new();
+    let mut pending_damage_sources = HashMap::<Entity, Vec<(u64, i32)>>::new();
     let mut pending_healing = HashMap::<Entity, i32>::new();
     let mut combat_highlights = Vec::new();
     let active_directive = combat.active_directive;
@@ -2741,12 +2943,23 @@ fn run_combat_tick(
             &selected_augments,
             player_buffs,
         ) {
-            for (target_entity, damage) in action.hits {
+            let healing_total = action
+                .heals
+                .iter()
+                .map(|(_, healing)| (*healing).max(0) as u32)
+                .sum();
+
+            for &(target_entity, damage) in &action.hits {
                 *pending_damage.entry(target_entity).or_insert(0) += damage;
+                pending_damage_sources
+                    .entry(target_entity)
+                    .or_default()
+                    .push((attacker.agent_id, damage));
             }
-            for (target_entity, healing) in action.heals {
+            for &(target_entity, healing) in &action.heals {
                 *pending_healing.entry(target_entity).or_insert(0) += healing;
             }
+            record_healing_done(&mut combat, attacker.agent_id, healing_total);
             if combat_highlights.len() < 2 {
                 combat_highlights.push(action.highlight);
             }
@@ -2763,10 +2976,14 @@ fn run_combat_tick(
             &selected_augments,
             enemy_buffs,
         ) {
-            for (target_entity, damage) in action.hits {
+            for &(target_entity, damage) in &action.hits {
                 *pending_damage.entry(target_entity).or_insert(0) += damage;
+                pending_damage_sources
+                    .entry(target_entity)
+                    .or_default()
+                    .push((attacker.agent_id, damage));
             }
-            for (target_entity, healing) in action.heals {
+            for &(target_entity, healing) in &action.heals {
                 *pending_healing.entry(target_entity).or_insert(0) += healing;
             }
             if combat_highlights.len() < 4 {
@@ -2797,6 +3014,36 @@ fn run_combat_tick(
                 },
             );
             unit.health -= mitigated;
+            if unit.owner == UnitOwner::Player {
+                record_damage_taken(&mut combat, unit.agent_id, mitigated.max(0) as u32);
+            }
+
+            if let Some(sources) = pending_damage_sources.get(&target_entity) {
+                let total_raw = sources.iter().map(|(_, value)| (*value).max(0) as u32).sum::<u32>();
+                let mut remainder = mitigated.max(0) as u32;
+                let top_source = sources
+                    .iter()
+                    .copied()
+                    .max_by_key(|(_, value)| *value)
+                    .map(|(agent_id, _)| agent_id);
+
+                for (agent_id, raw) in sources {
+                    if total_raw == 0 {
+                        continue;
+                    }
+                    let share = ((mitigated.max(0) as u32) * (*raw).max(0) as u32) / total_raw;
+                    if unit.owner == UnitOwner::Enemy {
+                        record_damage_dealt(&mut combat, *agent_id, share);
+                    }
+                    remainder = remainder.saturating_sub(share);
+                }
+
+                if unit.owner == UnitOwner::Enemy {
+                    if let Some(top_source) = top_source {
+                        record_damage_dealt(&mut combat, top_source, remainder);
+                    }
+                }
+            }
         }
     }
 
@@ -2818,7 +3065,16 @@ fn run_combat_tick(
 
     for (entity, owner, health) in post_units {
         if health <= 0 {
-            defeated.push((entity, owner));
+            let credited_killer = pending_damage_sources
+                .get(&entity)
+                .and_then(|sources| {
+                    sources
+                        .iter()
+                        .copied()
+                        .max_by_key(|(_, damage)| *damage)
+                        .map(|(agent_id, _)| agent_id)
+                });
+            defeated.push((entity, owner, credited_killer));
         } else {
             match owner {
                 UnitOwner::Player => combat.player_units += 1,
@@ -2827,9 +3083,12 @@ fn run_combat_tick(
         }
     }
 
-    for (entity, owner) in defeated {
+    for (entity, owner, credited_killer) in defeated {
         if owner == UnitOwner::Enemy {
             combat.score += 20;
+            if let Some(killer_agent_id) = credited_killer {
+                record_kill(&mut combat, killer_agent_id);
+            }
         }
         commands.entity(entity).despawn();
     }
@@ -3907,6 +4166,7 @@ fn apply_common_projection_fields(
         .copied()
         .map(|augment| augment.as_view(locale))
         .collect();
+    projection.starter_doctrine = combat.starter_doctrine.as_view(locale);
     projection.run_modifier = combat.run_modifier.as_view(locale);
     projection.round_event = RoundEventKind::for_round(combat.round).as_view(locale);
     projection.round_history = combat
@@ -3923,6 +4183,7 @@ fn apply_common_projection_fields(
             summary: entry.summary.clone(),
         })
         .collect();
+    projection.performance_leaders = performance_views_for(combat, locale);
     projection.combat_feed = combat.recent_highlights.clone();
     projection.active_combat_directive = combat
         .active_directive
@@ -3978,11 +4239,13 @@ fn spawn_round_units(
 
     combat.player_units = 0;
     combat.enemy_units = 0;
+    combat.performance_log.clear();
 
     for (index, maybe_unit) in player_squad.board.iter().copied().enumerate() {
         let Some(unit) = maybe_unit else {
             continue;
         };
+        ensure_performance_entry(combat, unit);
 
         if let Some(&(row, col)) = PLAYER_SLOTS.get(index) {
             spawn_unit(
@@ -4060,7 +4323,18 @@ fn spawn_persisted_live_units(
         );
 
         match unit.owner {
-            UnitOwner::Player => combat.player_units += 1,
+            UnitOwner::Player => {
+                ensure_performance_entry(
+                    combat,
+                    UnitInstance {
+                        agent_id: unit.agent_id,
+                        battle_instance_id: unit.battle_instance_id,
+                        archetype: unit.archetype,
+                        stars: unit.stars,
+                    },
+                );
+                combat.player_units += 1
+            }
             UnitOwner::Enemy => combat.enemy_units += 1,
         }
     }
@@ -4636,6 +4910,42 @@ fn merge_messages_for(base: String, merge_messages: &[String]) -> String {
     }
 }
 
+fn performance_views_for(
+    combat: &CombatState,
+    locale: RuntimeLocale,
+) -> Vec<RuntimePerformanceView> {
+    let mut views = combat
+        .performance_log
+        .iter()
+        .map(|entry| RuntimePerformanceView {
+            agent_id: entry.agent_id.to_string(),
+            battle_instance_id: entry.battle_instance_id.to_string(),
+            label: UnitInstance {
+                agent_id: entry.agent_id,
+                battle_instance_id: entry.battle_instance_id,
+                archetype: entry.archetype,
+                stars: entry.stars,
+            }
+            .label(locale),
+            damage_dealt: entry.damage_dealt,
+            damage_taken: entry.damage_taken,
+            healing_done: entry.healing_done,
+            kills: entry.kills,
+        })
+        .collect::<Vec<_>>();
+
+    views.sort_by(|left, right| {
+        right
+            .damage_dealt
+            .cmp(&left.damage_dealt)
+            .then_with(|| right.kills.cmp(&left.kills))
+            .then_with(|| right.healing_done.cmp(&left.healing_done))
+            .then_with(|| right.damage_taken.cmp(&left.damage_taken))
+            .then_with(|| left.label.cmp(&right.label))
+    });
+    views
+}
+
 fn trait_tier(count: usize) -> u8 {
     if count >= TRAIT_CAPSTONE_THRESHOLD {
         2
@@ -4643,6 +4953,78 @@ fn trait_tier(count: usize) -> u8 {
         1
     } else {
         0
+    }
+}
+
+fn ensure_performance_entry(combat: &mut CombatState, unit: UnitInstance) {
+    if let Some(existing) = combat
+        .performance_log
+        .iter_mut()
+        .find(|entry| entry.agent_id == unit.agent_id)
+    {
+        existing.battle_instance_id = unit.battle_instance_id;
+        existing.archetype = unit.archetype;
+        existing.stars = unit.stars;
+    } else {
+        combat.performance_log.push(CombatPerformanceEntry {
+            agent_id: unit.agent_id,
+            battle_instance_id: unit.battle_instance_id,
+            archetype: unit.archetype,
+            stars: unit.stars,
+            ..CombatPerformanceEntry::default()
+        });
+    }
+}
+
+fn record_damage_dealt(combat: &mut CombatState, agent_id: u64, amount: u32) {
+    if amount == 0 {
+        return;
+    }
+
+    if let Some(entry) = combat
+        .performance_log
+        .iter_mut()
+        .find(|entry| entry.agent_id == agent_id)
+    {
+        entry.damage_dealt += amount;
+    }
+}
+
+fn record_damage_taken(combat: &mut CombatState, agent_id: u64, amount: u32) {
+    if amount == 0 {
+        return;
+    }
+
+    if let Some(entry) = combat
+        .performance_log
+        .iter_mut()
+        .find(|entry| entry.agent_id == agent_id)
+    {
+        entry.damage_taken += amount;
+    }
+}
+
+fn record_healing_done(combat: &mut CombatState, agent_id: u64, amount: u32) {
+    if amount == 0 {
+        return;
+    }
+
+    if let Some(entry) = combat
+        .performance_log
+        .iter_mut()
+        .find(|entry| entry.agent_id == agent_id)
+    {
+        entry.healing_done += amount;
+    }
+}
+
+fn record_kill(combat: &mut CombatState, agent_id: u64) {
+    if let Some(entry) = combat
+        .performance_log
+        .iter_mut()
+        .find(|entry| entry.agent_id == agent_id)
+    {
+        entry.kills += 1;
     }
 }
 
@@ -5504,6 +5886,65 @@ mod tests {
         let preview = round_income_preview(10, 0, &[], RunModifierKind::ThinBench);
         assert_eq!(preview, (ROUND_BASE_INCOME, 2, 0, 1));
         assert_eq!(RunModifierKind::ThinBench.bench_capacity(), 4);
+    }
+
+    #[test]
+    fn starter_doctrines_seed_distinct_openers_and_bonus_curves() {
+        let mut identity = seeded_identity();
+        let open_market = RuntimeStarterDoctrine::OpenMarket.starting_bench(&mut identity);
+        let dawn_relay = RuntimeStarterDoctrine::DawnRelay.starting_bench(&mut identity);
+        let iron_wall = RuntimeStarterDoctrine::IronWall.starting_bench(&mut identity);
+
+        assert_eq!(RuntimeStarterDoctrine::Balanced.opening_gold_bonus(), 0);
+        assert_eq!(RuntimeStarterDoctrine::DuskRaid.opening_gold_bonus(), 1);
+        assert_eq!(RuntimeStarterDoctrine::OpenMarket.opening_gold_bonus(), 2);
+        assert_eq!(RuntimeStarterDoctrine::DawnRelay.opening_health_bonus(), 2);
+        assert_eq!(RuntimeStarterDoctrine::IronWall.opening_health_bonus(), 3);
+        assert_eq!(
+            open_market
+                .iter()
+                .map(|unit| unit.archetype)
+                .collect::<Vec<_>>(),
+            vec![UnitArchetype::SignalRanger, UnitArchetype::FrostOracle]
+        );
+        assert_eq!(
+            dawn_relay
+                .iter()
+                .map(|unit| unit.archetype)
+                .collect::<Vec<_>>(),
+            vec![UnitArchetype::VerdantBruiser, UnitArchetype::LumenSentinel]
+        );
+        assert_eq!(
+            iron_wall
+                .iter()
+                .map(|unit| unit.archetype)
+                .collect::<Vec<_>>(),
+            vec![UnitArchetype::IronVanguard, UnitArchetype::GraveWarden]
+        );
+    }
+
+    #[test]
+    fn performance_views_rank_round_impact() {
+        let mut combat = CombatState::default();
+        let mut identity = seeded_identity();
+        let bruiser = UnitInstance::new(UnitArchetype::VerdantBruiser, &mut identity);
+        let medic = UnitInstance::new(UnitArchetype::EmberMedic, &mut identity);
+
+        ensure_performance_entry(&mut combat, bruiser);
+        ensure_performance_entry(&mut combat, medic);
+        record_damage_dealt(&mut combat, bruiser.agent_id, 11);
+        record_damage_taken(&mut combat, bruiser.agent_id, 6);
+        record_kill(&mut combat, bruiser.agent_id);
+        record_healing_done(&mut combat, medic.agent_id, 7);
+
+        let leaders = performance_views_for(&combat, RuntimeLocale::En);
+
+        assert_eq!(leaders.len(), 2);
+        assert_eq!(leaders[0].label, bruiser.label(RuntimeLocale::En));
+        assert_eq!(leaders[0].damage_dealt, 11);
+        assert_eq!(leaders[0].kills, 1);
+        assert_eq!(leaders[1].label, medic.label(RuntimeLocale::En));
+        assert_eq!(leaders[1].healing_done, 7);
     }
 
     #[test]

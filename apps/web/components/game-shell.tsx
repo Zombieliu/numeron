@@ -62,6 +62,8 @@ import type {
   RuntimeSaveCollection,
   RuntimeSaveSlot,
   RuntimeSnapshot,
+  RuntimeStarterDoctrineKey,
+  RuntimeStarterDoctrineView,
   RuntimeUnitView,
   SaveSlotId,
 } from "@/lib/types";
@@ -137,6 +139,81 @@ const COMBAT_DIRECTIVES: RuntimeCombatDirectiveKey[] = [
   "fallback-left",
 ];
 
+const STARTER_DOCTRINE_KEYS: RuntimeStarterDoctrineKey[] = [
+  "balanced",
+  "dawn-relay",
+  "dusk-raid",
+  "iron-wall",
+  "open-market",
+];
+
+const BUILD_PACK_BLUEPRINTS = [
+  {
+    key: "dawn-sustain",
+    label: { en: "Dawn Sustain", "zh-CN": "黎明续航" },
+    summary: {
+      en: "Protect HP, stack healing, then close the lobby with a stable frontline.",
+      "zh-CN": "先保血叠回复，再靠稳定前排把中后期拖进优势局。",
+    },
+    traitKey: "dawn" as const,
+    coreArchetypes: [
+      "verdant-bruiser",
+      "ember-medic",
+      "lumen-sentinel",
+      "iron-vanguard",
+    ] as const,
+    doctrineKeys: ["dawn-relay", "balanced", "iron-wall"] as const,
+  },
+  {
+    key: "dusk-burst",
+    label: { en: "Dusk Burst", "zh-CN": "黄昏爆发" },
+    summary: {
+      en: "Spike fights with fast backline damage and punish weak enemy carries.",
+      "zh-CN": "依靠后排快爆发抬高战斗上限，专门惩罚脆皮主 C。",
+    },
+    traitKey: "dusk" as const,
+    coreArchetypes: [
+      "ash-duelist",
+      "shade-runner",
+      "volt-juggler",
+      "grave-warden",
+    ] as const,
+    doctrineKeys: ["dusk-raid", "balanced", "open-market"] as const,
+  },
+  {
+    key: "vanguard-bastion",
+    label: { en: "Vanguard Bastion", "zh-CN": "前排堡垒" },
+    summary: {
+      en: "Cap the tank line first, then let attrition and economy do the rest.",
+      "zh-CN": "先把坦线堆满，再靠拖长回合和经济优势慢慢碾过去。",
+    },
+    traitKey: "vanguard" as const,
+    coreArchetypes: [
+      "verdant-bruiser",
+      "iron-vanguard",
+      "grave-warden",
+      "lumen-sentinel",
+    ] as const,
+    doctrineKeys: ["iron-wall", "dawn-relay", "balanced"] as const,
+  },
+  {
+    key: "skirmisher-dive",
+    label: { en: "Skirmisher Dive", "zh-CN": "游击切入" },
+    summary: {
+      en: "Pressure the backline, pivot fast, and cash tempo before the board slows down.",
+      "zh-CN": "持续切后排、快速转型，在局势变慢前把节奏兑现成优势。",
+    },
+    traitKey: "skirmisher" as const,
+    coreArchetypes: [
+      "signal-ranger",
+      "ash-duelist",
+      "frost-oracle",
+      "shade-runner",
+    ] as const,
+    doctrineKeys: ["open-market", "dusk-raid", "balanced"] as const,
+  },
+] as const;
+
 export function GameShell() {
   const [clientReady, setClientReady] = useState(false);
   const [runtimeSnapshot, setRuntimeSnapshot] =
@@ -183,6 +260,7 @@ export function GameShell() {
       preferredPlayerName: runtimeSnapshot.bootConfig.playerName,
       preferredTouchControls: runtimeSnapshot.bootConfig.touchControls,
       preferredLocale: runtimeSnapshot.bootConfig.locale,
+      preferredStarterDoctrine: runtimeSnapshot.bootConfig.starterDoctrine,
     },
   };
   const currentPhase = runtimeSnapshot.world.slice.phase;
@@ -243,9 +321,13 @@ export function GameShell() {
   const queuedCombatDirectives =
     runtimeSnapshot.world.slice.queuedCombatDirectives;
   const combatFeed = runtimeSnapshot.world.slice.combatFeed;
+  const performanceLeaders = runtimeSnapshot.world.slice.performanceLeaders;
   const runModifier = runtimeSnapshot.world.slice.runModifier;
   const roundEvent = runtimeSnapshot.world.slice.roundEvent;
   const roundHistory = runtimeSnapshot.world.slice.roundHistory;
+  const starterDoctrine = runtimeReady
+    ? runtimeSnapshot.world.slice.starterDoctrine
+    : getStarterDoctrinePreview(runtimeSnapshot.bootConfig.starterDoctrine, locale);
   const canProgramCombatPlan =
     runtimeReady &&
     currentPhase !== "resolution" &&
@@ -261,6 +343,7 @@ export function GameShell() {
   const liveBuildRoute = inferBuildRoute(runtimeSnapshot);
   const economyPlan = inferEconomyPlan(runtimeSnapshot);
   const buildPlan = inferLiveBuildPlan(runtimeSnapshot);
+  const buildPackCards = buildPackCardsFor(runtimeSnapshot);
   const roundDiagnosis = runtimeSnapshot.world.slice.roundDiagnosis;
   const trackedPlayerUnits = collectTrackedPlayerUnits(benchUnits, playerBoard);
   const latestCompletedBattle =
@@ -394,6 +477,7 @@ export function GameShell() {
           preferredPlayerName: runtimeSnapshot.bootConfig.playerName,
           preferredTouchControls: runtimeSnapshot.bootConfig.touchControls,
           preferredLocale: runtimeSnapshot.bootConfig.locale,
+          preferredStarterDoctrine: runtimeSnapshot.bootConfig.starterDoctrine,
           updatedAt: now,
         },
         updatedAt: now,
@@ -405,6 +489,7 @@ export function GameShell() {
     runtimeSnapshot.bootConfig.playerName,
     runtimeSnapshot.bootConfig.touchControls,
     runtimeSnapshot.bootConfig.locale,
+    runtimeSnapshot.bootConfig.starterDoctrine,
   ]);
 
   useEffect(() => {
@@ -804,6 +889,7 @@ export function GameShell() {
       remoteProfileSlot.profile.preferredPlayerName,
       remoteProfileSlot.profile.preferredTouchControls ? "1" : "0",
       remoteProfileSlot.profile.preferredLocale,
+      remoteProfileSlot.profile.preferredStarterDoctrine,
       activeSlot.profile.bestScore,
       activeSlot.profile.bestRound,
     ].join(":");
@@ -830,6 +916,7 @@ export function GameShell() {
     activeSlot.profile.bestScore,
     remoteProfileSlot.profile.preferredLocale,
     remoteProfileSlot.profile.preferredPlayerName,
+    remoteProfileSlot.profile.preferredStarterDoctrine,
     remoteProfileSlot.profile.preferredTouchControls,
     backendUrl,
     clientReady,
@@ -1397,6 +1484,7 @@ export function GameShell() {
     canAdvanceRound,
     canRestartRun,
     currentPhase,
+    starterDoctrine,
   });
   const activeTraitSummary = activeTraits
     .filter((trait) => trait.active)
@@ -1486,6 +1574,9 @@ export function GameShell() {
             <div className="guide-summary-card">
               <div className="eyebrow">
                 {locale === "zh-CN" ? "首局路线" : "First Match Path"}
+              </div>
+              <div className="muted">
+                {starterDoctrine.label} · {starterDoctrine.bonusLabel}
               </div>
               <strong>{onboarding.headline}</strong>
               <span className="muted">{onboarding.detail}</span>
@@ -1636,6 +1727,21 @@ export function GameShell() {
                         ? "启动后你会依次完成：从商店买第一张棋子、把它放到部署区、然后开始战斗。"
                         : "After launch, you will buy your first unit, place it on the board, and start combat."}
                     </p>
+                    <div
+                      className="trait-card"
+                      data-testid="starter-doctrine-preview"
+                    >
+                      <span className="slot-title">{starterDoctrine.label}</span>
+                      <span className="slot-meta">
+                        {starterDoctrine.bonusLabel}
+                      </span>
+                      <span className="slot-meta">
+                        {starterDoctrine.description}
+                      </span>
+                      <span className="slot-meta">
+                        {starterDoctrine.openingPlan}
+                      </span>
+                    </div>
                     <div className="boot-steps">
                       <span>01 {locale === "zh-CN" ? "启动" : "Boot"}</span>
                       <span>02 {locale === "zh-CN" ? "购买" : "Buy"}</span>
@@ -2506,6 +2612,69 @@ export function GameShell() {
               <div className="muted">{roundDiagnosis}</div>
             </section>
 
+            <section className="panel" data-testid="build-pack-panel">
+              <div className="eyebrow">
+                {locale === "zh-CN" ? "Build Packs" : "Build Packs"}
+              </div>
+              <div className="trait-grid">
+                {buildPackCards.map((pack) => (
+                  <div
+                    key={pack.key}
+                    className={`trait-card${pack.recommended ? " active" : ""}`}
+                  >
+                    <span className="slot-title">
+                      {pack.label}
+                      {pack.recommended
+                        ? locale === "zh-CN"
+                          ? " · 推荐"
+                          : " · Recommended"
+                        : ""}
+                    </span>
+                    <span className="slot-meta">{pack.summary}</span>
+                    <span className="slot-meta">{pack.progressLabel}</span>
+                    <span className="slot-meta">{pack.coreLabel}</span>
+                    <span className="slot-meta">
+                      {pack.missingLabel}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="panel" data-testid="performance-panel">
+              <div className="eyebrow">
+                {locale === "zh-CN" ? "战斗遥测" : "Combat Telemetry"}
+              </div>
+              {performanceLeaders.length > 0 ? (
+                <div className="trait-grid">
+                  {performanceLeaders.map((entry) => (
+                    <div
+                      key={`${entry.agentId}-${entry.battleInstanceId}`}
+                      className="trait-card"
+                    >
+                      <span className="slot-title">{entry.label}</span>
+                      <span className="slot-meta">
+                        {locale === "zh-CN"
+                          ? `输出 ${entry.damageDealt} · 承伤 ${entry.damageTaken}`
+                          : `DMG ${entry.damageDealt} · TANK ${entry.damageTaken}`}
+                      </span>
+                      <span className="slot-meta">
+                        {locale === "zh-CN"
+                          ? `治疗 ${entry.healingDone} · 击杀 ${entry.kills}`
+                          : `HEAL ${entry.healingDone} · KILLS ${entry.kills}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="muted">
+                  {locale === "zh-CN"
+                    ? "开战后这里会按输出、击杀和治疗排序显示本回合的核心单位。"
+                    : "Once combat starts, this panel ranks the round by damage, kills, and healing."}
+                </div>
+              )}
+            </section>
+
             <section className="panel" data-testid="trait-panel">
               <div className="eyebrow">{copy.synergies}</div>
               <div className="trait-grid">
@@ -2563,6 +2732,33 @@ export function GameShell() {
               />
               {copy.touchHudEnabled}
             </label>
+            <div className="eyebrow">
+              {locale === "zh-CN" ? "Starter Doctrine" : "Starter Doctrine"}
+            </div>
+            <div className="offer-grid">
+              {STARTER_DOCTRINE_KEYS.map((doctrineKey) => {
+                const doctrine = getStarterDoctrinePreview(doctrineKey, locale);
+                const selected =
+                  runtimeSnapshot.bootConfig.starterDoctrine === doctrineKey;
+
+                return (
+                  <button
+                    key={doctrineKey}
+                    type="button"
+                    className={`offer-card${selected ? " selected" : ""}`}
+                    onClick={() =>
+                      setLauncherConfig("starterDoctrine", doctrineKey)
+                    }
+                    data-testid={`starter-doctrine-${doctrineKey}`}
+                  >
+                    <span className="slot-title">{doctrine.label}</span>
+                    <span className="slot-meta">{doctrine.bonusLabel}</span>
+                    <span className="slot-meta">{doctrine.description}</span>
+                    <span className="slot-meta">{doctrine.openingPlan}</span>
+                  </button>
+                );
+              })}
+            </div>
             <button
               className="button"
               onClick={handleLaunch}
@@ -2759,6 +2955,28 @@ export function GameShell() {
             <div className="muted">{runModifier.description}</div>
           </section>
 
+          <section className="panel" data-testid="starter-doctrine-panel">
+            <div className="eyebrow">
+              {locale === "zh-CN" ? "Starter Doctrine" : "Starter Doctrine"}
+            </div>
+            <div className="stat-grid stat-grid-two">
+              <div className="stat-card">
+                <span className="stat-label">
+                  {locale === "zh-CN" ? "开局路线" : "Opener"}
+                </span>
+                <strong>{starterDoctrine.label}</strong>
+              </div>
+              <div className="stat-card">
+                <span className="stat-label">
+                  {locale === "zh-CN" ? "开局加成" : "Bonus"}
+                </span>
+                <strong>{starterDoctrine.bonusLabel}</strong>
+              </div>
+            </div>
+            <div className="muted">{starterDoctrine.description}</div>
+            <div className="muted">{starterDoctrine.openingPlan}</div>
+          </section>
+
           <section className="panel" data-testid="progression-panel">
             <div className="eyebrow">{copy.runMeta}</div>
             <div className="stat-grid">
@@ -2831,6 +3049,12 @@ export function GameShell() {
               <div className="stat-grid stat-grid-two">
                 <div className="stat-card">
                   <span className="stat-label">
+                    {locale === "zh-CN" ? "Starter Doctrine" : "Starter Doctrine"}
+                  </span>
+                  <strong>{latestCompletedBattle.starterDoctrine.label}</strong>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">
                     {locale === "zh-CN" ? "Build 路线" : "Build Route"}
                   </span>
                   <strong>{latestCompletedBattle.buildRoute}</strong>
@@ -2862,6 +3086,10 @@ export function GameShell() {
                       latestCompletedBattle.incomeEventTotal}
                   </strong>
                 </div>
+              </div>
+              <div className="muted">
+                {locale === "zh-CN" ? "Doctrine：" : "Doctrine: "}{" "}
+                {latestCompletedBattle.starterDoctrine.bonusLabel}
               </div>
               <div className="muted">
                 {latestCompletedBattle.runModifier.description}
@@ -2911,6 +3139,22 @@ export function GameShell() {
               <div className="muted">
                 {locale === "zh-CN" ? "胜负复盘：" : "Round Read: "}{" "}
                 {latestCompletedBattle.outcomeReason}
+              </div>
+              <div className="feed-list">
+                {(latestCompletedBattle.performanceLeaders.length > 0
+                  ? latestCompletedBattle.performanceLeaders
+                  : performanceLeaders
+                ).map((entry) => (
+                  <div
+                    key={`${entry.agentId}-${entry.battleInstanceId}`}
+                    className="muted"
+                  >
+                    {entry.label} ·{" "}
+                    {locale === "zh-CN"
+                      ? `输出 ${entry.damageDealt} / 承伤 ${entry.damageTaken} / 治疗 ${entry.healingDone} / 击杀 ${entry.kills}`
+                      : `DMG ${entry.damageDealt} / TANK ${entry.damageTaken} / HEAL ${entry.healingDone} / KILLS ${entry.kills}`}
+                  </div>
+                ))}
               </div>
               <div className="feed-list">
                 {(latestCompletedBattle.roundHistory.length > 0
@@ -3484,6 +3728,7 @@ function buildBattleRecord(
     endedAt: session.endedAt,
     playerAgentIds,
     replayState: runtimeSnapshot.world.slice.serializedRunState,
+    starterDoctrine: runtimeSnapshot.world.slice.starterDoctrine,
     runModifier: runtimeSnapshot.world.slice.runModifier,
     selectedAugments: runtimeSnapshot.world.slice.selectedAugments,
     activeTraits: runtimeSnapshot.world.slice.activeTraits.filter(
@@ -3491,6 +3736,7 @@ function buildBattleRecord(
     ),
     finalBoard,
     roundHistory: runtimeSnapshot.world.slice.roundHistory,
+    performanceLeaders: runtimeSnapshot.world.slice.performanceLeaders,
     incomeBaseTotal: runtimeSnapshot.world.slice.incomeBaseTotal,
     incomeInterestTotal: runtimeSnapshot.world.slice.incomeInterestTotal,
     incomeStreakTotal: runtimeSnapshot.world.slice.incomeStreakTotal,
@@ -3498,7 +3744,10 @@ function buildBattleRecord(
     incomeEventTotal: runtimeSnapshot.world.slice.incomeEventTotal,
     buildRoute: inferBuildRoute(runtimeSnapshot),
     econPlan: inferEconomyPlan(runtimeSnapshot),
-    mvpLabel: selectBattleMvpLabel(finalBoard),
+    mvpLabel: selectBattleMvpLabel(
+      finalBoard,
+      runtimeSnapshot.world.slice.performanceLeaders,
+    ),
     outcomeReason: runtimeSnapshot.world.slice.roundDiagnosis,
   };
 }
@@ -3562,6 +3811,9 @@ function areBattleRecordsEqual(
     left.endedAt === right.endedAt &&
     left.replayState === right.replayState &&
     left.playerAgentIds.join("|") === right.playerAgentIds.join("|") &&
+    left.starterDoctrine.key === right.starterDoctrine.key &&
+    left.starterDoctrine.label === right.starterDoctrine.label &&
+    left.starterDoctrine.bonusLabel === right.starterDoctrine.bonusLabel &&
     left.runModifier.key === right.runModifier.key &&
     left.runModifier.label === right.runModifier.label &&
     left.runModifier.description === right.runModifier.description &&
@@ -3574,6 +3826,18 @@ function areBattleRecordsEqual(
       right.finalBoard.map((unit) => unit.agentId).join("|") &&
     left.roundHistory.map((entry) => `${entry.round}:${entry.result}:${entry.incomeTotal}:${entry.summary}`).join("|") ===
       right.roundHistory.map((entry) => `${entry.round}:${entry.result}:${entry.incomeTotal}:${entry.summary}`).join("|") &&
+    left.performanceLeaders
+      .map(
+        (entry) =>
+          `${entry.agentId}:${entry.damageDealt}:${entry.damageTaken}:${entry.healingDone}:${entry.kills}`,
+      )
+      .join("|") ===
+      right.performanceLeaders
+        .map(
+          (entry) =>
+            `${entry.agentId}:${entry.damageDealt}:${entry.damageTaken}:${entry.healingDone}:${entry.kills}`,
+        )
+        .join("|") &&
     left.incomeBaseTotal === right.incomeBaseTotal &&
     left.incomeInterestTotal === right.incomeInterestTotal &&
     left.incomeStreakTotal === right.incomeStreakTotal &&
@@ -3586,9 +3850,187 @@ function areBattleRecordsEqual(
   );
 }
 
+function getStarterDoctrinePreview(
+  key: RuntimeStarterDoctrineKey,
+  locale: UiLocale,
+): RuntimeStarterDoctrineView {
+  switch (key) {
+    case "dawn-relay":
+      return {
+        key,
+        label: locale === "zh-CN" ? "黎明接力" : "Dawn Relay",
+        description:
+          locale === "zh-CN"
+            ? "以黎明续航组件开局，并带着更多指挥官血量去稳住节奏。"
+            : "Open with Dawn sustain pieces and a little more commander life to hold streaks.",
+        openingPlan:
+          locale === "zh-CN"
+            ? "先用续航壳保血，再优先补齐黎明或前排羁绊。"
+            : "Use the early sustain shell to protect HP, then complete Dawn or Vanguard first.",
+        bonusLabel:
+          locale === "zh-CN" ? "指挥官生命 +2" : "+2 commander health",
+      } as const;
+    case "dusk-raid":
+      return {
+        key,
+        label: locale === "zh-CN" ? "黄昏突袭" : "Dusk Raid",
+        description:
+          locale === "zh-CN"
+            ? "以黄昏后排对子开局，并带 1 金币去抢前中期节奏。"
+            : "Open with a Dusk backline pair and one extra gold to buy early tempo.",
+        openingPlan:
+          locale === "zh-CN"
+            ? "如果黄昏商店来了就果断花钱冲强度，然后持续打后排爆发竞速。"
+            : "Spend for an early spike if the Dusk shop appears, then keep pressure on the backline race.",
+        bonusLabel: locale === "zh-CN" ? "开局金币 +1" : "+1 opening gold",
+      } as const;
+    case "iron-wall":
+      return {
+        key,
+        label: locale === "zh-CN" ? "铁壁开局" : "Iron Wall",
+        description:
+          locale === "zh-CN"
+            ? "以前排重壳开局，并带额外血量去打更慢的养成局。"
+            : "Open with a tank-heavy shell and extra commander life for slower scaling games.",
+        openingPlan:
+          locale === "zh-CN"
+            ? "先用前排站稳，再决定转向黎明续航还是黄昏重装。"
+            : "Anchor the board with tanks, then decide whether to branch into Dawn sustain or Dusk bruisers.",
+        bonusLabel:
+          locale === "zh-CN" ? "指挥官生命 +3" : "+3 commander health",
+      } as const;
+    case "open-market":
+      return {
+        key,
+        label: locale === "zh-CN" ? "开放黑市" : "Open Market",
+        description:
+          locale === "zh-CN"
+            ? "带着更多金币和灵活后排开局，围绕前几轮商店快速转型。"
+            : "Open with extra gold and flexible backliners so you can pivot around the first shops.",
+        openingPlan:
+          locale === "zh-CN"
+            ? "用额外金币尽快做出对子，并围绕第一轮强化或事件商店大转型。"
+            : "Use the extra gold to hit pairs early and pivot hard around your first augment or event shop.",
+        bonusLabel: locale === "zh-CN" ? "开局金币 +2" : "+2 opening gold",
+      } as const;
+    case "balanced":
+    default:
+      return {
+        key: "balanced" as const,
+        label: locale === "zh-CN" ? "均衡备战" : "Balanced Prep",
+        description:
+          locale === "zh-CN"
+            ? "稳定开局，没有强制加成。等路线信号足够清晰后再锁方向。"
+            : "Stable opener with no forced bonus. Stay flexible until a route clearly appears.",
+        openingPlan:
+          locale === "zh-CN"
+            ? "先上最强对子，再追最先成型的四件套满羁绊。"
+            : "Field the strongest pair and chase whichever 4-piece capstone comes together first.",
+        bonusLabel:
+          locale === "zh-CN"
+            ? "没有额外开局加成"
+            : "No extra opener bonus",
+      } as const;
+  }
+}
+
+function archetypeLabelFor(
+  archetype: RuntimeUnitView["archetype"],
+  locale: UiLocale,
+) {
+  switch (archetype) {
+    case "verdant-bruiser":
+      return locale === "zh-CN" ? "翠卫斗士" : "Verdant Bruiser";
+    case "signal-ranger":
+      return locale === "zh-CN" ? "信号射手" : "Signal Ranger";
+    case "ash-duelist":
+      return locale === "zh-CN" ? "灰烬决斗者" : "Ash Duelist";
+    case "iron-vanguard":
+      return locale === "zh-CN" ? "钢铁先锋" : "Iron Vanguard";
+    case "frost-oracle":
+      return locale === "zh-CN" ? "霜语先知" : "Frost Oracle";
+    case "ember-medic":
+      return locale === "zh-CN" ? "余烬医师" : "Ember Medic";
+    case "volt-juggler":
+      return locale === "zh-CN" ? "电弧杂耍者" : "Volt Juggler";
+    case "grave-warden":
+      return locale === "zh-CN" ? "墓垒守卫" : "Grave Warden";
+    case "lumen-sentinel":
+      return locale === "zh-CN" ? "辉光卫哨" : "Lumen Sentinel";
+    case "shade-runner":
+      return locale === "zh-CN" ? "影奔袭客" : "Shade Runner";
+  }
+}
+
+function buildPackCardsFor(runtimeSnapshot: RuntimeSnapshot) {
+  const locale = runtimeSnapshot.bootConfig.locale as UiLocale;
+  const slice = runtimeSnapshot.world.slice;
+  const doctrineKey = slice.starterDoctrine.key;
+  const activeTraits = new Map(slice.activeTraits.map((trait) => [trait.key, trait]));
+  const ownedArchetypes = new Set(
+    [
+      ...slice.benchUnits,
+      ...slice.playerBoard.filter((unit): unit is RuntimeUnitView => unit != null),
+    ].map((unit) => unit.archetype),
+  );
+
+  const cards = BUILD_PACK_BLUEPRINTS.map((blueprint) => {
+    const trait = activeTraits.get(blueprint.traitKey);
+    const coreOwned = blueprint.coreArchetypes.filter((archetype) =>
+      ownedArchetypes.has(archetype),
+    );
+    const missing = blueprint.coreArchetypes
+      .filter((archetype) => !ownedArchetypes.has(archetype))
+      .map((archetype) => archetypeLabelFor(archetype, locale));
+    const doctrineMatch = blueprint.doctrineKeys.some(
+      (candidate) => candidate === doctrineKey,
+    );
+    const score =
+      (doctrineMatch ? 6 : 0) +
+      (trait?.count ?? 0) * 3 +
+      coreOwned.length * 2 +
+      (trait?.tier ?? 0) * 4;
+
+    return {
+      key: blueprint.key,
+      label: blueprint.label[locale],
+      summary: blueprint.summary[locale],
+      score,
+      progressLabel:
+        trait == null
+          ? locale === "zh-CN"
+            ? "主羁绊尚未点亮"
+            : "Primary trait not online yet"
+          : locale === "zh-CN"
+            ? `${trait.label} ${trait.count}/${trait.capstoneThreshold} · 阶层 ${trait.tier}/2`
+            : `${trait.label} ${trait.count}/${trait.capstoneThreshold} · Tier ${trait.tier}/2`,
+      coreLabel:
+        locale === "zh-CN"
+          ? `核心组件 ${coreOwned.length}/${blueprint.coreArchetypes.length}`
+          : `Core units ${coreOwned.length}/${blueprint.coreArchetypes.length}`,
+      missingLabel:
+        missing.length > 0
+          ? locale === "zh-CN"
+            ? `还缺：${missing.slice(0, 2).join(" · ")}`
+            : `Missing: ${missing.slice(0, 2).join(" · ")}`
+          : locale === "zh-CN"
+            ? "核心组件已凑齐"
+            : "Core shell assembled",
+    };
+  });
+
+  const recommendedKey = [...cards].sort((left, right) => right.score - left.score)[0]?.key;
+
+  return cards.map((card) => ({
+    ...card,
+    recommended: card.key === recommendedKey,
+  }));
+}
+
 function inferBuildRoute(runtimeSnapshot: RuntimeSnapshot) {
   const locale = runtimeSnapshot.bootConfig.locale as UiLocale;
   const modifier = runtimeSnapshot.world.slice.runModifier.key;
+  const doctrine = runtimeSnapshot.world.slice.starterDoctrine.key;
   const augmentKeys = new Set(
     runtimeSnapshot.world.slice.selectedAugments.map((augment) => augment.key),
   );
@@ -3599,6 +4041,7 @@ function inferBuildRoute(runtimeSnapshot: RuntimeSnapshot) {
   );
 
   if (
+    doctrine === "dawn-relay" ||
     modifier === "dawn-surge" ||
     augmentKeys.has("dawn-pulse") ||
     traitKeys.has("dawn")
@@ -3607,6 +4050,7 @@ function inferBuildRoute(runtimeSnapshot: RuntimeSnapshot) {
   }
 
   if (
+    doctrine === "dusk-raid" ||
     modifier === "dusk-surge" ||
     augmentKeys.has("dusk-pact") ||
     traitKeys.has("dusk")
@@ -3615,6 +4059,7 @@ function inferBuildRoute(runtimeSnapshot: RuntimeSnapshot) {
   }
 
   if (
+    doctrine === "open-market" ||
     modifier === "rich-opening" ||
     modifier === "thin-bench" ||
     augmentKeys.has("compound-interest")
@@ -3622,7 +4067,14 @@ function inferBuildRoute(runtimeSnapshot: RuntimeSnapshot) {
     return locale === "zh-CN" ? "经济后期线" : "Economy Spike";
   }
 
-  if (augmentKeys.has("skirmisher-drive") || traitKeys.has("skirmisher")) {
+  if (doctrine === "iron-wall" || traitKeys.has("vanguard")) {
+    return locale === "zh-CN" ? "前排堡垒线" : "Vanguard Bastion";
+  }
+
+  if (
+    augmentKeys.has("skirmisher-drive") ||
+    traitKeys.has("skirmisher")
+  ) {
     return locale === "zh-CN" ? "游击节奏线" : "Skirmisher Tempo";
   }
 
@@ -3708,7 +4160,21 @@ function inferLiveBuildPlan(runtimeSnapshot: RuntimeSnapshot) {
     : `${route} is still forming. Lock a carry and a frontline before spreading the board any thinner.`;
 }
 
-function selectBattleMvpLabel(finalBoard: RuntimeUnitView[]) {
+function selectBattleMvpLabel(
+  finalBoard: RuntimeUnitView[],
+  performanceLeaders: RuntimeSnapshot["world"]["slice"]["performanceLeaders"],
+) {
+  const liveLeader = performanceLeaders.find(
+    (entry) =>
+      entry.damageDealt > 0 ||
+      entry.kills > 0 ||
+      entry.healingDone > 0 ||
+      entry.damageTaken > 0,
+  );
+  if (liveLeader) {
+    return liveLeader.label;
+  }
+
   const mvp = [...finalBoard].sort((left, right) => {
     return (
       right.stars - left.stars ||
@@ -3847,6 +4313,7 @@ function buildOnboardingModel({
   canAdvanceRound,
   canRestartRun,
   currentPhase,
+  starterDoctrine,
 }: {
   locale: UiLocale;
   ready: boolean;
@@ -3856,6 +4323,7 @@ function buildOnboardingModel({
   canAdvanceRound: boolean;
   canRestartRun: boolean;
   currentPhase: string;
+  starterDoctrine: ReturnType<typeof getStarterDoctrinePreview>;
 }) {
   const hasDrafted = benchCount > 0 || deployedUnits > 0;
   const hasDeployed = deployedUnits > 0;
@@ -3915,11 +4383,13 @@ function buildOnboardingModel({
     return {
       steps,
       headline:
-        locale === "zh-CN" ? "先启动 Runtime" : "Start the runtime first",
+        locale === "zh-CN"
+          ? `以 ${starterDoctrine.label} 启动首局`
+          : `Launch into ${starterDoctrine.label}`,
       detail:
         locale === "zh-CN"
-          ? "这是整局的开关。启动后你才会看到真正的棋盘状态和可操作的战斗流程。"
-          : "This turns the whole run on. After boot, the board and combat flow become interactive.",
+          ? `${starterDoctrine.bonusLabel}。${starterDoctrine.openingPlan}`
+          : `${starterDoctrine.bonusLabel}. ${starterDoctrine.openingPlan}`,
     };
   }
 
@@ -3928,12 +4398,12 @@ function buildOnboardingModel({
       steps,
       headline:
         locale === "zh-CN"
-          ? "先去招募商店买第一张牌"
-          : "Buy your first unit from the shop",
+          ? `先按 ${starterDoctrine.label} 的方向买第一张牌`
+          : `Draft the first piece for ${starterDoctrine.label}`,
       detail:
         locale === "zh-CN"
-          ? "商店购买后单位会先到备战席。别直接找棋盘空槽，先买再布。"
-          : "Purchased units go to the bench first. Draft before you try to place them.",
+          ? `商店购买后单位会先到备战席。优先围绕这条路线的前两张关键牌展开。`
+          : `Purchased units land on the bench first. Start with the pieces that fit this opener.`,
     };
   }
 

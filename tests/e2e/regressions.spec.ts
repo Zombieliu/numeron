@@ -10,6 +10,7 @@ import {
   readGold,
   readShopOfferTitles,
   rerollShop,
+  selectStarterDoctrine,
   switchToChinese,
   switchToEnglish,
   waitForRoundResolution,
@@ -194,22 +195,33 @@ test("switching save slots restores slot-scoped locale and player profile", asyn
 
   await switchToChinese(page);
   await page.getByTestId("player-name-input").fill("Alpha QA");
+  await selectStarterDoctrine(page, "dawn-relay");
   await ensureOperationsDrawerOpen(page);
   await page.getByTestId("save-slot-slot-2").click();
 
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByTestId("player-name-input")).toHaveValue("Pilot");
+  await expect(page.getByTestId("starter-doctrine-balanced")).toContainText(
+    /Balanced Prep|均衡备战/,
+  );
 
   await switchToEnglish(page);
   await page.getByTestId("player-name-input").fill("Bravo QA");
+  await selectStarterDoctrine(page, "open-market");
   await ensureOperationsDrawerOpen(page);
   await page.getByTestId("save-slot-slot-1").click();
 
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
   await expect(page.getByTestId("player-name-input")).toHaveValue("Alpha QA");
+  await expect(page.getByTestId("starter-doctrine-dawn-relay")).toContainText(
+    /Dawn Relay|黎明接力/,
+  );
 
   await ensureOperationsDrawerOpen(page);
   await page.getByTestId("save-slot-slot-2").click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByTestId("player-name-input")).toHaveValue("Bravo QA");
+  await expect(page.getByTestId("starter-doctrine-open-market")).toContainText(
+    /Open Market|开放黑市/,
+  );
 });

@@ -1,7 +1,7 @@
 use crate::starter_scene::{
     BoardAnchor, CombatDirectiveOrder, RuntimeAugmentView, RuntimeCombatDirectiveView,
-    RuntimeRoundEventView, RuntimeRoundSummaryView, RuntimeRunModifierView, RuntimeTraitView,
-    RuntimeUnitView, StarterSliceProjection,
+    RuntimePerformanceView, RuntimeRoundEventView, RuntimeRoundSummaryView, RuntimeRunModifierView,
+    RuntimeStarterDoctrineView, RuntimeTraitView, RuntimeUnitView, StarterSliceProjection,
 };
 use bevy::prelude::*;
 
@@ -11,7 +11,7 @@ use crate::starter_scene::{CombatDirective, CombatDirectiveLane};
 use serde::Deserialize;
 
 #[cfg(target_arch = "wasm32")]
-use crate::{RuntimeConfig, RuntimeLocale};
+use crate::{RuntimeConfig, RuntimeLocale, RuntimeStarterDoctrine};
 #[cfg(target_arch = "wasm32")]
 use js_sys::{Function, Object, Reflect};
 #[cfg(target_arch = "wasm32")]
@@ -48,6 +48,7 @@ struct PendingSessionConfig {
     player_name: String,
     touch_controls: bool,
     locale_code: String,
+    starter_doctrine_code: String,
     resume_state_json: Option<String>,
 }
 
@@ -58,6 +59,7 @@ impl Default for PendingSessionConfig {
             player_name: "Pilot".to_owned(),
             touch_controls: true,
             locale_code: "en".to_owned(),
+            starter_doctrine_code: "balanced".to_owned(),
             resume_state_json: None,
         }
     }
@@ -140,7 +142,12 @@ pub fn clear_runtime_event_sink() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(js_name = setRuntimeSessionConfig)]
-pub fn set_runtime_session_config(player_name: String, touch_controls: bool, locale: String) {
+pub fn set_runtime_session_config(
+    player_name: String,
+    touch_controls: bool,
+    locale: String,
+    starter_doctrine: String,
+) {
     SESSION_CONFIG.with(|config| {
         let trimmed_name = player_name.trim();
         let mut pending = config.borrow_mut();
@@ -155,6 +162,10 @@ pub fn set_runtime_session_config(player_name: String, touch_controls: bool, loc
         } else {
             "en".to_owned()
         };
+        pending.starter_doctrine_code =
+            RuntimeStarterDoctrine::from_code(&starter_doctrine)
+                .code()
+                .to_owned();
     });
 }
 
@@ -376,6 +387,9 @@ pub fn boot_runtime() {
         player_name: pending_config.player_name,
         touch_controls: pending_config.touch_controls,
         locale: RuntimeLocale::from_code(&pending_config.locale_code),
+        starter_doctrine: RuntimeStarterDoctrine::from_code(
+            &pending_config.starter_doctrine_code,
+        ),
         resume_state_json: pending_config.resume_state_json,
     });
 
@@ -481,9 +495,11 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         active_traits: slice.active_traits,
         selected_augments: slice.selected_augments,
         pending_augments: slice.pending_augments,
+        starter_doctrine: slice.starter_doctrine,
         run_modifier: slice.run_modifier,
         round_event: slice.round_event,
         round_history: slice.round_history,
+        performance_leaders: slice.performance_leaders,
         active_combat_directive: slice.active_combat_directive,
         queued_combat_directives: slice.queued_combat_directives,
         combat_feed: slice.combat_feed,
@@ -544,9 +560,11 @@ struct ProjectionPayload {
     active_traits: Vec<RuntimeTraitView>,
     selected_augments: Vec<RuntimeAugmentView>,
     pending_augments: Vec<RuntimeAugmentView>,
+    starter_doctrine: RuntimeStarterDoctrineView,
     run_modifier: RuntimeRunModifierView,
     round_event: RuntimeRoundEventView,
     round_history: Vec<RuntimeRoundSummaryView>,
+    performance_leaders: Vec<RuntimePerformanceView>,
     active_combat_directive: Option<RuntimeCombatDirectiveView>,
     queued_combat_directives: Vec<RuntimeCombatDirectiveView>,
     combat_feed: Vec<String>,
@@ -700,6 +718,11 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
             let _ = Reflect::set(&slice, &"pendingAugments".into(), &pending_augments);
             let _ = Reflect::set(
                 &slice,
+                &"starterDoctrine".into(),
+                &runtime_starter_doctrine_view_object(&projection.starter_doctrine),
+            );
+            let _ = Reflect::set(
+                &slice,
                 &"runModifier".into(),
                 &runtime_run_modifier_view_object(&projection.run_modifier),
             );
@@ -713,6 +736,15 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 round_history.push(&runtime_round_summary_view_object(round));
             }
             let _ = Reflect::set(&slice, &"roundHistory".into(), &round_history);
+            let performance_leaders = js_sys::Array::new();
+            for leader in &projection.performance_leaders {
+                performance_leaders.push(&runtime_performance_view_object(leader));
+            }
+            let _ = Reflect::set(
+                &slice,
+                &"performanceLeaders".into(),
+                &performance_leaders,
+            );
             let active_combat_directive = projection
                 .active_combat_directive
                 .as_ref()
@@ -931,6 +963,29 @@ fn runtime_run_modifier_view_object(view: &RuntimeRunModifierView) -> JsValue {
 }
 
 #[cfg(target_arch = "wasm32")]
+fn runtime_starter_doctrine_view_object(view: &RuntimeStarterDoctrineView) -> JsValue {
+    let payload = Object::new();
+    let _ = Reflect::set(&payload, &"key".into(), &view.key.clone().into());
+    let _ = Reflect::set(&payload, &"label".into(), &view.label.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"description".into(),
+        &view.description.clone().into(),
+    );
+    let _ = Reflect::set(
+        &payload,
+        &"openingPlan".into(),
+        &view.opening_plan.clone().into(),
+    );
+    let _ = Reflect::set(
+        &payload,
+        &"bonusLabel".into(),
+        &view.bonus_label.clone().into(),
+    );
+    payload.into()
+}
+
+#[cfg(target_arch = "wasm32")]
 fn runtime_round_event_view_object(view: &RuntimeRoundEventView) -> JsValue {
     let payload = Object::new();
     let _ = Reflect::set(&payload, &"key".into(), &view.key.clone().into());
@@ -952,6 +1007,35 @@ fn runtime_round_summary_view_object(view: &RuntimeRoundSummaryView) -> JsValue 
     let _ = Reflect::set(&payload, &"incomeTotal".into(), &view.income_total.into());
     let _ = Reflect::set(&payload, &"threat".into(), &view.threat.into());
     let _ = Reflect::set(&payload, &"summary".into(), &view.summary.clone().into());
+    payload.into()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn runtime_performance_view_object(view: &RuntimePerformanceView) -> JsValue {
+    let payload = Object::new();
+    let _ = Reflect::set(&payload, &"agentId".into(), &view.agent_id.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"battleInstanceId".into(),
+        &view.battle_instance_id.clone().into(),
+    );
+    let _ = Reflect::set(&payload, &"label".into(), &view.label.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"damageDealt".into(),
+        &view.damage_dealt.into(),
+    );
+    let _ = Reflect::set(
+        &payload,
+        &"damageTaken".into(),
+        &view.damage_taken.into(),
+    );
+    let _ = Reflect::set(
+        &payload,
+        &"healingDone".into(),
+        &view.healing_done.into(),
+    );
+    let _ = Reflect::set(&payload, &"kills".into(), &view.kills.into());
     payload.into()
 }
 

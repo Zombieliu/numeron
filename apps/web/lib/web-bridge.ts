@@ -234,6 +234,13 @@ export function sanitizeRuntimeBootConfig(
         : DEFAULT_RUNTIME_BOOT_CONFIG.touchControls,
     locale:
       value?.locale === "zh-CN" ? "zh-CN" : DEFAULT_RUNTIME_BOOT_CONFIG.locale,
+    starterDoctrine:
+      value?.starterDoctrine === "dawn-relay" ||
+      value?.starterDoctrine === "dusk-raid" ||
+      value?.starterDoctrine === "iron-wall" ||
+      value?.starterDoctrine === "open-market"
+        ? value.starterDoctrine
+        : DEFAULT_RUNTIME_BOOT_CONFIG.starterDoctrine,
   };
 }
 
@@ -375,6 +382,9 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       pendingAugments: Array.isArray(projection.slice?.pendingAugments)
         ? projection.slice.pendingAugments.map(normalizeRuntimeAugmentView)
         : DEFAULT_RUNTIME_PROJECTION.slice.pendingAugments,
+      starterDoctrine: projection.slice?.starterDoctrine
+        ? normalizeRuntimeStarterDoctrineView(projection.slice.starterDoctrine)
+        : DEFAULT_RUNTIME_PROJECTION.slice.starterDoctrine,
       runModifier: projection.slice?.runModifier
         ? normalizeRuntimeRunModifierView(projection.slice.runModifier)
         : DEFAULT_RUNTIME_PROJECTION.slice.runModifier,
@@ -384,6 +394,11 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       roundHistory: Array.isArray(projection.slice?.roundHistory)
         ? projection.slice.roundHistory.map(normalizeRuntimeRoundSummaryView)
         : DEFAULT_RUNTIME_PROJECTION.slice.roundHistory,
+      performanceLeaders: Array.isArray(projection.slice?.performanceLeaders)
+        ? projection.slice.performanceLeaders.map(
+            normalizeRuntimePerformanceView,
+          )
+        : DEFAULT_RUNTIME_PROJECTION.slice.performanceLeaders,
       activeCombatDirective: projection.slice?.activeCombatDirective
         ? normalizeRuntimeCombatDirectiveView(
             projection.slice.activeCombatDirective,
@@ -567,6 +582,19 @@ function normalizeRuntimeRunModifierView(value: unknown) {
   } as const;
 }
 
+function normalizeRuntimeStarterDoctrineView(value: unknown) {
+  const doctrine = typeof value === "object" && value ? value : {};
+  const record = doctrine as Record<string, unknown>;
+
+  return {
+    key: normalizeStarterDoctrineKey(record.key),
+    label: String(record.label ?? "Balanced Prep"),
+    description: String(record.description ?? ""),
+    openingPlan: String(record.openingPlan ?? ""),
+    bonusLabel: String(record.bonusLabel ?? ""),
+  } as const;
+}
+
 function normalizeRuntimeRoundEventView(value: unknown) {
   const event = typeof value === "object" && value ? value : {};
   const record = event as Record<string, unknown>;
@@ -589,6 +617,21 @@ function normalizeRuntimeRoundSummaryView(value: unknown) {
     incomeTotal: normalizeNumber(record.incomeTotal, 0),
     threat: normalizeNumber(record.threat, 0),
     summary: String(record.summary ?? ""),
+  } as const;
+}
+
+function normalizeRuntimePerformanceView(value: unknown) {
+  const performance = typeof value === "object" && value ? value : {};
+  const record = performance as Record<string, unknown>;
+
+  return {
+    agentId: String(record.agentId ?? "0"),
+    battleInstanceId: String(record.battleInstanceId ?? "0"),
+    label: String(record.label ?? "Unknown Unit"),
+    damageDealt: normalizeNumber(record.damageDealt, 0),
+    damageTaken: normalizeNumber(record.damageTaken, 0),
+    healingDone: normalizeNumber(record.healingDone, 0),
+    kills: normalizeNumber(record.kills, 0),
   } as const;
 }
 
@@ -660,6 +703,19 @@ function normalizeRunModifierKey(value: unknown) {
       return value;
     default:
       return "rich-opening";
+  }
+}
+
+function normalizeStarterDoctrineKey(value: unknown) {
+  switch (value) {
+    case "dawn-relay":
+    case "dusk-raid":
+    case "iron-wall":
+    case "open-market":
+    case "balanced":
+      return value;
+    default:
+      return "balanced";
   }
 }
 

@@ -8,6 +8,7 @@ import {
   openShell,
   playUntilRunEnds,
   readSaveDraft,
+  selectStarterDoctrine,
   switchToChinese,
   waitForRoundResolution,
 } from "./helpers";
@@ -17,6 +18,7 @@ test("save matrix persists locale, profile, and import flow", async ({
 }) => {
   await openShell(page);
   await switchToChinese(page);
+  await selectStarterDoctrine(page, "iron-wall");
 
   await page.getByTestId("player-name-input").fill("QA Pilot");
   await expect(page.getByTestId("player-name-input")).toHaveValue("QA Pilot");
@@ -29,6 +31,7 @@ test("save matrix persists locale, profile, and import flow", async ({
   const saveMatrix = JSON.parse(rawSave);
   expect(saveMatrix.slots[0].profile.preferredPlayerName).toBe("QA Pilot");
   expect(saveMatrix.slots[0].profile.preferredLocale).toBe("zh-CN");
+  expect(saveMatrix.slots[0].profile.preferredStarterDoctrine).toBe("iron-wall");
 
   saveMatrix.slots[0].label = "Imported QA";
   await page
@@ -40,6 +43,9 @@ test("save matrix persists locale, profile, and import flow", async ({
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
   await expect(page.getByTestId("player-name-input")).toHaveValue("QA Pilot");
+  await expect(page.getByTestId("starter-doctrine-iron-wall")).toContainText(
+    /Iron Wall|铁壁开局/,
+  );
   await ensureOperationsDrawerOpen(page);
   await expect(page.getByTestId("slot-label-input")).toHaveValue("Imported QA");
 });
