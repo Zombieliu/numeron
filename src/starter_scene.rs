@@ -25,6 +25,7 @@ const PASSIVE_ROUND_XP: u32 = 1;
 const MAX_INTEREST_INCOME: u32 = 3;
 const COMBAT_INTERVAL: f32 = 0.7;
 const TRAIT_THRESHOLD: usize = 2;
+const TRAIT_CAPSTONE_THRESHOLD: usize = 4;
 const MAX_STARS: u8 = 3;
 const FINAL_ROUND: u32 = 8;
 
@@ -47,6 +48,15 @@ pub enum RunModifierKind {
     DuskSurge,
     GlassCannon,
     AugmentStorm,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RoundEventKind {
+    Standard,
+    TrainingDay,
+    SpoilsOfWar,
+    HighRollMarket,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -115,6 +125,8 @@ pub struct CombatState {
     pub player_units: usize,
     pub enemy_units: usize,
     #[serde(default)]
+    pub free_reroll_available: bool,
+    #[serde(default)]
     pub income_base_total: u32,
     #[serde(default)]
     pub income_interest_total: u32,
@@ -123,6 +135,8 @@ pub struct CombatState {
     #[serde(default)]
     pub income_modifier_total: u32,
     #[serde(default)]
+    pub income_event_total: u32,
+    #[serde(default)]
     pub active_directive: Option<CombatDirectiveOrder>,
     #[serde(default)]
     pub queued_directives: Vec<CombatDirectiveOrder>,
@@ -130,6 +144,8 @@ pub struct CombatState {
     pub recent_highlights: Vec<String>,
     #[serde(default)]
     pub round_history: Vec<RoundHistoryEntry>,
+    #[serde(default)]
+    pub round_diagnosis: String,
     pub status: String,
 }
 
@@ -153,14 +169,17 @@ impl Default for CombatState {
             loss_streak: 0,
             player_units: 0,
             enemy_units: 0,
+            free_reroll_available: false,
             income_base_total: 0,
             income_interest_total: 0,
             income_streak_total: 0,
             income_modifier_total: 0,
+            income_event_total: 0,
             active_directive: None,
             queued_directives: Vec::new(),
             recent_highlights: Vec::new(),
             round_history: Vec::new(),
+            round_diagnosis: "Build toward a two-piece trait and preserve board tempo.".to_owned(),
             status: "Board ready. Draft another unit or start combat.".to_owned(),
         }
     }
@@ -192,6 +211,8 @@ pub struct RuntimeTraitView {
     pub label: String,
     pub count: usize,
     pub threshold: usize,
+    pub capstone_threshold: usize,
+    pub tier: u32,
     pub description: String,
     pub active: bool,
 }
@@ -211,6 +232,15 @@ pub struct RuntimeRunModifierView {
     pub label: String,
     pub description: String,
     pub route_hint: String,
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[derive(Clone, Debug)]
+pub struct RuntimeRoundEventView {
+    pub key: String,
+    pub label: String,
+    pub description: String,
+    pub stakes: String,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
@@ -263,6 +293,7 @@ pub struct StarterSliceProjection {
     pub selected_augments: Vec<RuntimeAugmentView>,
     pub pending_augments: Vec<RuntimeAugmentView>,
     pub run_modifier: RuntimeRunModifierView,
+    pub round_event: RuntimeRoundEventView,
     pub round_history: Vec<RuntimeRoundSummaryView>,
     pub active_combat_directive: Option<RuntimeCombatDirectiveView>,
     pub queued_combat_directives: Vec<RuntimeCombatDirectiveView>,
@@ -281,6 +312,8 @@ pub struct StarterSliceProjection {
     pub income_interest_total: u32,
     pub income_streak_total: u32,
     pub income_modifier_total: u32,
+    pub income_event_total: u32,
+    pub round_diagnosis: String,
     pub round_resolved: bool,
     pub run_over: bool,
     pub run_result: String,
@@ -324,6 +357,12 @@ impl Default for StarterSliceProjection {
                 description: "Open with more gold and pressure an early tempo line.".to_owned(),
                 route_hint: "Economy greed into a late spike.".to_owned(),
             },
+            round_event: RuntimeRoundEventView {
+                key: "standard".to_owned(),
+                label: "Standard Round".to_owned(),
+                description: "No temporary event modifier this round.".to_owned(),
+                stakes: "Play the strongest board and convert clean tempo.".to_owned(),
+            },
             round_history: Vec::new(),
             active_combat_directive: None,
             queued_combat_directives: Vec::new(),
@@ -342,6 +381,8 @@ impl Default for StarterSliceProjection {
             income_interest_total: 0,
             income_streak_total: 0,
             income_modifier_total: 0,
+            income_event_total: 0,
+            round_diagnosis: "Build toward a two-piece trait and preserve board tempo.".to_owned(),
             round_resolved: false,
             run_over: false,
             run_result: RunResult::Active.as_str().to_owned(),
@@ -860,13 +901,13 @@ impl UnitFaction {
         match self {
             UnitFaction::Dawn => localized(
                 locale,
-                "2 deployed Dawn units: Dawn allies gain +1 attack.",
-                "部署 2 个黎明单位：所有黎明友军获得 +1 攻击。",
+                "2 Dawn: Dawn allies gain +1 attack. 4 Dawn: +2 attack total and cadence heals.",
+                "2 黎明：黎明友军获得 +1 攻击。4 黎明：总计 +2 攻击，并在节奏触发时治疗。",
             ),
             UnitFaction::Dusk => localized(
                 locale,
-                "2 deployed Dusk units: Dusk allies gain +2 health.",
-                "部署 2 个黄昏单位：所有黄昏友军获得 +2 生命。",
+                "2 Dusk: Dusk allies gain +2 health. 4 Dusk: gain more health, +1 attack, and burst harder.",
+                "2 黄昏：黄昏友军获得 +2 生命。4 黄昏：再获更多生命、+1 攻击，并拥有更强爆发。",
             ),
         }
     }
@@ -897,13 +938,13 @@ impl UnitRole {
         match self {
             UnitRole::Vanguard => localized(
                 locale,
-                "2 deployed Vanguards: all allies gain +2 health.",
-                "部署 2 个前排单位：所有友军获得 +2 生命。",
+                "2 Vanguards: all allies gain +2 health. 4 Vanguards: +4 health total and vanguards mitigate more.",
+                "2 前排：所有友军获得 +2 生命。4 前排：总计 +4 生命，且前排减伤更强。",
             ),
             UnitRole::Skirmisher => localized(
                 locale,
-                "2 deployed Skirmishers: all allies gain +1 attack.",
-                "部署 2 个游击单位：所有友军获得 +1 攻击。",
+                "2 Skirmishers: all allies gain +1 attack. 4 Skirmishers: skirmishers gain extra attack and dive deeper.",
+                "2 游击：所有友军获得 +1 攻击。4 游击：游击单位额外获得攻击并更深入切后排。",
             ),
         }
     }
@@ -1079,6 +1120,119 @@ impl RunModifierKind {
             label: self.label(locale).to_owned(),
             description: self.description(locale).to_owned(),
             route_hint: self.route_hint(locale).to_owned(),
+        }
+    }
+}
+
+impl RoundEventKind {
+    fn for_round(round: u32) -> Self {
+        match round {
+            2 | 5 => Self::TrainingDay,
+            3 | 6 => Self::SpoilsOfWar,
+            4 | 7 => Self::HighRollMarket,
+            _ => Self::Standard,
+        }
+    }
+
+    fn key(self) -> &'static str {
+        match self {
+            Self::Standard => "standard",
+            Self::TrainingDay => "training-day",
+            Self::SpoilsOfWar => "spoils-of-war",
+            Self::HighRollMarket => "high-roll-market",
+        }
+    }
+
+    fn label(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::Standard => localized(locale, "Standard Round", "标准回合"),
+            Self::TrainingDay => localized(locale, "Training Day", "训练日"),
+            Self::SpoilsOfWar => localized(locale, "Spoils of War", "战利品回合"),
+            Self::HighRollMarket => localized(locale, "High Roll Market", "高波动黑市"),
+        }
+    }
+
+    fn description(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::Standard => localized(
+                locale,
+                "No temporary event modifier this round.",
+                "本回合没有额外事件规则。",
+            ),
+            Self::TrainingDay => localized(
+                locale,
+                "Buying XP grants +2 bonus XP this round.",
+                "本回合购买经验会额外获得 +2 经验。",
+            ),
+            Self::SpoilsOfWar => localized(
+                locale,
+                "Winning this round grants +2 bonus gold on top of the usual rewards.",
+                "本回合胜利会在常规奖励外额外获得 +2 金币。",
+            ),
+            Self::HighRollMarket => localized(
+                locale,
+                "The shop gains one extra offer and the first reroll costs 0 this round.",
+                "本回合商店会多 1 个招募位，且第一次刷新免费。",
+            ),
+        }
+    }
+
+    fn stakes(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::Standard => localized(
+                locale,
+                "Play the strongest board and convert clean tempo.",
+                "用最稳的棋盘去换取干净节奏。",
+            ),
+            Self::TrainingDay => localized(
+                locale,
+                "Level now if your board can hold, otherwise preserve enough gold to spike on the next shop.",
+                "如果当前棋盘能稳住就升级，否则保留足够金币为下一轮商店冲强度。",
+            ),
+            Self::SpoilsOfWar => localized(
+                locale,
+                "A tempo win pays immediately, so spend for board strength if you are close.",
+                "这一回合的节奏胜利会立刻返钱，差一点强度时值得补投资。",
+            ),
+            Self::HighRollMarket => localized(
+                locale,
+                "Use the free reroll and wider shop to finish pairs or hit a capstone piece.",
+                "利用免费刷新和更宽商店，把对子补满或追到关键羁绊牌。",
+            ),
+        }
+    }
+
+    fn xp_bonus(self) -> u32 {
+        match self {
+            Self::TrainingDay => 2,
+            _ => 0,
+        }
+    }
+
+    fn victory_bonus_gold(self) -> u32 {
+        match self {
+            Self::SpoilsOfWar => 2,
+            _ => 0,
+        }
+    }
+
+    fn shop_size_bonus(self) -> usize {
+        match self {
+            Self::HighRollMarket => 1,
+            _ => 0,
+        }
+    }
+
+    fn grants_free_reroll(self) -> bool {
+        matches!(self, Self::HighRollMarket)
+    }
+
+    fn as_view(self, locale: RuntimeLocale) -> RuntimeRoundEventView {
+        RuntimeRoundEventView {
+            key: self.key().to_owned(),
+            label: self.label(locale).to_owned(),
+            description: self.description(locale).to_owned(),
+            stakes: self.stakes(locale).to_owned(),
         }
     }
 }
@@ -1515,10 +1669,40 @@ fn mint_starred_unit(
 
 #[derive(Clone, Copy, Debug, Default)]
 struct TraitBuffs {
-    dawn_active: bool,
-    dusk_active: bool,
-    vanguard_active: bool,
-    skirmisher_active: bool,
+    dawn_count: usize,
+    dusk_count: usize,
+    vanguard_count: usize,
+    skirmisher_count: usize,
+}
+
+impl TraitBuffs {
+    fn dawn_tier(self) -> u8 {
+        trait_tier(self.dawn_count)
+    }
+
+    fn dusk_tier(self) -> u8 {
+        trait_tier(self.dusk_count)
+    }
+
+    fn vanguard_tier(self) -> u8 {
+        trait_tier(self.vanguard_count)
+    }
+
+    fn skirmisher_tier(self) -> u8 {
+        trait_tier(self.skirmisher_count)
+    }
+
+    fn highest_tier(self) -> u8 {
+        [
+            self.dawn_tier(),
+            self.dusk_tier(),
+            self.vanguard_tier(),
+            self.skirmisher_tier(),
+        ]
+        .into_iter()
+        .max()
+        .unwrap_or(0)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1780,6 +1964,8 @@ fn reset_run_state(
     *combat = CombatState::default();
     combat.run_number = next_run_number;
     combat.run_modifier = RunModifierKind::for_run(next_run_number);
+    combat.free_reroll_available = RoundEventKind::for_round(combat.round).grants_free_reroll();
+    combat.round_diagnosis = RoundEventKind::for_round(combat.round).stakes(locale).to_owned();
     combat.gold += combat.run_modifier.opening_gold_bonus();
     combat.recent_highlights.clear();
     combat_timer.0.reset();
@@ -1793,7 +1979,13 @@ fn reset_run_state(
         UnitInstance::new(UnitArchetype::EmberMedic, identity),
     ];
     enemy_squad.units = seed_enemy_squad(1, identity);
-    reroll_shop(shop, combat.round, identity, combat.run_modifier);
+    reroll_shop(
+        shop,
+        combat.round,
+        identity,
+        combat.run_modifier,
+        RoundEventKind::for_round(combat.round),
+    );
     combat.status = if increment_run_number {
         match locale {
             RuntimeLocale::En => format!(
@@ -1859,6 +2051,9 @@ fn restore_run_state(
     combat.deployment_cap = deploy_cap_for_level(combat.level);
     combat.recent_highlights.truncate(4);
     combat.round_history.truncate(8);
+    if combat.round_diagnosis.is_empty() {
+        combat.round_diagnosis = RoundEventKind::for_round(combat.round).stakes(locale).to_owned();
+    }
     combat_timer.0.reset();
 
     if combat.phase == CombatPhase::Combat && !saved_state.live_units.is_empty() {
@@ -1953,11 +2148,13 @@ fn handle_runtime_commands(
                     let total_income =
                         base_income + interest_income + streak_income + modifier_income;
                     combat.round += 1;
+                    let round_event = RoundEventKind::for_round(combat.round);
                     combat.phase = CombatPhase::Preparation;
                     combat.active_directive = None;
                     combat.queued_directives.clear();
                     combat.recent_highlights.clear();
                     combat.run_result = RunResult::Active;
+                    combat.free_reroll_available = round_event.grants_free_reroll();
                     combat.gold += total_income;
                     combat.income_base_total += base_income;
                     combat.income_interest_total += interest_income;
@@ -1966,6 +2163,7 @@ fn handle_runtime_commands(
                     let levels_gained = grant_xp(&mut combat, PASSIVE_ROUND_XP);
                     enemy_squad.units = seed_enemy_squad(combat.round, &mut identity);
                     maybe_prepare_augment_draft(&mut augments, combat.round, combat.run_modifier);
+                    combat.round_diagnosis = round_event.stakes(locale).to_owned();
                     if shop.locked {
                         combat.status = match locale {
                             RuntimeLocale::En => format!(
@@ -2002,11 +2200,18 @@ fn handle_runtime_commands(
                             ),
                         };
                     } else {
-                        reroll_shop(&mut shop, combat.round, &mut identity, combat.run_modifier);
+                        reroll_shop(
+                            &mut shop,
+                            combat.round,
+                            &mut identity,
+                            combat.run_modifier,
+                            round_event,
+                        );
                         combat.status = match locale {
                             RuntimeLocale::En => format!(
-                                "Round {} ready. Income +{} (base {} / interest {} / streak {} / modifier {}). Draft, merge, or reposition before combat. Level {} supports {} deployed units{}.",
+                                "Round {} ready under {}. Income +{} (base {} / interest {} / streak {} / modifier {}). Draft, merge, or reposition before combat. Level {} supports {} deployed units{}.",
                                 combat.round,
+                                round_event.label(locale),
                                 total_income,
                                 base_income,
                                 interest_income,
@@ -2021,8 +2226,9 @@ fn handle_runtime_commands(
                                 }
                             ),
                             RuntimeLocale::ZhCn => format!(
-                                "第 {} 回合已就绪。收入 +{}（基础 {} / 利息 {} / 连胜连败 {} / modifier {}）。战斗前可以继续招募、合成或调整站位。当前等级 {}，可部署 {} 个单位{}",
+                                "第 {} 回合已在 {} 下就绪。收入 +{}（基础 {} / 利息 {} / 连胜连败 {} / modifier {}）。战斗前可以继续招募、合成或调整站位。当前等级 {}，可部署 {} 个单位{}",
                                 combat.round,
+                                round_event.label(locale),
                                 total_income,
                                 base_income,
                                 interest_income,
@@ -2070,26 +2276,42 @@ fn handle_runtime_commands(
                 );
             }
             RuntimeCommand::RerollShop => {
+                let round_event = RoundEventKind::for_round(combat.round);
+                let reroll_cost = effective_reroll_cost(&combat);
                 if combat.phase == CombatPhase::Preparation
                     && !combat.run_over
-                    && combat.gold >= REROLL_COST
+                    && combat.gold >= reroll_cost
                 {
-                    combat.gold -= REROLL_COST;
+                    combat.gold -= reroll_cost;
+                    if reroll_cost == 0 {
+                        combat.free_reroll_available = false;
+                    }
                     reroll_shop(
                         &mut shop,
                         combat.round + 1,
                         &mut identity,
                         combat.run_modifier,
+                        round_event,
                     );
-                    combat.status = localized(
-                        locale,
-                        "Shop rerolled. Draft before combat starts.",
-                        "商店已刷新。战斗前先完成招募。",
-                    )
-                    .to_owned();
+                    combat.status = if reroll_cost == 0 {
+                        localized(
+                            locale,
+                            "Event reroll cashed in. Wider market is live for this round.",
+                            "已用掉本回合事件免费刷新，扩展商店仍在生效。",
+                        )
+                        .to_owned()
+                    } else {
+                        localized(
+                            locale,
+                            "Shop rerolled. Draft before combat starts.",
+                            "商店已刷新。战斗前先完成招募。",
+                        )
+                        .to_owned()
+                    };
                 }
             }
             RuntimeCommand::BuyXp => {
+                let round_event = RoundEventKind::for_round(combat.round);
                 if combat.phase != CombatPhase::Preparation
                     || combat.run_over
                     || combat.gold < BUY_XP_COST
@@ -2100,17 +2322,19 @@ fn handle_runtime_commands(
 
                 combat.gold -= BUY_XP_COST;
                 let previous_level = combat.level;
-                let levels_gained = grant_xp(&mut combat, BUY_XP_AMOUNT);
+                let xp_gained = BUY_XP_AMOUNT + round_event.xp_bonus();
+                let levels_gained = grant_xp(&mut combat, xp_gained);
                 combat.status = match locale {
                     RuntimeLocale::En => {
                         if levels_gained > 0 {
                             format!(
-                                "Bought XP for {} gold. Level {} unlocked with {} deployment slots.",
-                                BUY_XP_COST, combat.level, combat.deployment_cap
+                                "Bought {} XP for {} gold. Level {} unlocked with {} deployment slots.",
+                                xp_gained, BUY_XP_COST, combat.level, combat.deployment_cap
                             )
                         } else {
                             format!(
-                                "Bought XP for {} gold. Level {} progress: {}/{}.",
+                                "Bought {} XP for {} gold. Level {} progress: {}/{}.",
+                                xp_gained,
                                 BUY_XP_COST,
                                 previous_level,
                                 combat.xp,
@@ -2121,13 +2345,14 @@ fn handle_runtime_commands(
                     RuntimeLocale::ZhCn => {
                         if levels_gained > 0 {
                             format!(
-                                "已花费 {} 金币购买经验。升到 {} 级，可部署 {} 个单位。",
-                                BUY_XP_COST, combat.level, combat.deployment_cap
+                                "已花费 {} 金币购买 {} 经验。升到 {} 级，可部署 {} 个单位。",
+                                BUY_XP_COST, xp_gained, combat.level, combat.deployment_cap
                             )
                         } else {
                             format!(
-                                "已花费 {} 金币购买经验。{} 级进度：{}/{}。",
+                                "已花费 {} 金币购买 {} 经验。{} 级进度：{}/{}。",
                                 BUY_XP_COST,
+                                xp_gained,
                                 previous_level,
                                 combat.xp,
                                 xp_to_next_level(previous_level)
@@ -2220,6 +2445,7 @@ fn handle_runtime_commands(
                     combat.round + index as u32 + 2,
                     &mut identity,
                     combat.run_modifier,
+                    RoundEventKind::for_round(combat.round),
                 );
                 needs_respawn = true;
             }
@@ -2502,6 +2728,8 @@ fn run_combat_tick(
     let mut combat_highlights = Vec::new();
     let active_directive = combat.active_directive;
     let selected_augments = augments.selected.clone();
+    let player_buffs = trait_buffs_for(player_squad.board.iter().flatten().copied());
+    let enemy_buffs = trait_buffs_for(enemy_squad.units.iter().copied());
 
     for attacker in &player_entities {
         if let Some(action) = resolve_attack(
@@ -2511,6 +2739,7 @@ fn run_combat_tick(
             locale,
             active_directive,
             &selected_augments,
+            player_buffs,
         ) {
             for (target_entity, damage) in action.hits {
                 *pending_damage.entry(target_entity).or_insert(0) += damage;
@@ -2532,6 +2761,7 @@ fn run_combat_tick(
             locale,
             active_directive,
             &selected_augments,
+            enemy_buffs,
         ) {
             for (target_entity, damage) in action.hits {
                 *pending_damage.entry(target_entity).or_insert(0) += damage;
@@ -2560,6 +2790,11 @@ fn run_combat_tick(
                 unit.slot_index,
                 active_directive,
                 &selected_augments,
+                if unit.owner == UnitOwner::Player {
+                    player_buffs
+                } else {
+                    enemy_buffs
+                },
             );
             unit.health -= mitigated;
         }
@@ -2604,34 +2839,59 @@ fn run_combat_tick(
         combat.active_directive = None;
         combat.queued_directives.clear();
         combat.recent_highlights = combat_highlights.iter().take(4).cloned().collect();
+        let round_event = RoundEventKind::for_round(combat.round);
         if combat.enemy_units == 0 {
             combat.win_streak += 1;
             combat.loss_streak = 0;
             combat.score += 80;
             combat.gold += 1;
+            if round_event.victory_bonus_gold() > 0 {
+                combat.gold += round_event.victory_bonus_gold();
+                combat.income_event_total += round_event.victory_bonus_gold();
+            }
             combat.enemy_health = combat.enemy_health.saturating_sub(2);
             if combat.round >= FINAL_ROUND {
                 combat.run_over = true;
                 combat.run_result = RunResult::Victory;
                 combat.status = match locale {
                     RuntimeLocale::En => format!(
-                        "Run clear. Round {} collapsed the final enemy squad. Restart to begin a new climb.",
-                        combat.round
+                        "Run clear. Round {} collapsed the final enemy squad{} Restart to begin a new climb.",
+                        combat.round,
+                        if round_event.victory_bonus_gold() > 0 {
+                            " and paid out extra spoils."
+                        } else {
+                            "."
+                        }
                     ),
                     RuntimeLocale::ZhCn => format!(
-                        "通关。第 {} 回合击溃了最后一支敌军。重新开局即可开始新的爬塔。",
-                        combat.round
+                        "通关。第 {} 回合击溃了最后一支敌军{}重新开局即可开始新的爬塔。",
+                        combat.round,
+                        if round_event.victory_bonus_gold() > 0 {
+                            "，并额外拿到了战利品。"
+                        } else {
+                            "。"
+                        }
                     ),
                 };
             } else {
                 combat.run_result = RunResult::Active;
                 combat.status = match locale {
                     RuntimeLocale::En => format!(
-                        "Victory. Enemy board collapsed. Click Next Round to continue to round {}.",
+                        "Victory. Enemy board collapsed{} Click Next Round to continue to round {}.",
+                        if round_event.victory_bonus_gold() > 0 {
+                            " and Spoils of War paid +2 gold."
+                        } else {
+                            "."
+                        },
                         combat.round + 1
                     ),
                     RuntimeLocale::ZhCn => format!(
-                        "胜利。敌方棋盘已崩溃。点击“下一回合”进入第 {} 回合。",
+                        "胜利。敌方棋盘已崩溃{}点击“下一回合”进入第 {} 回合。",
+                        if round_event.victory_bonus_gold() > 0 {
+                            "，并额外获得了 +2 金币战利品。"
+                        } else {
+                            "。"
+                        },
                         combat.round + 1
                     ),
                 };
@@ -2668,6 +2928,9 @@ fn run_combat_tick(
                 };
             }
         }
+
+        combat.round_diagnosis =
+            diagnose_round_outcome(&combat, &player_squad, &augments, locale);
 
         push_round_history_entry(&mut combat, &augments, &enemy_squad, locale);
 
@@ -2789,8 +3052,9 @@ fn resolve_attack(
     locale: RuntimeLocale,
     active_directive: Option<CombatDirectiveOrder>,
     augments: &[AugmentKind],
+    buffs: TraitBuffs,
 ) -> Option<ResolvedCombatAction> {
-    let target = select_target(attacker, opponents, active_directive, augments)?;
+    let target = select_target(attacker, opponents, active_directive, augments, buffs)?;
     let mut primary_damage = attacker.attack as i32;
     let mut extra_hits = Vec::new();
     let mut heals = Vec::new();
@@ -2938,6 +3202,32 @@ fn resolve_attack(
         )));
     }
 
+    if !hold_skills
+        && attacker.archetype.faction() == UnitFaction::Dawn
+        && buffs.dawn_tier() >= 2
+        && cadence_triggered
+    {
+        heals.push((attacker.entity, 1));
+        skill_note = skill_note.or(Some(localized(
+            locale,
+            "Dawn capstone stabilized the carry",
+            "黎明满羁绊稳住了主力血线",
+        )));
+    }
+
+    if !hold_skills
+        && attacker.archetype.faction() == UnitFaction::Dusk
+        && buffs.dusk_tier() >= 2
+        && cadence_triggered
+    {
+        primary_damage += 1;
+        skill_note = skill_note.or(Some(localized(
+            locale,
+            "Dusk capstone amplified the spike",
+            "黄昏满羁绊放大了爆发伤害",
+        )));
+    }
+
     if hold_skills && skill_note.is_none() && cadence_triggered {
         skill_note = Some(localized(
             locale,
@@ -3020,6 +3310,7 @@ fn select_target(
     opponents: &[CombatUnitSnapshot],
     active_directive: Option<CombatDirectiveOrder>,
     augments: &[AugmentKind],
+    buffs: TraitBuffs,
 ) -> Option<CombatUnitSnapshot> {
     let mut candidates = opponents.to_vec();
     if candidates.is_empty() {
@@ -3031,8 +3322,8 @@ fn select_target(
         (
             directive_bias.0,
             directive_bias.1,
-            base_target_priority(attacker.archetype, *candidate, augments).0,
-            base_target_priority(attacker.archetype, *candidate, augments).1,
+            base_target_priority(attacker.archetype, *candidate, augments, buffs).0,
+            base_target_priority(attacker.archetype, *candidate, augments, buffs).1,
         )
     });
 
@@ -3043,15 +3334,22 @@ fn base_target_priority(
     archetype: UnitArchetype,
     candidate: CombatUnitSnapshot,
     augments: &[AugmentKind],
+    buffs: TraitBuffs,
 ) -> (i32, i32) {
-    let skirmisher_bias = if augments.contains(&AugmentKind::SkirmisherDrive)
-        && archetype.role() == UnitRole::Skirmisher
-    {
-        if is_backline_slot(candidate.owner, candidate.slot_index) {
+    let skirmisher_bias = if archetype.role() == UnitRole::Skirmisher {
+        let depth_bias = if is_backline_slot(candidate.owner, candidate.slot_index) {
+            if buffs.skirmisher_tier() >= 2 { -800 } else { 0 }
+        } else {
+            0
+        };
+        let augment_bias = if augments.contains(&AugmentKind::SkirmisherDrive)
+            && is_backline_slot(candidate.owner, candidate.slot_index)
+        {
             -1000
         } else {
             0
-        }
+        };
+        depth_bias + augment_bias
     } else {
         0
     };
@@ -3208,6 +3506,7 @@ fn mitigate_damage(
     slot_index: usize,
     active_directive: Option<CombatDirectiveOrder>,
     augments: &[AugmentKind],
+    buffs: TraitBuffs,
 ) -> i32 {
     let directive_mitigation = if active_directive.is_some_and(|directive| {
         directive.directive == CombatDirective::FallbackLeft
@@ -3229,11 +3528,18 @@ fn mitigate_damage(
         0
     };
 
+    let trait_mitigation = if buffs.vanguard_tier() >= 2 && archetype.role() == UnitRole::Vanguard
+    {
+        1
+    } else {
+        0
+    };
+
     match archetype {
         UnitArchetype::IronVanguard => {
-            (damage - 1 - directive_mitigation - augment_mitigation).max(1)
+            (damage - 1 - directive_mitigation - augment_mitigation - trait_mitigation).max(1)
         }
-        _ => (damage - directive_mitigation - augment_mitigation).max(1),
+        _ => (damage - directive_mitigation - augment_mitigation - trait_mitigation).max(1),
     }
 }
 
@@ -3602,6 +3908,7 @@ fn apply_common_projection_fields(
         .map(|augment| augment.as_view(locale))
         .collect();
     projection.run_modifier = combat.run_modifier.as_view(locale);
+    projection.round_event = RoundEventKind::for_round(combat.round).as_view(locale);
     projection.round_history = combat
         .round_history
         .iter()
@@ -3647,6 +3954,9 @@ fn apply_common_projection_fields(
     projection.income_interest_total = combat.income_interest_total;
     projection.income_streak_total = combat.income_streak_total;
     projection.income_modifier_total = combat.income_modifier_total + modifier_income;
+    projection.income_event_total = combat.income_event_total;
+    projection.round_diagnosis = combat.round_diagnosis.clone();
+    projection.reroll_cost = effective_reroll_cost(combat);
     projection.round_resolved = combat.phase == CombatPhase::Resolution;
     projection.run_over = combat.run_over;
     projection.run_result = combat.run_result.as_str().to_owned();
@@ -3850,11 +4160,21 @@ fn despawn_units(commands: &mut Commands, units: impl Iterator<Item = Entity>) {
     }
 }
 
+fn effective_reroll_cost(combat: &CombatState) -> u32 {
+    if combat.free_reroll_available && RoundEventKind::for_round(combat.round).grants_free_reroll()
+    {
+        0
+    } else {
+        REROLL_COST
+    }
+}
+
 fn reroll_shop(
     shop: &mut ShopState,
     round_seed: u32,
     identity: &mut IdentityState,
     modifier: RunModifierKind,
+    round_event: RoundEventKind,
 ) {
     let pool = UnitArchetype::all();
     let start = (shop.reroll_cursor + round_seed as usize) % pool.len();
@@ -3873,7 +4193,7 @@ fn reroll_shop(
 
     shop.offers = rotated
         .into_iter()
-        .take(SHOP_SIZE)
+        .take(SHOP_SIZE + round_event.shop_size_bonus())
         .map(|archetype| UnitInstance::new(archetype, identity))
         .collect();
     shop.reroll_cursor = (shop.reroll_cursor + 1) % pool.len();
@@ -4086,6 +4406,97 @@ fn push_round_history_entry(
     }
 }
 
+fn diagnose_round_outcome(
+    combat: &CombatState,
+    player_squad: &PlayerSquad,
+    augments: &AugmentState,
+    locale: RuntimeLocale,
+) -> String {
+    let deployed_units = player_squad.board.iter().flatten().count();
+    let buffs = trait_buffs_for(player_squad.board.iter().flatten().copied());
+    let capstone_online = buffs.highest_tier() >= 2;
+
+    if combat.enemy_units == 0 {
+        return if capstone_online {
+            localized(
+                locale,
+                "Capstone synergy carried the round. Keep pressing the same route before pivoting.",
+                "满羁绊直接抬走了这一回合，除非商店特别胡，否则继续沿着这条路线加压。",
+            )
+            .to_owned()
+        } else if current_streak(combat) >= 2 {
+            localized(
+                locale,
+                "Tempo held. Keep the streak alive unless a capstone upgrade appears.",
+                "节奏已经稳住了。除非能直接补出满羁绊，否则优先保连胜。",
+            )
+            .to_owned()
+        } else {
+            localized(
+                locale,
+                "Board balance was enough this round. Convert pairs into a clearer carry line.",
+                "这一回合靠均衡面板就赢了，接下来要把对子转成更明确的主 C 路线。",
+            )
+            .to_owned()
+        };
+    }
+
+    if deployed_units < combat.deployment_cap {
+        return localized(
+            locale,
+            "You entered combat down a unit. Fill the board before greed.",
+            "你是少上人口进的战斗。先把棋盘站满，再谈贪经济。",
+        )
+        .to_owned();
+    }
+
+    if combat.gold >= 10 {
+        return localized(
+            locale,
+            "You floated double-digit gold while losing. Spend now and stabilize before the next spike.",
+            "你在输回合时还攒着两位数金币。下一轮先花钱止血，不要继续空过。",
+        )
+        .to_owned();
+    }
+
+    if buffs.highest_tier() == 0 {
+        return localized(
+            locale,
+            "No active trait was online. Commit to one route instead of spreading the board thin.",
+            "当前没有任何成型羁绊。不要再摊开拿牌，先明确押一条路线。",
+        )
+        .to_owned();
+    }
+
+    if buffs.vanguard_tier() == 0 {
+        return localized(
+            locale,
+            "Frontline cracked first. Add a Vanguard body or health-heavy upgrade before rolling for damage.",
+            "前排先崩了。先补一个前排位或生命强化，再去找输出。",
+        )
+        .to_owned();
+    }
+
+    if buffs.skirmisher_tier() == 0
+        && !augments.selected.contains(&AugmentKind::DawnPulse)
+        && !augments.selected.contains(&AugmentKind::DuskPact)
+    {
+        return localized(
+            locale,
+            "Damage ceiling was too low. Find a carry augment, a two-star backliner, or the 4-piece capstone.",
+            "输出上限不够。去找主 C 强化、两星后排，或者直接冲四件套满羁绊。",
+        )
+        .to_owned();
+    }
+
+    localized(
+        locale,
+        "The enemy spike outpaced your current board. Roll or level immediately for a real power bump.",
+        "敌方这波强度超过了你当前棋盘。下一回合要么刷新要么升级，必须立刻补一段实打实的强度。",
+    )
+    .to_owned()
+}
+
 fn normalize_player_squad(player_squad: &mut PlayerSquad, locale: RuntimeLocale) -> Vec<String> {
     let mut messages = Vec::new();
 
@@ -4225,6 +4636,16 @@ fn merge_messages_for(base: String, merge_messages: &[String]) -> String {
     }
 }
 
+fn trait_tier(count: usize) -> u8 {
+    if count >= TRAIT_CAPSTONE_THRESHOLD {
+        2
+    } else if count >= TRAIT_THRESHOLD {
+        1
+    } else {
+        0
+    }
+}
+
 fn trait_counts(units: impl Iterator<Item = UnitInstance>) -> (usize, usize, usize, usize) {
     let mut dawn = 0;
     let mut dusk = 0;
@@ -4250,10 +4671,10 @@ fn trait_buffs_for(units: impl Iterator<Item = UnitInstance>) -> TraitBuffs {
     let (dawn, dusk, vanguard, skirmisher) = trait_counts(units);
 
     TraitBuffs {
-        dawn_active: dawn >= TRAIT_THRESHOLD,
-        dusk_active: dusk >= TRAIT_THRESHOLD,
-        vanguard_active: vanguard >= TRAIT_THRESHOLD,
-        skirmisher_active: skirmisher >= TRAIT_THRESHOLD,
+        dawn_count: dawn,
+        dusk_count: dusk,
+        vanguard_count: vanguard,
+        skirmisher_count: skirmisher,
     }
 }
 
@@ -4269,6 +4690,8 @@ fn trait_views_for(
             label: UnitFaction::Dawn.label(locale).to_owned(),
             count: dawn,
             threshold: TRAIT_THRESHOLD,
+            capstone_threshold: TRAIT_CAPSTONE_THRESHOLD,
+            tier: trait_tier(dawn) as u32,
             description: UnitFaction::Dawn.description(locale).to_owned(),
             active: dawn >= TRAIT_THRESHOLD,
         },
@@ -4277,6 +4700,8 @@ fn trait_views_for(
             label: UnitFaction::Dusk.label(locale).to_owned(),
             count: dusk,
             threshold: TRAIT_THRESHOLD,
+            capstone_threshold: TRAIT_CAPSTONE_THRESHOLD,
+            tier: trait_tier(dusk) as u32,
             description: UnitFaction::Dusk.description(locale).to_owned(),
             active: dusk >= TRAIT_THRESHOLD,
         },
@@ -4285,6 +4710,8 @@ fn trait_views_for(
             label: UnitRole::Vanguard.label(locale).to_owned(),
             count: vanguard,
             threshold: TRAIT_THRESHOLD,
+            capstone_threshold: TRAIT_CAPSTONE_THRESHOLD,
+            tier: trait_tier(vanguard) as u32,
             description: UnitRole::Vanguard.description(locale).to_owned(),
             active: vanguard >= TRAIT_THRESHOLD,
         },
@@ -4293,6 +4720,8 @@ fn trait_views_for(
             label: UnitRole::Skirmisher.label(locale).to_owned(),
             count: skirmisher,
             threshold: TRAIT_THRESHOLD,
+            capstone_threshold: TRAIT_CAPSTONE_THRESHOLD,
+            tier: trait_tier(skirmisher) as u32,
             description: UnitRole::Skirmisher.description(locale).to_owned(),
             active: skirmisher >= TRAIT_THRESHOLD,
         },
@@ -4404,18 +4833,40 @@ fn resolved_stats(
 ) -> UnitStats {
     let mut stats = scaled_stats(unit);
 
-    if buffs.vanguard_active {
+    if buffs.vanguard_tier() >= 1 {
         stats.max_health += 2;
     }
 
-    if buffs.skirmisher_active {
+    if buffs.vanguard_tier() >= 2 {
+        stats.max_health += 2;
+    }
+
+    if buffs.skirmisher_tier() >= 1 {
+        stats.attack += 1;
+    }
+
+    if buffs.skirmisher_tier() >= 2 && matches!(unit.archetype.role(), UnitRole::Skirmisher) {
         stats.attack += 1;
     }
 
     match unit.archetype.faction() {
-        UnitFaction::Dawn if buffs.dawn_active => stats.attack += 1,
-        UnitFaction::Dusk if buffs.dusk_active => stats.max_health += 2,
-        _ => {}
+        UnitFaction::Dawn => {
+            if buffs.dawn_tier() >= 1 {
+                stats.attack += 1;
+            }
+            if buffs.dawn_tier() >= 2 {
+                stats.attack += 1;
+            }
+        }
+        UnitFaction::Dusk => {
+            if buffs.dusk_tier() >= 1 {
+                stats.max_health += 2;
+            }
+            if buffs.dusk_tier() >= 2 {
+                stats.max_health += 3;
+                stats.attack += 1;
+            }
+        }
     }
 
     if augments.contains(&AugmentKind::VanguardDoctrine)
@@ -4625,12 +5076,14 @@ mod tests {
         );
 
         let baseline_target =
-            select_target(attacker, &[enemy_front, enemy_back], None, &[]).expect("target");
+            select_target(attacker, &[enemy_front, enemy_back], None, &[], TraitBuffs::default())
+                .expect("target");
         let focused_target = select_target(
             attacker,
             &[enemy_front, enemy_back],
             Some(directive_order(CombatDirective::FocusBackline, None, 3)),
             &[],
+            TraitBuffs::default(),
         )
         .expect("target");
 
@@ -4662,8 +5115,16 @@ mod tests {
         );
 
         let baseline =
-            resolve_attack(attacker, &[attacker], &[target], RuntimeLocale::En, None, &[])
-                .expect("baseline action");
+            resolve_attack(
+                attacker,
+                &[attacker],
+                &[target],
+                RuntimeLocale::En,
+                None,
+                &[],
+                TraitBuffs::default(),
+            )
+            .expect("baseline action");
         let held = resolve_attack(
             attacker,
             &[attacker],
@@ -4671,6 +5132,7 @@ mod tests {
             RuntimeLocale::En,
             Some(directive_order(CombatDirective::HoldSkills, None, 2)),
             &[],
+            TraitBuffs::default(),
         )
         .expect("held action");
 
@@ -4702,8 +5164,16 @@ mod tests {
             0,
         );
 
-        let action = resolve_attack(attacker, &[attacker], &[target], RuntimeLocale::En, None, &[])
-            .expect("sentinel action");
+        let action = resolve_attack(
+            attacker,
+            &[attacker],
+            &[target],
+            RuntimeLocale::En,
+            None,
+            &[],
+            TraitBuffs::default(),
+        )
+        .expect("sentinel action");
 
         assert_eq!(action.hits[0].1, 6);
         assert_eq!(action.heals, vec![(attacker.entity, 2)]);
@@ -4733,8 +5203,16 @@ mod tests {
             0,
         );
 
-        let action = resolve_attack(attacker, &[attacker], &[target], RuntimeLocale::En, None, &[])
-            .expect("runner action");
+        let action = resolve_attack(
+            attacker,
+            &[attacker],
+            &[target],
+            RuntimeLocale::En,
+            None,
+            &[],
+            TraitBuffs::default(),
+        )
+        .expect("runner action");
 
         assert_eq!(action.hits.len(), 2);
         assert_eq!(action.hits[0], (target.entity, 5));
@@ -4780,6 +5258,7 @@ mod tests {
             &[left_wing, center_lane],
             Some(directive_order(CombatDirective::FallbackLeft, None, 3)),
             &[],
+            TraitBuffs::default(),
         )
         .expect("redirected target");
 
@@ -4792,6 +5271,7 @@ mod tests {
                 left_wing.slot_index,
                 Some(directive_order(CombatDirective::FallbackLeft, None, 3)),
                 &[],
+                TraitBuffs::default(),
             ),
             3
         );
@@ -4839,6 +5319,7 @@ mod tests {
                 3,
             )),
             &[],
+            TraitBuffs::default(),
         )
         .expect("target");
 
@@ -4890,6 +5371,7 @@ mod tests {
             RuntimeLocale::En,
             Some(directive),
             &[],
+            TraitBuffs::default(),
         )
         .expect("left action");
         let right_action = resolve_attack(
@@ -4899,6 +5381,7 @@ mod tests {
             RuntimeLocale::En,
             Some(directive),
             &[],
+            TraitBuffs::default(),
         )
         .expect("right action");
 
@@ -5028,7 +5511,13 @@ mod tests {
         let mut shop = ShopState::default();
         let mut identity = seeded_identity();
 
-        reroll_shop(&mut shop, 1, &mut identity, RunModifierKind::DawnSurge);
+        reroll_shop(
+            &mut shop,
+            1,
+            &mut identity,
+            RunModifierKind::DawnSurge,
+            RoundEventKind::Standard,
+        );
 
         assert_eq!(shop.offers.len(), SHOP_SIZE);
         assert!(shop.offers[0].archetype.faction() == UnitFaction::Dawn);
@@ -5081,10 +5570,10 @@ mod tests {
         let stats = resolved_stats(
             unit,
             TraitBuffs {
-                dawn_active: true,
-                dusk_active: false,
-                vanguard_active: false,
-                skirmisher_active: true,
+                dawn_count: 2,
+                dusk_count: 0,
+                vanguard_count: 0,
+                skirmisher_count: 2,
             },
             &[AugmentKind::SkirmisherDrive, AugmentKind::DawnPulse],
             RunModifierKind::RichOpening,
@@ -5092,6 +5581,66 @@ mod tests {
 
         assert_eq!(stats.attack, 9);
         assert_eq!(stats.max_health, unit.archetype.base_health());
+    }
+
+    #[test]
+    fn trait_capstone_layers_extra_stats_and_mitigation() {
+        let mut identity = seeded_identity();
+        let skirmisher = UnitInstance::new(UnitArchetype::SignalRanger, &mut identity);
+        let vanguard = UnitInstance::new(UnitArchetype::IronVanguard, &mut identity);
+        let buffs = TraitBuffs {
+            dawn_count: 4,
+            dusk_count: 0,
+            vanguard_count: 4,
+            skirmisher_count: 4,
+        };
+
+        let skirmisher_stats = resolved_stats(
+            skirmisher,
+            buffs,
+            &[],
+            RunModifierKind::RichOpening,
+        );
+        let vanguard_stats =
+            resolved_stats(vanguard, buffs, &[], RunModifierKind::RichOpening);
+
+        assert_eq!(skirmisher_stats.attack, skirmisher.archetype.base_attack() + 4);
+        assert_eq!(vanguard_stats.max_health, vanguard.archetype.base_health() + 4);
+        assert_eq!(
+            mitigate_damage(
+                vanguard.archetype,
+                5,
+                UnitOwner::Player,
+                0,
+                None,
+                &[],
+                buffs,
+            ),
+            3
+        );
+    }
+
+    #[test]
+    fn high_roll_market_event_expands_shop_and_zeroes_first_reroll() {
+        let mut shop = ShopState::default();
+        let mut identity = seeded_identity();
+        let mut combat = CombatState::default();
+        combat.round = 4;
+        combat.free_reroll_available = true;
+
+        reroll_shop(
+            &mut shop,
+            combat.round,
+            &mut identity,
+            RunModifierKind::RichOpening,
+            RoundEventKind::for_round(combat.round),
+        );
+
+        assert_eq!(
+            shop.offers.len(),
+            SHOP_SIZE + RoundEventKind::HighRollMarket.shop_size_bonus()
+        );
+        assert_eq!(effective_reroll_cost(&combat), 0);
     }
 
     #[test]

@@ -154,6 +154,39 @@ test("augment draft blocks combat until a choice is locked", async ({ page }) =>
   await expect(page.getByTestId("start-combat")).toBeEnabled();
 });
 
+test("round events surface training-day XP spikes and high-roll market width", async ({
+  page,
+}) => {
+  await openShell(page);
+  await launchRuntime(page);
+
+  await deployBenchUnitAtIndex(page, 0, 0);
+  await page.getByTestId("start-combat").click();
+  await waitForRoundResolution(page);
+  await advanceToNextRound(page, 2);
+
+  await expect(page.getByTestId("round-event-panel")).toContainText(
+    /Training Day|训练日/,
+  );
+  await page.getByTestId("buy-xp").click();
+  await expect(page.getByTestId("status-panel")).toContainText(
+    /Bought 6 XP|购买 6 经验/,
+  );
+
+  await page.getByTestId("augment-choice-0").click();
+  await page.getByTestId("start-combat").click();
+  await waitForRoundResolution(page);
+  await advanceToNextRound(page, 3);
+  await page.getByTestId("start-combat").click();
+  await waitForRoundResolution(page);
+  await advanceToNextRound(page, 4);
+
+  await expect(page.getByTestId("round-event-panel")).toContainText(
+    /High Roll Market|高波动黑市/,
+  );
+  await expect(page.locator('[data-testid^="shop-offer-"]')).toHaveCount(5);
+});
+
 test("switching save slots restores slot-scoped locale and player profile", async ({
   page,
 }) => {

@@ -405,14 +405,23 @@ function sanitizeBattleRecord(
       0,
       Number(value?.incomeModifierTotal ?? 0) || 0
     ),
+    incomeEventTotal: Math.max(0, Number(value?.incomeEventTotal ?? 0) || 0),
     buildRoute:
       typeof value?.buildRoute === "string" && value.buildRoute.trim()
         ? value.buildRoute
         : "Flex Pivot",
+    econPlan:
+      typeof value?.econPlan === "string" && value.econPlan.trim()
+        ? value.econPlan
+        : "Stabilize the board first, then rebuild interest.",
     mvpLabel:
       typeof value?.mvpLabel === "string" && value.mvpLabel.trim()
         ? value.mvpLabel
         : null,
+    outcomeReason:
+      typeof value?.outcomeReason === "string" && value.outcomeReason.trim()
+        ? value.outcomeReason
+        : "",
   };
 }
 
@@ -483,6 +492,11 @@ function sanitizeTraitView(
     label: typeof value?.label === "string" ? value.label : "Trait",
     count: Math.max(0, Number(value?.count ?? 0) || 0),
     threshold: Math.max(1, Number(value?.threshold ?? 2) || 2),
+    capstoneThreshold: Math.max(
+      2,
+      Number(value?.capstoneThreshold ?? 4) || 4
+    ),
+    tier: Math.max(0, Number(value?.tier ?? 0) || 0),
     description:
       typeof value?.description === "string" ? value.description : "",
     active: Boolean(value?.active),

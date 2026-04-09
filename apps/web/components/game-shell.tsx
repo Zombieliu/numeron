@@ -244,6 +244,7 @@ export function GameShell() {
     runtimeSnapshot.world.slice.queuedCombatDirectives;
   const combatFeed = runtimeSnapshot.world.slice.combatFeed;
   const runModifier = runtimeSnapshot.world.slice.runModifier;
+  const roundEvent = runtimeSnapshot.world.slice.roundEvent;
   const roundHistory = runtimeSnapshot.world.slice.roundHistory;
   const canProgramCombatPlan =
     runtimeReady &&
@@ -257,6 +258,10 @@ export function GameShell() {
     runtimeSnapshot.world.slice.baseIncome +
     runtimeSnapshot.world.slice.interestIncome +
     runtimeSnapshot.world.slice.streakIncome;
+  const liveBuildRoute = inferBuildRoute(runtimeSnapshot);
+  const economyPlan = inferEconomyPlan(runtimeSnapshot);
+  const buildPlan = inferLiveBuildPlan(runtimeSnapshot);
+  const roundDiagnosis = runtimeSnapshot.world.slice.roundDiagnosis;
   const trackedPlayerUnits = collectTrackedPlayerUnits(benchUnits, playerBoard);
   const latestCompletedBattle =
     activeSlot.battleRecords.find((battle) => battle.status === "completed") ??
@@ -2437,6 +2442,28 @@ export function GameShell() {
               </div>
             </section>
 
+            <section className="panel" data-testid="round-event-panel">
+              <div className="eyebrow">
+                {locale === "zh-CN" ? "回合事件" : "Round Event"}
+              </div>
+              <div className="stat-grid stat-grid-two">
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "事件" : "Event"}
+                  </span>
+                  <strong>{roundEvent.label}</strong>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "当前路线" : "Route"}
+                  </span>
+                  <strong>{liveBuildRoute}</strong>
+                </div>
+              </div>
+              <div className="muted">{roundEvent.description}</div>
+              <div className="muted">{roundEvent.stakes}</div>
+            </section>
+
             <section className="panel" data-testid="economy-panel">
               <div className="eyebrow">{copy.economy}</div>
               <div className="stat-grid stat-grid-two">
@@ -2468,6 +2495,15 @@ export function GameShell() {
                 </div>
               </div>
               <div className="muted">{copy.economyHint}</div>
+              <div className="muted">{economyPlan}</div>
+            </section>
+
+            <section className="panel" data-testid="coach-panel">
+              <div className="eyebrow">
+                {locale === "zh-CN" ? "教练读牌" : "Coach Read"}
+              </div>
+              <div className="muted">{buildPlan}</div>
+              <div className="muted">{roundDiagnosis}</div>
             </section>
 
             <section className="panel" data-testid="trait-panel">
@@ -2482,7 +2518,10 @@ export function GameShell() {
                       {formatFactionLabel(trait.key, locale)}
                     </span>
                     <span className="slot-meta">
-                      {trait.count}/{trait.threshold}
+                      {trait.count}/{trait.capstoneThreshold} ·{" "}
+                      {locale === "zh-CN"
+                        ? `阶层 ${trait.tier}/2`
+                        : `Tier ${trait.tier}/2`}
                     </span>
                     <span className="slot-meta">{trait.description}</span>
                   </div>
@@ -2819,7 +2858,8 @@ export function GameShell() {
                     {latestCompletedBattle.incomeBaseTotal +
                       latestCompletedBattle.incomeInterestTotal +
                       latestCompletedBattle.incomeStreakTotal +
-                      latestCompletedBattle.incomeModifierTotal}
+                      latestCompletedBattle.incomeModifierTotal +
+                      latestCompletedBattle.incomeEventTotal}
                   </strong>
                 </div>
               </div>
@@ -2861,7 +2901,16 @@ export function GameShell() {
                 {latestCompletedBattle.incomeBaseTotal} · I{" "}
                 {latestCompletedBattle.incomeInterestTotal} · S{" "}
                 {latestCompletedBattle.incomeStreakTotal} · M{" "}
-                {latestCompletedBattle.incomeModifierTotal}
+                {latestCompletedBattle.incomeModifierTotal} · E{" "}
+                {latestCompletedBattle.incomeEventTotal}
+              </div>
+              <div className="muted">
+                {locale === "zh-CN" ? "经济判断：" : "Economy Call: "}{" "}
+                {latestCompletedBattle.econPlan}
+              </div>
+              <div className="muted">
+                {locale === "zh-CN" ? "胜负复盘：" : "Round Read: "}{" "}
+                {latestCompletedBattle.outcomeReason}
               </div>
               <div className="feed-list">
                 {(latestCompletedBattle.roundHistory.length > 0
@@ -3446,8 +3495,11 @@ function buildBattleRecord(
     incomeInterestTotal: runtimeSnapshot.world.slice.incomeInterestTotal,
     incomeStreakTotal: runtimeSnapshot.world.slice.incomeStreakTotal,
     incomeModifierTotal: runtimeSnapshot.world.slice.incomeModifierTotal,
+    incomeEventTotal: runtimeSnapshot.world.slice.incomeEventTotal,
     buildRoute: inferBuildRoute(runtimeSnapshot),
+    econPlan: inferEconomyPlan(runtimeSnapshot),
     mvpLabel: selectBattleMvpLabel(finalBoard),
+    outcomeReason: runtimeSnapshot.world.slice.roundDiagnosis,
   };
 }
 
@@ -3526,8 +3578,11 @@ function areBattleRecordsEqual(
     left.incomeInterestTotal === right.incomeInterestTotal &&
     left.incomeStreakTotal === right.incomeStreakTotal &&
     left.incomeModifierTotal === right.incomeModifierTotal &&
+    left.incomeEventTotal === right.incomeEventTotal &&
     left.buildRoute === right.buildRoute &&
-    left.mvpLabel === right.mvpLabel
+    left.econPlan === right.econPlan &&
+    left.mvpLabel === right.mvpLabel &&
+    left.outcomeReason === right.outcomeReason
   );
 }
 
@@ -3572,6 +3627,85 @@ function inferBuildRoute(runtimeSnapshot: RuntimeSnapshot) {
   }
 
   return locale === "zh-CN" ? "灵活转型线" : "Flex Pivot";
+}
+
+function inferEconomyPlan(runtimeSnapshot: RuntimeSnapshot) {
+  const locale = runtimeSnapshot.bootConfig.locale as UiLocale;
+  const slice = runtimeSnapshot.world.slice;
+  const boardUnits = slice.playerBoard.filter((unit) => unit != null).length;
+
+  if (slice.roundEvent.key === "training-day") {
+    return locale === "zh-CN"
+      ? "训练日优先看升级。能稳住场面就花钱买经验，把人口和部署位提前做出来。"
+      : "Training Day favors leveling. If the board can hold, buy XP now and unlock tempo early.";
+  }
+
+  if (slice.roundEvent.key === "high-roll-market") {
+    return locale === "zh-CN"
+      ? "先用掉这回合的免费刷新，再决定要不要继续追对子或关键羁绊牌。"
+      : "Cash the free reroll first, then decide whether the wider shop justifies a deeper roll.";
+  }
+
+  if (slice.roundEvent.key === "spoils-of-war") {
+    return locale === "zh-CN"
+      ? "战利品回合值得为胜利补投资。差一点强度时，主动把金币换成战力。"
+      : "Spoils of War rewards tempo. If you are close to stable, spend now and buy the win.";
+  }
+
+  if (boardUnits < slice.deploymentCap) {
+    return locale === "zh-CN"
+      ? "先把棋盘站满，再谈利息。少一人开战通常比少 1 金更亏。"
+      : "Fill the board before greed. Fighting down a unit costs more than missing one point of interest.";
+  }
+
+  if (slice.gold >= 10 && slice.round >= 4) {
+    return locale === "zh-CN"
+      ? "中期已经有两位数金币了，除非马上吃利息，否则应该把一部分钱换成即战力。"
+      : "Double-digit gold in midgame is only good if it converts into interest or an immediate spike.";
+  }
+
+  if (slice.streak <= -2) {
+    return locale === "zh-CN"
+      ? "连败已经成型，这轮目标是止血，不是继续空过。"
+      : "The loss streak is real now. Stabilize this turn instead of floating another dead round.";
+  }
+
+  return locale === "zh-CN"
+    ? "优先把对子和羁绊连起来，剩余金币再为下一档利息做准备。"
+    : "Prioritize completing pairs and traits first, then shape the remaining gold around the next interest band.";
+}
+
+function inferLiveBuildPlan(runtimeSnapshot: RuntimeSnapshot) {
+  const locale = runtimeSnapshot.bootConfig.locale as UiLocale;
+  const route = inferBuildRoute(runtimeSnapshot);
+  const activeTraits = runtimeSnapshot.world.slice.activeTraits;
+  const closestCapstone = [...activeTraits]
+    .filter((trait) => trait.count > 0 && trait.tier < 2)
+    .sort(
+      (left, right) =>
+        right.count - left.count ||
+        right.tier - left.tier ||
+        left.label.localeCompare(right.label),
+    )[0];
+
+  if (closestCapstone) {
+    const missing = Math.max(0, closestCapstone.capstoneThreshold - closestCapstone.count);
+    if (missing > 0 && closestCapstone.tier >= 1) {
+      return locale === "zh-CN"
+        ? `${route} 已上线，再补 ${missing} 张 ${closestCapstone.label} 就到满羁绊。`
+        : `${route} is online. ${missing} more ${closestCapstone.label} piece${missing > 1 ? "s" : ""} reaches the capstone.`;
+    }
+  }
+
+  if (activeTraits.some((trait) => trait.tier >= 2)) {
+    return locale === "zh-CN"
+      ? `${route} 已经满羁绊，接下来优先补两星和站位细节。`
+      : `${route} already hit a capstone. From here, chase two-stars and positioning edges.`;
+  }
+
+  return locale === "zh-CN"
+    ? `${route} 还在成型期，先明确主 C 和前排，不要继续平均分散资源。`
+    : `${route} is still forming. Lock a carry and a frontline before spreading the board any thinner.`;
 }
 
 function selectBattleMvpLabel(finalBoard: RuntimeUnitView[]) {

@@ -29,6 +29,9 @@ test("core gameplay loop runs from launch to restart", async ({ page }) => {
   await expect(page.getByTestId("run-modifier-panel")).toContainText(
     /Rich Opening|Thin Bench|Dawn Surge|Dusk Surge|Glass Cannon|Augment Storm|富集开局|短备战席|黎明激涌|黄昏激涌|高压脆皮|强化风暴/,
   );
+  await expect(page.getByTestId("coach-panel")).toContainText(
+    /Coach Read|教练读牌|tempo|路线|羁绊/,
+  );
   await page.getByTestId("lock-shop").click();
   await expect(page.getByTestId("draft-shop")).toContainText(
     /Unlock Shop|Locked offers will carry into the next round/,
@@ -49,11 +52,14 @@ test("core gameplay loop runs from launch to restart", async ({ page }) => {
 
   await advanceToNextRound(page, 2);
   await expect(page.getByTestId("status-panel")).toContainText(/Round 2|第 2 回合/);
+  await expect(page.getByTestId("round-event-panel")).toContainText(
+    /Training Day|训练日/,
+  );
 
   await playUntilRunEnds(page, { startRound: 3 });
   await expect(page.getByTestId("restart-run")).toBeEnabled();
   await expect(page.getByTestId("run-summary-panel")).toContainText(
-    /Build Route|Build 路线|Augments|强化|Final Board|最终阵容/,
+    /Build Route|Build 路线|Augments|强化|Final Board|最终阵容|Economy Call|经济判断|Round Read|胜负复盘/,
   );
   expect(await readVisibleRound(page)).toBeGreaterThanOrEqual(3);
 

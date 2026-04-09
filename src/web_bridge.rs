@@ -1,7 +1,7 @@
 use crate::starter_scene::{
     BoardAnchor, CombatDirectiveOrder, RuntimeAugmentView, RuntimeCombatDirectiveView,
-    RuntimeRoundSummaryView, RuntimeRunModifierView, RuntimeTraitView, RuntimeUnitView,
-    StarterSliceProjection,
+    RuntimeRoundEventView, RuntimeRoundSummaryView, RuntimeRunModifierView, RuntimeTraitView,
+    RuntimeUnitView, StarterSliceProjection,
 };
 use bevy::prelude::*;
 
@@ -482,6 +482,7 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         selected_augments: slice.selected_augments,
         pending_augments: slice.pending_augments,
         run_modifier: slice.run_modifier,
+        round_event: slice.round_event,
         round_history: slice.round_history,
         active_combat_directive: slice.active_combat_directive,
         queued_combat_directives: slice.queued_combat_directives,
@@ -500,6 +501,8 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         income_interest_total: slice.income_interest_total,
         income_streak_total: slice.income_streak_total,
         income_modifier_total: slice.income_modifier_total,
+        income_event_total: slice.income_event_total,
+        round_diagnosis: slice.round_diagnosis,
         round_resolved: slice.round_resolved,
         run_over: slice.run_over,
         run_result: slice.run_result,
@@ -542,6 +545,7 @@ struct ProjectionPayload {
     selected_augments: Vec<RuntimeAugmentView>,
     pending_augments: Vec<RuntimeAugmentView>,
     run_modifier: RuntimeRunModifierView,
+    round_event: RuntimeRoundEventView,
     round_history: Vec<RuntimeRoundSummaryView>,
     active_combat_directive: Option<RuntimeCombatDirectiveView>,
     queued_combat_directives: Vec<RuntimeCombatDirectiveView>,
@@ -560,6 +564,8 @@ struct ProjectionPayload {
     income_interest_total: u32,
     income_streak_total: u32,
     income_modifier_total: u32,
+    income_event_total: u32,
+    round_diagnosis: String,
     round_resolved: bool,
     run_over: bool,
     run_result: String,
@@ -697,6 +703,11 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 &"runModifier".into(),
                 &runtime_run_modifier_view_object(&projection.run_modifier),
             );
+            let _ = Reflect::set(
+                &slice,
+                &"roundEvent".into(),
+                &runtime_round_event_view_object(&projection.round_event),
+            );
             let round_history = js_sys::Array::new();
             for round in &projection.round_history {
                 round_history.push(&runtime_round_summary_view_object(round));
@@ -790,6 +801,16 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
             );
             let _ = Reflect::set(
                 &slice,
+                &"incomeEventTotal".into(),
+                &projection.income_event_total.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"roundDiagnosis".into(),
+                &projection.round_diagnosis.clone().into(),
+            );
+            let _ = Reflect::set(
+                &slice,
                 &"roundResolved".into(),
                 &projection.round_resolved.into(),
             );
@@ -865,6 +886,12 @@ fn runtime_trait_view_object(view: &RuntimeTraitView) -> JsValue {
     let _ = Reflect::set(&payload, &"threshold".into(), &view.threshold.into());
     let _ = Reflect::set(
         &payload,
+        &"capstoneThreshold".into(),
+        &view.capstone_threshold.into(),
+    );
+    let _ = Reflect::set(&payload, &"tier".into(), &view.tier.into());
+    let _ = Reflect::set(
+        &payload,
         &"description".into(),
         &view.description.clone().into(),
     );
@@ -900,6 +927,20 @@ fn runtime_run_modifier_view_object(view: &RuntimeRunModifierView) -> JsValue {
         &"routeHint".into(),
         &view.route_hint.clone().into(),
     );
+    payload.into()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn runtime_round_event_view_object(view: &RuntimeRoundEventView) -> JsValue {
+    let payload = Object::new();
+    let _ = Reflect::set(&payload, &"key".into(), &view.key.clone().into());
+    let _ = Reflect::set(&payload, &"label".into(), &view.label.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"description".into(),
+        &view.description.clone().into(),
+    );
+    let _ = Reflect::set(&payload, &"stakes".into(), &view.stakes.clone().into());
     payload.into()
 }
 

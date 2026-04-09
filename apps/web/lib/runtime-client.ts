@@ -456,6 +456,9 @@ function normalizeRuntimeEventPayload(
         runModifier: projection.slice?.runModifier
           ? normalizeRuntimeRunModifierView(projection.slice.runModifier)
           : DEFAULT_RUNTIME_PROJECTION.slice.runModifier,
+        roundEvent: projection.slice?.roundEvent
+          ? normalizeRuntimeRoundEventView(projection.slice.roundEvent)
+          : DEFAULT_RUNTIME_PROJECTION.slice.roundEvent,
         roundHistory: Array.isArray(projection.slice?.roundHistory)
           ? projection.slice.roundHistory.map(normalizeRuntimeRoundSummaryView)
           : DEFAULT_RUNTIME_PROJECTION.slice.roundHistory,
@@ -529,6 +532,14 @@ function normalizeRuntimeEventPayload(
           projection.slice?.incomeModifierTotal ??
             DEFAULT_RUNTIME_PROJECTION.slice.incomeModifierTotal,
         ),
+        incomeEventTotal: Number(
+          projection.slice?.incomeEventTotal ??
+            DEFAULT_RUNTIME_PROJECTION.slice.incomeEventTotal,
+        ),
+        roundDiagnosis: String(
+          projection.slice?.roundDiagnosis ??
+            DEFAULT_RUNTIME_PROJECTION.slice.roundDiagnosis,
+        ),
         roundResolved: Boolean(
           projection.slice?.roundResolved ??
             DEFAULT_RUNTIME_PROJECTION.slice.roundResolved,
@@ -597,6 +608,8 @@ function normalizeRuntimeTraitView(value: unknown) {
     label: String(record.label ?? "Trait"),
     count: clampPositiveNumber(record.count, 0),
     threshold: clampPositiveNumber(record.threshold, 2),
+    capstoneThreshold: clampPositiveNumber(record.capstoneThreshold, 4),
+    tier: clampPositiveNumber(record.tier, 0),
     description: String(record.description ?? ""),
     active: Boolean(record.active),
   } as const;
@@ -647,6 +660,18 @@ function normalizeRuntimeRunModifierView(value: unknown) {
     label: String(record.label ?? "Rich Opening"),
     description: String(record.description ?? ""),
     routeHint: String(record.routeHint ?? ""),
+  } as const;
+}
+
+function normalizeRuntimeRoundEventView(value: unknown) {
+  const event = typeof value === "object" && value ? value : {};
+  const record = event as Record<string, unknown>;
+
+  return {
+    key: normalizeRoundEventKey(record.key),
+    label: String(record.label ?? "Standard Round"),
+    description: String(record.description ?? ""),
+    stakes: String(record.stakes ?? ""),
   } as const;
 }
 
@@ -731,6 +756,18 @@ function normalizeRunModifierKey(value: unknown) {
       return value;
     default:
       return "rich-opening";
+  }
+}
+
+function normalizeRoundEventKey(value: unknown) {
+  switch (value) {
+    case "training-day":
+    case "spoils-of-war":
+    case "high-roll-market":
+    case "standard":
+      return value;
+    default:
+      return "standard";
   }
 }
 

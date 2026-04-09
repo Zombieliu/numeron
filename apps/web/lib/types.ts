@@ -62,6 +62,8 @@ export type RuntimeTraitView = {
   label: string;
   count: number;
   threshold: number;
+  capstoneThreshold: number;
+  tier: number;
   description: string;
   active: boolean;
 };
@@ -91,6 +93,19 @@ export type RuntimeRunModifierView = {
   label: string;
   description: string;
   routeHint: string;
+};
+
+export type RuntimeRoundEventKey =
+  | "standard"
+  | "training-day"
+  | "spoils-of-war"
+  | "high-roll-market";
+
+export type RuntimeRoundEventView = {
+  key: RuntimeRoundEventKey;
+  label: string;
+  description: string;
+  stakes: string;
 };
 
 export type RuntimeRoundSummaryView = {
@@ -159,6 +174,7 @@ export type RuntimeProjection = {
     selectedAugments: RuntimeAugmentView[];
     pendingAugments: RuntimeAugmentView[];
     runModifier: RuntimeRunModifierView;
+    roundEvent: RuntimeRoundEventView;
     roundHistory: RuntimeRoundSummaryView[];
     activeCombatDirective: RuntimeCombatDirectiveView | null;
     queuedCombatDirectives: RuntimeCombatDirectiveView[];
@@ -177,6 +193,8 @@ export type RuntimeProjection = {
     incomeInterestTotal: number;
     incomeStreakTotal: number;
     incomeModifierTotal: number;
+    incomeEventTotal: number;
+    roundDiagnosis: string;
     roundResolved: boolean;
     runOver: boolean;
     runResult: "active" | "victory" | "defeat";
@@ -292,8 +310,11 @@ export type RuntimeBattleRecord = {
   incomeInterestTotal: number;
   incomeStreakTotal: number;
   incomeModifierTotal: number;
+  incomeEventTotal: number;
   buildRoute: string;
+  econPlan: string;
   mvpLabel: string | null;
+  outcomeReason: string;
 };
 
 export type RuntimeSaveSlot = {
@@ -499,6 +520,12 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
       description: "Open with more gold and pressure an early tempo line.",
       routeHint: "Economy greed into a late spike.",
     },
+    roundEvent: {
+      key: "standard",
+      label: "Standard Round",
+      description: "No temporary event modifier this round.",
+      stakes: "Play the strongest board and convert clean tempo.",
+    },
     roundHistory: [],
     activeCombatDirective: null,
     queuedCombatDirectives: [],
@@ -517,6 +544,8 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     incomeInterestTotal: 0,
     incomeStreakTotal: 0,
     incomeModifierTotal: 0,
+    incomeEventTotal: 0,
+    roundDiagnosis: "Build toward a two-piece trait and preserve board tempo.",
     roundResolved: false,
     runOver: false,
     runResult: "active",
