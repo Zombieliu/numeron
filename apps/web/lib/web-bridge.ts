@@ -16,6 +16,7 @@ import {
   clearRuntimeCombatDirective,
   buyRuntimeShopOffer,
   chooseRuntimeAugment,
+  chooseRuntimeOperation,
   deployRuntimeBenchUnit,
   repositionRuntimeBoardUnit,
   getRuntimeBootSnapshot,
@@ -148,6 +149,10 @@ export async function dispatchUiIntent(
     }
     case "runtime.shop.buy-xp": {
       buyRuntimeXp();
+      return currentSnapshot;
+    }
+    case "runtime.operation.choose": {
+      chooseRuntimeOperation(intent.index);
       return currentSnapshot;
     }
     case "runtime.augment.choose": {
@@ -382,6 +387,12 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       pendingAugments: Array.isArray(projection.slice?.pendingAugments)
         ? projection.slice.pendingAugments.map(normalizeRuntimeAugmentView)
         : DEFAULT_RUNTIME_PROJECTION.slice.pendingAugments,
+      operationCards: Array.isArray(projection.slice?.operationCards)
+        ? projection.slice.operationCards.map(normalizeRuntimeOperationView)
+        : DEFAULT_RUNTIME_PROJECTION.slice.operationCards,
+      selectedOperation: projection.slice?.selectedOperation
+        ? normalizeRuntimeOperationView(projection.slice.selectedOperation)
+        : DEFAULT_RUNTIME_PROJECTION.slice.selectedOperation,
       starterDoctrine: projection.slice?.starterDoctrine
         ? normalizeRuntimeStarterDoctrineView(projection.slice.starterDoctrine)
         : DEFAULT_RUNTIME_PROJECTION.slice.starterDoctrine,
@@ -437,6 +448,24 @@ function normalizeProjection(projection: RuntimeProjection): RuntimeProjection {
       deploymentCap: Number(
         projection.slice?.deploymentCap ??
           DEFAULT_RUNTIME_PROJECTION.slice.deploymentCap,
+      ),
+      supplies: Number(
+        projection.slice?.supplies ?? DEFAULT_RUNTIME_PROJECTION.slice.supplies,
+      ),
+      medical: Number(
+        projection.slice?.medical ?? DEFAULT_RUNTIME_PROJECTION.slice.medical,
+      ),
+      contamination: Number(
+        projection.slice?.contamination ??
+          DEFAULT_RUNTIME_PROJECTION.slice.contamination,
+      ),
+      securedLoot: Number(
+        projection.slice?.securedLoot ??
+          DEFAULT_RUNTIME_PROJECTION.slice.securedLoot,
+      ),
+      unsecuredLoot: Number(
+        projection.slice?.unsecuredLoot ??
+          DEFAULT_RUNTIME_PROJECTION.slice.unsecuredLoot,
       ),
       streak: Number(
         projection.slice?.streak ?? DEFAULT_RUNTIME_PROJECTION.slice.streak,
@@ -553,6 +582,19 @@ function normalizeRuntimeAugmentView(value: unknown) {
     key: normalizeAugmentKey(record.key),
     label: String(record.label ?? "Augment"),
     description: String(record.description ?? ""),
+  } as const;
+}
+
+function normalizeRuntimeOperationView(value: unknown) {
+  const operation = typeof value === "object" && value ? value : {};
+  const record = operation as Record<string, unknown>;
+
+  return {
+    key: normalizeOperationKey(record.key),
+    label: String(record.label ?? "Operation"),
+    description: String(record.description ?? ""),
+    rewardLabel: String(record.rewardLabel ?? ""),
+    riskLabel: String(record.riskLabel ?? ""),
   } as const;
 }
 
@@ -689,6 +731,18 @@ function normalizeAugmentKey(value: unknown) {
       return value;
     default:
       return "compound-interest";
+  }
+}
+
+function normalizeOperationKey(value: unknown) {
+  switch (value) {
+    case "steady-search":
+    case "deep-raid":
+    case "field-cache":
+    case "tactical-transfer":
+      return value;
+    default:
+      return "steady-search";
   }
 }
 

@@ -31,6 +31,7 @@ export async function launchRuntime(page: Page) {
   await launchButton.click();
   await expect(page.getByTestId("status-panel")).toContainText(/Runtime active|Runtime 状态/);
   await waitForShopOffers(page);
+  await chooseFirstOperationIfPending(page);
 }
 
 export async function selectStarterDoctrine(
@@ -100,6 +101,7 @@ export async function advanceToNextRound(page: Page, round?: number) {
   const previousRound = await readVisibleRound(page);
   await page.getByTestId("next-round").click();
   await waitForRoundReady(page, round ?? previousRound + 1);
+  await chooseFirstOperationIfPending(page);
 }
 
 export async function waitForRoundReady(page: Page, round: number) {
@@ -258,6 +260,16 @@ export async function rerollShop(page: Page) {
 
 async function waitForShopOffers(page: Page) {
   await expect(page.getByTestId("shop-offer-0")).toBeVisible({ timeout: 10_000 });
+}
+
+async function chooseFirstOperationIfPending(page: Page) {
+  const firstOperation = page.getByTestId("operation-choice-0");
+  if (!(await firstOperation.isVisible().catch(() => false))) {
+    return;
+  }
+
+  await firstOperation.click();
+  await expect(firstOperation).toBeHidden({ timeout: 10_000 });
 }
 
 async function firstOccupiedIndex(page: Page, prefix: string, emptyPatterns: string[]) {

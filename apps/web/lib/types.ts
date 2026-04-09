@@ -129,6 +129,20 @@ export type RuntimeRoundEventView = {
   stakes: string;
 };
 
+export type RuntimeOperationKey =
+  | "steady-search"
+  | "deep-raid"
+  | "field-cache"
+  | "tactical-transfer";
+
+export type RuntimeOperationView = {
+  key: RuntimeOperationKey;
+  label: string;
+  description: string;
+  rewardLabel: string;
+  riskLabel: string;
+};
+
 export type RuntimeRoundSummaryView = {
   round: number;
   result: "victory" | "defeat";
@@ -204,6 +218,8 @@ export type RuntimeProjection = {
     activeTraits: RuntimeTraitView[];
     selectedAugments: RuntimeAugmentView[];
     pendingAugments: RuntimeAugmentView[];
+    operationCards: RuntimeOperationView[];
+    selectedOperation: RuntimeOperationView | null;
     starterDoctrine: RuntimeStarterDoctrineView;
     runModifier: RuntimeRunModifierView;
     roundEvent: RuntimeRoundEventView;
@@ -218,6 +234,11 @@ export type RuntimeProjection = {
     benchCapacity: number;
     boardCapacity: number;
     deploymentCap: number;
+    supplies: number;
+    medical: number;
+    contamination: number;
+    securedLoot: number;
+    unsecuredLoot: number;
     streak: number;
     baseIncome: number;
     interestIncome: number;
@@ -339,6 +360,12 @@ export type RuntimeBattleRecord = {
   runModifier: RuntimeRunModifierView;
   selectedAugments: RuntimeAugmentView[];
   activeTraits: RuntimeTraitView[];
+  selectedOperation: RuntimeOperationView | null;
+  supplies: number;
+  medical: number;
+  contamination: number;
+  securedLoot: number;
+  unsecuredLoot: number;
   finalBoard: RuntimeUnitView[];
   roundHistory: RuntimeRoundSummaryView[];
   performanceLeaders: RuntimePerformanceView[];
@@ -435,6 +462,10 @@ export type UiIntent =
     }
   | {
       type: "runtime.shop.buy-xp";
+    }
+  | {
+      type: "runtime.operation.choose";
+      index: number;
     }
   | {
       type: "runtime.augment.choose";
@@ -551,6 +582,8 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     activeTraits: [],
     selectedAugments: [],
     pendingAugments: [],
+    operationCards: [],
+    selectedOperation: null,
     starterDoctrine: {
       key: "balanced",
       label: "Balanced Prep",
@@ -581,6 +614,11 @@ export const DEFAULT_RUNTIME_PROJECTION: RuntimeProjection = {
     benchCapacity: 6,
     boardCapacity: 5,
     deploymentCap: 2,
+    supplies: 3,
+    medical: 1,
+    contamination: 0,
+    securedLoot: 0,
+    unsecuredLoot: 0,
     streak: 0,
     baseIncome: 4,
     interestIncome: 0,

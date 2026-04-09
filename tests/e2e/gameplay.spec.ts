@@ -69,7 +69,7 @@ test("core gameplay loop runs from launch to restart", async ({ page }) => {
   );
 
   await advanceToNextRound(page, 2);
-  await expect(page.getByTestId("status-panel")).toContainText(/Round 2|第 2 回合/);
+  expect(await readVisibleRound(page)).toBe(2);
   await expect(page.getByTestId("round-event-panel")).toContainText(
     /Training Day|训练日/,
   );

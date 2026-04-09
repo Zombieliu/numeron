@@ -1,5 +1,6 @@
 use crate::starter_scene::{
     BoardAnchor, CombatDirectiveOrder, RuntimeAugmentView, RuntimeCombatDirectiveView,
+    RuntimeOperationView,
     RuntimePerformanceView, RuntimeRoundEventView, RuntimeRoundSummaryView, RuntimeRunModifierView,
     RuntimeStarterDoctrineView, RuntimeTraitView, RuntimeUnitView, StarterSliceProjection,
 };
@@ -76,6 +77,7 @@ struct PendingVirtualInput {
 #[derive(Clone, Debug)]
 pub enum RuntimeCommand {
     StartCombat,
+    ChooseOperation(usize),
     ResetRound,
     RestartRun,
     RerollShop,
@@ -194,6 +196,16 @@ pub fn set_runtime_virtual_input(x: f32, y: f32) {
 pub fn start_runtime_combat() {
     COMMAND_QUEUE.with(|queue| {
         queue.borrow_mut().push(RuntimeCommand::StartCombat);
+    });
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(js_name = chooseRuntimeOperation)]
+pub fn choose_runtime_operation(index: u32) {
+    COMMAND_QUEUE.with(|queue| {
+        queue
+            .borrow_mut()
+            .push(RuntimeCommand::ChooseOperation(index as usize));
     });
 }
 
@@ -495,6 +507,8 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         active_traits: slice.active_traits,
         selected_augments: slice.selected_augments,
         pending_augments: slice.pending_augments,
+        operation_cards: slice.operation_cards,
+        selected_operation: slice.selected_operation,
         starter_doctrine: slice.starter_doctrine,
         run_modifier: slice.run_modifier,
         round_event: slice.round_event,
@@ -509,6 +523,11 @@ fn projection_object(slice: Option<&StarterSliceProjection>) -> ProjectionPayloa
         bench_capacity: slice.bench_capacity,
         board_capacity: slice.board_capacity,
         deployment_cap: slice.deployment_cap,
+        supplies: slice.supplies,
+        medical: slice.medical,
+        contamination: slice.contamination,
+        secured_loot: slice.secured_loot,
+        unsecured_loot: slice.unsecured_loot,
         streak: slice.streak,
         base_income: slice.base_income,
         interest_income: slice.interest_income,
@@ -560,6 +579,8 @@ struct ProjectionPayload {
     active_traits: Vec<RuntimeTraitView>,
     selected_augments: Vec<RuntimeAugmentView>,
     pending_augments: Vec<RuntimeAugmentView>,
+    operation_cards: Vec<RuntimeOperationView>,
+    selected_operation: Option<RuntimeOperationView>,
     starter_doctrine: RuntimeStarterDoctrineView,
     run_modifier: RuntimeRunModifierView,
     round_event: RuntimeRoundEventView,
@@ -574,6 +595,11 @@ struct ProjectionPayload {
     bench_capacity: usize,
     board_capacity: usize,
     deployment_cap: usize,
+    supplies: u32,
+    medical: u32,
+    contamination: u32,
+    secured_loot: u32,
+    unsecured_loot: u32,
     streak: i32,
     base_income: u32,
     interest_income: u32,
@@ -716,6 +742,17 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 pending_augments.push(&runtime_augment_view_object(augment));
             }
             let _ = Reflect::set(&slice, &"pendingAugments".into(), &pending_augments);
+            let operation_cards = js_sys::Array::new();
+            for operation in &projection.operation_cards {
+                operation_cards.push(&runtime_operation_view_object(operation));
+            }
+            let _ = Reflect::set(&slice, &"operationCards".into(), &operation_cards);
+            let selected_operation = projection
+                .selected_operation
+                .as_ref()
+                .map(runtime_operation_view_object)
+                .unwrap_or(JsValue::NULL);
+            let _ = Reflect::set(&slice, &"selectedOperation".into(), &selected_operation);
             let _ = Reflect::set(
                 &slice,
                 &"starterDoctrine".into(),
@@ -798,6 +835,23 @@ fn publish_runtime_event(event_type: &str, projection: &ProjectionPayload) {
                 &slice,
                 &"deploymentCap".into(),
                 &projection.deployment_cap.into(),
+            );
+            let _ = Reflect::set(&slice, &"supplies".into(), &projection.supplies.into());
+            let _ = Reflect::set(&slice, &"medical".into(), &projection.medical.into());
+            let _ = Reflect::set(
+                &slice,
+                &"contamination".into(),
+                &projection.contamination.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"securedLoot".into(),
+                &projection.secured_loot.into(),
+            );
+            let _ = Reflect::set(
+                &slice,
+                &"unsecuredLoot".into(),
+                &projection.unsecured_loot.into(),
             );
             let _ = Reflect::set(&slice, &"streak".into(), &projection.streak.into());
             let _ = Reflect::set(&slice, &"baseIncome".into(), &projection.base_income.into());
@@ -940,6 +994,29 @@ fn runtime_augment_view_object(view: &RuntimeAugmentView) -> JsValue {
         &payload,
         &"description".into(),
         &view.description.clone().into(),
+    );
+    payload.into()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn runtime_operation_view_object(view: &RuntimeOperationView) -> JsValue {
+    let payload = Object::new();
+    let _ = Reflect::set(&payload, &"key".into(), &view.key.clone().into());
+    let _ = Reflect::set(&payload, &"label".into(), &view.label.clone().into());
+    let _ = Reflect::set(
+        &payload,
+        &"description".into(),
+        &view.description.clone().into(),
+    );
+    let _ = Reflect::set(
+        &payload,
+        &"rewardLabel".into(),
+        &view.reward_label.clone().into(),
+    );
+    let _ = Reflect::set(
+        &payload,
+        &"riskLabel".into(),
+        &view.risk_label.clone().into(),
     );
     payload.into()
 }

@@ -7,6 +7,7 @@ import {
   launchRuntime,
   openShell,
   playUntilRunEnds,
+  readVisibleRound,
   readSaveDraft,
   selectStarterDoctrine,
   switchToChinese,
@@ -74,9 +75,7 @@ test("local save slot resumes an in-progress run after reload", async ({
   await expect(page.getByTestId("board-slot-0")).not.toContainText(
     /Empty Slot|空槽位/
   );
-  await expect(page.getByTestId("status-panel")).toContainText(
-    /Round 2|第 2 回合/
-  );
+  expect(await readVisibleRound(page)).toBe(2);
   await expect(page.getByTestId("run-modifier-panel")).toContainText(
     modifierText.split("\n")[1] ?? modifierText,
   );

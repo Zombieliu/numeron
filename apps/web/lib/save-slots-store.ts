@@ -8,6 +8,7 @@ import {
   type RuntimeAugmentView,
   type RuntimeBattleRecord,
   type RuntimeBootConfig,
+  type RuntimeOperationView,
   type RuntimePerformanceView,
   type RuntimeProgression,
   type RuntimeRoundSummaryView,
@@ -387,12 +388,20 @@ function sanitizeBattleRecord(
         : null,
     starterDoctrine: sanitizeStarterDoctrineView(value?.starterDoctrine),
     runModifier: sanitizeRunModifierView(value?.runModifier),
+    selectedOperation: value?.selectedOperation
+      ? sanitizeOperationView(value.selectedOperation)
+      : null,
     selectedAugments: Array.isArray(value?.selectedAugments)
       ? value.selectedAugments.map(sanitizeAugmentView).slice(0, 8)
       : [],
     activeTraits: Array.isArray(value?.activeTraits)
       ? value.activeTraits.map(sanitizeTraitView).slice(0, 8)
       : [],
+    supplies: Math.max(0, Number(value?.supplies ?? 0) || 0),
+    medical: Math.max(0, Number(value?.medical ?? 0) || 0),
+    contamination: Math.max(0, Number(value?.contamination ?? 0) || 0),
+    securedLoot: Math.max(0, Number(value?.securedLoot ?? 0) || 0),
+    unsecuredLoot: Math.max(0, Number(value?.unsecuredLoot ?? 0) || 0),
     finalBoard: Array.isArray(value?.finalBoard)
       ? value.finalBoard.map(sanitizeUnitView).slice(0, 5)
       : [],
@@ -534,6 +543,30 @@ function sanitizeAugmentView(
     label: typeof value?.label === "string" ? value.label : "Augment",
     description:
       typeof value?.description === "string" ? value.description : "",
+  };
+}
+
+function sanitizeOperationView(
+  value: Partial<RuntimeOperationView> | null | undefined
+): RuntimeOperationView {
+  const key =
+    value?.key === "deep-raid" ||
+    value?.key === "field-cache" ||
+    value?.key === "tactical-transfer"
+      ? value.key
+      : "steady-search";
+
+  return {
+    key,
+    label:
+      typeof value?.label === "string" && value.label.trim()
+        ? value.label
+        : "Operation",
+    description:
+      typeof value?.description === "string" ? value.description : "",
+    rewardLabel:
+      typeof value?.rewardLabel === "string" ? value.rewardLabel : "",
+    riskLabel: typeof value?.riskLabel === "string" ? value.riskLabel : "",
   };
 }
 

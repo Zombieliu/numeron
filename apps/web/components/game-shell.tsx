@@ -264,12 +264,23 @@ export function GameShell() {
     },
   };
   const currentPhase = runtimeSnapshot.world.slice.phase;
-  const canDraft = runtimeReady && currentPhase === "preparation";
+  const operationCards = runtimeSnapshot.world.slice.operationCards;
+  const selectedOperation = runtimeSnapshot.world.slice.selectedOperation;
+  const operationChoicePending =
+    runtimeReady &&
+    currentPhase === "preparation" &&
+    selectedOperation == null &&
+    !runtimeSnapshot.world.slice.runOver;
+  const canDraft =
+    runtimeReady &&
+    currentPhase === "preparation" &&
+    selectedOperation != null;
   const canStartCombat =
     runtimeReady &&
     currentPhase === "preparation" &&
     runtimeSnapshot.world.slice.captured > 0 &&
-    runtimeSnapshot.world.slice.pendingAugments.length === 0;
+    runtimeSnapshot.world.slice.pendingAugments.length === 0 &&
+    selectedOperation != null;
   const canAdvanceRound =
     runtimeReady &&
     runtimeSnapshot.world.slice.roundResolved &&
@@ -316,6 +327,11 @@ export function GameShell() {
   const localizedRoundState = runtimeSnapshot.world.slice.status;
   const localizedObjective = runtimeSnapshot.world.slice.objective;
   const localizedEnemyIntent = runtimeSnapshot.world.slice.enemyIntent;
+  const supplies = runtimeSnapshot.world.slice.supplies;
+  const medical = runtimeSnapshot.world.slice.medical;
+  const contamination = runtimeSnapshot.world.slice.contamination;
+  const securedLoot = runtimeSnapshot.world.slice.securedLoot;
+  const unsecuredLoot = runtimeSnapshot.world.slice.unsecuredLoot;
   const activeCombatDirective =
     runtimeSnapshot.world.slice.activeCombatDirective;
   const queuedCombatDirectives =
@@ -1109,6 +1125,13 @@ export function GameShell() {
     });
   }
 
+  function handleChooseOperation(index: number) {
+    void dispatchUiIntent({
+      type: "runtime.operation.choose",
+      index,
+    });
+  }
+
   function handleChooseAugment(index: number) {
     void dispatchUiIntent({
       type: "runtime.augment.choose",
@@ -1478,6 +1501,7 @@ export function GameShell() {
   const onboarding = buildOnboardingModel({
     locale,
     ready: runtimeSnapshot.world.ready,
+    operationChoicePending,
     benchCount: benchUnits.length,
     deployedUnits,
     canStartCombat,
@@ -2570,6 +2594,79 @@ export function GameShell() {
               <div className="muted">{roundEvent.stakes}</div>
             </section>
 
+            <section className="panel" data-testid="operation-panel">
+              <div className="eyebrow">
+                {locale === "zh-CN" ? "行动节点" : "Operation Node"}
+              </div>
+              <div className="stat-grid stat-grid-two">
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "补给" : "Supplies"}
+                  </span>
+                  <strong>{supplies}</strong>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "医疗" : "Medical"}
+                  </span>
+                  <strong>{medical}</strong>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "污染" : "Contamination"}
+                  </span>
+                  <strong>{contamination}</strong>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "已锁定收益" : "Secured Loot"}
+                  </span>
+                  <strong>{securedLoot}</strong>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">
+                    {locale === "zh-CN" ? "未锁定收益" : "Unsecured Loot"}
+                  </span>
+                  <strong>{unsecuredLoot}</strong>
+                </div>
+              </div>
+              {selectedOperation ? (
+                <>
+                  <div className="muted">
+                    {locale === "zh-CN" ? "当前行动：" : "Current operation: "}{" "}
+                    {selectedOperation.label}
+                  </div>
+                  <div className="muted">{selectedOperation.description}</div>
+                  <div className="muted">{selectedOperation.rewardLabel}</div>
+                  <div className="muted">{selectedOperation.riskLabel}</div>
+                </>
+              ) : (
+                <div className="muted">
+                  {locale === "zh-CN"
+                    ? "先选行动节点，才能进行刷新、买经验、买牌和开战。"
+                    : "Choose an operation before rerolling, buying XP, drafting, or starting combat."}
+                </div>
+              )}
+              {operationCards.length > 0 && selectedOperation == null ? (
+                <div className="offer-grid">
+                  {operationCards.map((operation, index) => (
+                    <button
+                      key={`${operation.key}-${index}`}
+                      type="button"
+                      className="offer-card"
+                      onClick={() => handleChooseOperation(index)}
+                      data-testid={`operation-choice-${index}`}
+                    >
+                      <span className="slot-title">{operation.label}</span>
+                      <span className="slot-meta">{operation.description}</span>
+                      <span className="slot-meta">{operation.rewardLabel}</span>
+                      <span className="slot-meta">{operation.riskLabel}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+
             <section className="panel" data-testid="economy-panel">
               <div className="eyebrow">{copy.economy}</div>
               <div className="stat-grid stat-grid-two">
@@ -3093,6 +3190,19 @@ export function GameShell() {
               </div>
               <div className="muted">
                 {latestCompletedBattle.runModifier.description}
+              </div>
+              <div className="muted">
+                {locale === "zh-CN" ? "行动节点：" : "Operation: "}{" "}
+                {latestCompletedBattle.selectedOperation?.label ??
+                  (locale === "zh-CN" ? "无" : "None")}
+              </div>
+              <div className="muted">
+                {locale === "zh-CN" ? "生存资源：" : "Survival State: "}S{" "}
+                {latestCompletedBattle.supplies} · M{" "}
+                {latestCompletedBattle.medical} · C{" "}
+                {latestCompletedBattle.contamination} · L{" "}
+                {latestCompletedBattle.securedLoot}/
+                {latestCompletedBattle.unsecuredLoot}
               </div>
               <div className="muted">
                 {locale === "zh-CN" ? "强化：" : "Augments: "}{" "}
@@ -3734,6 +3844,12 @@ function buildBattleRecord(
     activeTraits: runtimeSnapshot.world.slice.activeTraits.filter(
       (trait) => trait.active,
     ),
+    selectedOperation: runtimeSnapshot.world.slice.selectedOperation,
+    supplies: runtimeSnapshot.world.slice.supplies,
+    medical: runtimeSnapshot.world.slice.medical,
+    contamination: runtimeSnapshot.world.slice.contamination,
+    securedLoot: runtimeSnapshot.world.slice.securedLoot,
+    unsecuredLoot: runtimeSnapshot.world.slice.unsecuredLoot,
     finalBoard,
     roundHistory: runtimeSnapshot.world.slice.roundHistory,
     performanceLeaders: runtimeSnapshot.world.slice.performanceLeaders,
@@ -3818,10 +3934,17 @@ function areBattleRecordsEqual(
     left.runModifier.label === right.runModifier.label &&
     left.runModifier.description === right.runModifier.description &&
     left.runModifier.routeHint === right.runModifier.routeHint &&
+    left.selectedOperation?.key === right.selectedOperation?.key &&
+    left.selectedOperation?.label === right.selectedOperation?.label &&
     left.selectedAugments.map((augment) => augment.key).join("|") ===
       right.selectedAugments.map((augment) => augment.key).join("|") &&
     left.activeTraits.map((trait) => trait.key).join("|") ===
       right.activeTraits.map((trait) => trait.key).join("|") &&
+    left.supplies === right.supplies &&
+    left.medical === right.medical &&
+    left.contamination === right.contamination &&
+    left.securedLoot === right.securedLoot &&
+    left.unsecuredLoot === right.unsecuredLoot &&
     left.finalBoard.map((unit) => unit.agentId).join("|") ===
       right.finalBoard.map((unit) => unit.agentId).join("|") &&
     left.roundHistory.map((entry) => `${entry.round}:${entry.result}:${entry.incomeTotal}:${entry.summary}`).join("|") ===
@@ -4307,6 +4430,7 @@ function formatErrorMessage(error: unknown, fallback: string) {
 function buildOnboardingModel({
   locale,
   ready,
+  operationChoicePending,
   benchCount,
   deployedUnits,
   canStartCombat,
@@ -4317,6 +4441,7 @@ function buildOnboardingModel({
 }: {
   locale: UiLocale;
   ready: boolean;
+  operationChoicePending: boolean;
   benchCount: number;
   deployedUnits: number;
   canStartCombat: boolean;
@@ -4342,18 +4467,33 @@ function buildOnboardingModel({
       status: !ready ? "active" : "done",
     },
     {
-      key: "draft",
+      key: "operation",
       index: locale === "zh-CN" ? "02" : "02",
+      label: locale === "zh-CN" ? "锁定行动节点" : "Lock an operation",
+      detail:
+        locale === "zh-CN"
+          ? "每回合先选一个行动节点，它会决定收益类型、污染压力和敌方强度。"
+          : "Pick an operation first each round. It sets loot flow, contamination pressure, and enemy strength.",
+      status: !ready ? "upcoming" : operationChoicePending ? "active" : "done",
+    },
+    {
+      key: "draft",
+      index: locale === "zh-CN" ? "03" : "03",
       label: locale === "zh-CN" ? "招募棋子" : "Draft a unit",
       detail:
         locale === "zh-CN"
           ? "从招募商店买一张棋子，它会先进入备战席。"
           : "Buy a unit from the shop. It lands on your bench first.",
-      status: !ready ? "upcoming" : hasDrafted ? "done" : "active",
+      status:
+        !ready || operationChoicePending
+          ? "upcoming"
+          : hasDrafted
+            ? "done"
+            : "active",
     },
     {
       key: "deploy",
-      index: locale === "zh-CN" ? "03" : "03",
+      index: locale === "zh-CN" ? "04" : "04",
       label: locale === "zh-CN" ? "部署阵容" : "Deploy the lineup",
       detail:
         locale === "zh-CN"
@@ -4364,7 +4504,7 @@ function buildOnboardingModel({
     },
     {
       key: "combat",
-      index: locale === "zh-CN" ? "04" : "04",
+      index: locale === "zh-CN" ? "05" : "05",
       label: locale === "zh-CN" ? "开始战斗" : "Start combat",
       detail:
         locale === "zh-CN"
@@ -4390,6 +4530,18 @@ function buildOnboardingModel({
         locale === "zh-CN"
           ? `${starterDoctrine.bonusLabel}。${starterDoctrine.openingPlan}`
           : `${starterDoctrine.bonusLabel}. ${starterDoctrine.openingPlan}`,
+    };
+  }
+
+  if (operationChoicePending) {
+    return {
+      steps,
+      headline:
+        locale === "zh-CN" ? "先锁定这一回合的行动节点" : "Lock this round's operation first",
+      detail:
+        locale === "zh-CN"
+          ? "稳健搜索更稳，深层突入更贪，野战补给偏续航，战术转运偏落袋。先做这个决定，再运营。"
+          : "Steady Search stabilizes, Deep Raid spikes greed, Field Cache sustains, and Tactical Transfer banks loot. Decide this first, then draft.",
     };
   }
 

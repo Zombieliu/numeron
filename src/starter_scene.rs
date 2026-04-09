@@ -20,6 +20,8 @@ const BUY_XP_AMOUNT: u32 = 4;
 const SELL_VALUE_BASE: u32 = 2;
 const STARTING_GOLD: u32 = 10;
 const STARTING_HEALTH: u32 = 24;
+const STARTING_SUPPLIES: u32 = 3;
+const STARTING_MEDICAL: u32 = 1;
 const ROUND_BASE_INCOME: u32 = 4;
 const PASSIVE_ROUND_XP: u32 = 1;
 const MAX_INTEREST_INCOME: u32 = 3;
@@ -28,6 +30,7 @@ const TRAIT_THRESHOLD: usize = 2;
 const TRAIT_CAPSTONE_THRESHOLD: usize = 4;
 const MAX_STARS: u8 = 3;
 const FINAL_ROUND: u32 = 8;
+const SECURED_LOOT_SCORE: u32 = 30;
 
 const PLAYER_SLOTS: [(usize, usize); 5] = [(0, 1), (1, 1), (2, 1), (3, 1), (1, 2)];
 const ENEMY_SLOTS: [(usize, usize); 5] = [(0, 5), (1, 5), (2, 5), (3, 5), (2, 4)];
@@ -75,6 +78,15 @@ pub struct RoundHistoryEntry {
     summary: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum RunOperationKind {
+    SteadySearch,
+    DeepRaid,
+    FieldCache,
+    TacticalTransfer,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct CombatPerformanceEntry {
     agent_id: u64,
@@ -108,6 +120,14 @@ fn default_run_modifier() -> RunModifierKind {
 
 fn default_starter_doctrine() -> RuntimeStarterDoctrine {
     RuntimeStarterDoctrine::Balanced
+}
+
+fn default_supplies() -> u32 {
+    STARTING_SUPPLIES
+}
+
+fn default_medical() -> u32 {
+    STARTING_MEDICAL
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -159,6 +179,28 @@ pub struct CombatState {
     pub enemy_units: usize,
     #[serde(default)]
     pub free_reroll_available: bool,
+    #[serde(default = "default_supplies")]
+    pub supplies: u32,
+    #[serde(default = "default_medical")]
+    pub medical: u32,
+    #[serde(default)]
+    pub contamination: u32,
+    #[serde(default)]
+    pub secured_loot: u32,
+    #[serde(default)]
+    pub unsecured_loot: u32,
+    #[serde(default)]
+    operation_cards: Vec<RunOperationKind>,
+    #[serde(default)]
+    selected_operation: Option<RunOperationKind>,
+    #[serde(default)]
+    operation_bonus_secured_on_win: u32,
+    #[serde(default)]
+    operation_bonus_unsecured_on_win: u32,
+    #[serde(default)]
+    operation_unsecured_loss_on_defeat: u32,
+    #[serde(default)]
+    operation_enemy_pressure: u32,
     #[serde(default)]
     pub income_base_total: u32,
     #[serde(default)]
@@ -206,6 +248,17 @@ impl Default for CombatState {
             player_units: 0,
             enemy_units: 0,
             free_reroll_available: false,
+            supplies: STARTING_SUPPLIES,
+            medical: STARTING_MEDICAL,
+            contamination: 0,
+            secured_loot: 0,
+            unsecured_loot: 0,
+            operation_cards: Vec::new(),
+            selected_operation: None,
+            operation_bonus_secured_on_win: 0,
+            operation_bonus_unsecured_on_win: 0,
+            operation_unsecured_loss_on_defeat: 0,
+            operation_enemy_pressure: 0,
             income_base_total: 0,
             income_interest_total: 0,
             income_streak_total: 0,
@@ -314,6 +367,16 @@ pub struct RuntimePerformanceView {
 
 #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 #[derive(Clone, Debug)]
+pub struct RuntimeOperationView {
+    pub key: String,
+    pub label: String,
+    pub description: String,
+    pub reward_label: String,
+    pub risk_label: String,
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[derive(Clone, Debug)]
 pub struct RuntimeCombatDirectiveView {
     pub key: String,
     pub label: String,
@@ -351,6 +414,8 @@ pub struct StarterSliceProjection {
     pub active_traits: Vec<RuntimeTraitView>,
     pub selected_augments: Vec<RuntimeAugmentView>,
     pub pending_augments: Vec<RuntimeAugmentView>,
+    pub operation_cards: Vec<RuntimeOperationView>,
+    pub selected_operation: Option<RuntimeOperationView>,
     pub starter_doctrine: RuntimeStarterDoctrineView,
     pub run_modifier: RuntimeRunModifierView,
     pub round_event: RuntimeRoundEventView,
@@ -365,6 +430,11 @@ pub struct StarterSliceProjection {
     pub bench_capacity: usize,
     pub board_capacity: usize,
     pub deployment_cap: usize,
+    pub supplies: u32,
+    pub medical: u32,
+    pub contamination: u32,
+    pub secured_loot: u32,
+    pub unsecured_loot: u32,
     pub streak: i32,
     pub base_income: u32,
     pub interest_income: u32,
@@ -412,6 +482,8 @@ impl Default for StarterSliceProjection {
             active_traits: Vec::new(),
             selected_augments: Vec::new(),
             pending_augments: Vec::new(),
+            operation_cards: Vec::new(),
+            selected_operation: None,
             starter_doctrine: RuntimeStarterDoctrine::Balanced.as_view(RuntimeLocale::En),
             run_modifier: RuntimeRunModifierView {
                 key: "rich-opening".to_owned(),
@@ -436,6 +508,11 @@ impl Default for StarterSliceProjection {
             bench_capacity: BENCH_CAPACITY,
             board_capacity: PLAYER_SLOTS.len(),
             deployment_cap: deploy_cap_for_level(1),
+            supplies: STARTING_SUPPLIES,
+            medical: STARTING_MEDICAL,
+            contamination: 0,
+            secured_loot: 0,
+            unsecured_loot: 0,
             streak: 0,
             base_income: ROUND_BASE_INCOME,
             interest_income: 0,
@@ -1142,6 +1219,107 @@ impl RuntimeStarterDoctrine {
             description: self.description(locale).to_owned(),
             opening_plan: self.opening_plan(locale).to_owned(),
             bonus_label: self.bonus_label(locale).to_owned(),
+        }
+    }
+}
+
+impl RunOperationKind {
+    fn key(self) -> &'static str {
+        match self {
+            Self::SteadySearch => "steady-search",
+            Self::DeepRaid => "deep-raid",
+            Self::FieldCache => "field-cache",
+            Self::TacticalTransfer => "tactical-transfer",
+        }
+    }
+
+    fn label(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::SteadySearch => localized(locale, "Steady Search", "稳健搜索"),
+            Self::DeepRaid => localized(locale, "Deep Raid", "深层突入"),
+            Self::FieldCache => localized(locale, "Field Cache", "野战补给"),
+            Self::TacticalTransfer => localized(locale, "Tactical Transfer", "战术转运"),
+        }
+    }
+
+    fn description(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::SteadySearch => localized(
+                locale,
+                "Low-risk sweep that pads gold and supplies before the next fight.",
+                "低风险清扫，先补金币和补给，再稳稳进入下一战。",
+            ),
+            Self::DeepRaid => localized(
+                locale,
+                "Push into the black zone for unsecured loot and a wider market, but enemy pressure rises immediately.",
+                "深入黑区换高价值未锁定收益和更宽商店，但敌方压力会立刻抬高。",
+            ),
+            Self::FieldCache => localized(
+                locale,
+                "Stabilize with medical supplies and field treatment before the next engagement.",
+                "先补医疗并做野战处理，再准备下一场战斗。",
+            ),
+            Self::TacticalTransfer => localized(
+                locale,
+                "Convert carried loot into secured value now, but accept a narrower shopping window.",
+                "先把携行收益转成已锁定价值，但商店窗口会被压缩。",
+            ),
+        }
+    }
+
+    fn reward_label(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::SteadySearch => localized(locale, "+2 gold, +1 supplies", "+2 金币，+1 补给"),
+            Self::DeepRaid => localized(
+                locale,
+                "+2 unsecured loot, reroll into a wider market",
+                "+2 未锁定收益，并刷新成更宽的商店",
+            ),
+            Self::FieldCache => localized(
+                locale,
+                "+1 medical, clear 1 contamination, win grants +1 unsecured loot",
+                "+1 医疗，清除 1 点污染，获胜再得 +1 未锁定收益",
+            ),
+            Self::TacticalTransfer => localized(
+                locale,
+                "Secure up to 2 loot now, win secures 1 more",
+                "立刻锁定最多 2 份收益，获胜再锁定 1 份",
+            ),
+        }
+    }
+
+    fn risk_label(self, locale: RuntimeLocale) -> &'static str {
+        match self {
+            Self::SteadySearch => localized(
+                locale,
+                "Safe line. Converts 1 unsecured loot on a win.",
+                "稳线。若本回合获胜，可再锁定 1 份未锁定收益。",
+            ),
+            Self::DeepRaid => localized(
+                locale,
+                "Gain 1 contamination, stronger enemy board, and lose 2 unsecured loot if you fail.",
+                "获得 1 点污染，敌军更强，失败会损失 2 份未锁定收益。",
+            ),
+            Self::FieldCache => localized(
+                locale,
+                "No extra tempo now. The payoff comes from surviving cleanly.",
+                "当下没有额外战力，收益来自稳稳打完这一回合。",
+            ),
+            Self::TacticalTransfer => localized(
+                locale,
+                "Shop narrows by one offer this round.",
+                "本回合商店会少 1 个招募位。",
+            ),
+        }
+    }
+
+    fn as_view(self, locale: RuntimeLocale) -> RuntimeOperationView {
+        RuntimeOperationView {
+            key: self.key().to_owned(),
+            label: self.label(locale).to_owned(),
+            description: self.description(locale).to_owned(),
+            reward_label: self.reward_label(locale).to_owned(),
+            risk_label: self.risk_label(locale).to_owned(),
         }
     }
 }
@@ -2183,36 +2361,15 @@ fn reset_run_state(
         identity,
         combat.run_modifier,
         RoundEventKind::for_round(combat.round),
+        0,
     );
-    combat.status = if increment_run_number {
-        match locale {
-            RuntimeLocale::En => format!(
-                "Run {} restarted under {}. Bench primed with a two-unit opening and {} gold. Deploy up to your level cap before combat.",
-                combat.run_number,
-                combat.run_modifier.label(locale),
-                combat.gold
-            ),
-            RuntimeLocale::ZhCn => format!(
-                "第 {} 局已在 {} 下重新开始。初始两单位已在备战席，当前有 {} 金币，战斗前可按人口上限部署。",
-                combat.run_number,
-                combat.run_modifier.label(locale),
-                combat.gold
-            ),
-        }
-    } else {
-        match locale {
-            RuntimeLocale::En => format!(
-                "Bench primed under {} with {}. Deploy up to your current cap before opening combat.",
-                combat.run_modifier.label(locale),
-                combat.starter_doctrine.label(locale)
-            ),
-            RuntimeLocale::ZhCn => format!(
-                "{} 与 {} 已生效。备战席已就绪，开始战斗前可先部署到当前人口上限。",
-                combat.run_modifier.label(locale),
-                combat.starter_doctrine.label(locale)
-            ),
-        }
-    };
+    combat.operation_cards = operation_cards_for(combat);
+    combat.selected_operation = None;
+    combat.operation_bonus_secured_on_win = 0;
+    combat.operation_bonus_unsecured_on_win = 0;
+    combat.operation_unsecured_loss_on_defeat = 0;
+    combat.operation_enemy_pressure = 0;
+    combat.status = operation_prompt(locale);
     spawn_round_units(
         commands,
         board,
@@ -2253,6 +2410,16 @@ fn restore_run_state(
     combat.round_history.truncate(8);
     if combat.round_diagnosis.is_empty() {
         combat.round_diagnosis = RoundEventKind::for_round(combat.round).stakes(locale).to_owned();
+    }
+    if combat.phase == CombatPhase::Preparation && combat.operation_cards.is_empty() {
+        combat.operation_cards = operation_cards_for(combat);
+    }
+    if combat.phase == CombatPhase::Preparation && combat.selected_operation.is_none() {
+        combat.operation_bonus_secured_on_win = 0;
+        combat.operation_bonus_unsecured_on_win = 0;
+        combat.operation_unsecured_loss_on_defeat = 0;
+        combat.operation_enemy_pressure = 0;
+        combat.status = operation_prompt(locale);
     }
     combat_timer.0.reset();
 
@@ -2303,6 +2470,7 @@ fn handle_runtime_commands(
                     && combat.player_units > 0
                     && combat.enemy_units > 0
                     && augments.pending_choices.is_empty()
+                    && combat.selected_operation.is_some()
                 {
                     combat.phase = CombatPhase::Combat;
                     combat.recent_highlights.clear();
@@ -2336,6 +2504,24 @@ fn handle_runtime_commands(
                     combat_timer.0.reset();
                 }
             }
+            RuntimeCommand::ChooseOperation(index) => {
+                if !operation_selection_pending(&combat) {
+                    continue;
+                }
+
+                let Some(choice) = combat.operation_cards.get(index).copied() else {
+                    continue;
+                };
+
+                apply_operation_choice(
+                    choice,
+                    &mut combat,
+                    &mut shop,
+                    &mut identity,
+                    locale,
+                );
+                needs_respawn = true;
+            }
             RuntimeCommand::ResetRound => {
                 if combat.phase == CombatPhase::Resolution && !combat.run_over {
                     let (base_income, interest_income, streak_income, modifier_income) =
@@ -2364,41 +2550,94 @@ fn handle_runtime_commands(
                     enemy_squad.units = seed_enemy_squad(combat.round, &mut identity);
                     maybe_prepare_augment_draft(&mut augments, combat.round, combat.run_modifier);
                     combat.round_diagnosis = round_event.stakes(locale).to_owned();
-                    if shop.locked {
+                    let upkeep = apply_round_upkeep(&mut combat);
+                    let lost_unsecured_on_collapse = combat.unsecured_loot;
+
+                    if combat.player_health == 0 {
+                        combat.run_over = true;
+                        combat.run_result = RunResult::Defeat;
+                        combat.unsecured_loot = 0;
                         combat.status = match locale {
                             RuntimeLocale::En => format!(
-                                "Round {} ready. Income +{} (base {} / interest {} / streak {} / modifier {}). Locked shop carried forward. Level {} with {} cap{}.",
+                                "Round {} collapse. Upkeep dealt {} contamination damage and the commander was lost{}.",
                                 combat.round,
-                                total_income,
-                                base_income,
-                                interest_income,
-                                streak_income,
-                                modifier_income,
-                                combat.level,
-                                combat.deployment_cap,
-                                if levels_gained > 0 {
-                                    " after leveling."
+                                upkeep.contamination_damage,
+                                if lost_unsecured_on_collapse > 0 {
+                                    format!(
+                                        ", dropping {} unsecured loot",
+                                        lost_unsecured_on_collapse
+                                    )
                                 } else {
-                                    "."
+                                    String::new()
                                 }
                             ),
                             RuntimeLocale::ZhCn => format!(
-                                "第 {} 回合已就绪。收入 +{}（基础 {} / 利息 {} / 连胜连败 {} / modifier {}）。锁定商店已保留。当前等级 {}，可部署 {} 个单位{}",
+                                "第 {} 回合行军失败。回合 upkeep 造成了 {} 点污染伤害，指挥官倒下{}。",
                                 combat.round,
-                                total_income,
-                                base_income,
-                                interest_income,
-                                streak_income,
-                                modifier_income,
-                                combat.level,
-                                combat.deployment_cap,
-                                if levels_gained > 0 {
-                                    "，并已升级。"
+                                upkeep.contamination_damage,
+                                if lost_unsecured_on_collapse > 0 {
+                                    format!("，并丢失了 {} 份未锁定收益", lost_unsecured_on_collapse)
                                 } else {
-                                    "。"
+                                    String::new()
                                 }
                             ),
                         };
+                        continue;
+                    }
+
+                    combat.selected_operation = None;
+                    combat.operation_cards = operation_cards_for(&combat);
+                    combat.operation_bonus_secured_on_win = 0;
+                    combat.operation_bonus_unsecured_on_win = 0;
+                    combat.operation_unsecured_loss_on_defeat = 0;
+                    combat.operation_enemy_pressure = 0;
+
+                    let mut prep_notes = vec![match locale {
+                        RuntimeLocale::En => format!(
+                            "Round {} ready under {}. Income +{} (base {} / interest {} / streak {} / modifier {}). Level {} supports {} deployed units{}.",
+                            combat.round,
+                            round_event.label(locale),
+                            total_income,
+                            base_income,
+                            interest_income,
+                            streak_income,
+                            modifier_income,
+                            combat.level,
+                            combat.deployment_cap,
+                            if levels_gained > 0 {
+                                " after leveling up"
+                            } else {
+                                ""
+                            }
+                        ),
+                        RuntimeLocale::ZhCn => format!(
+                            "第 {} 回合已在 {} 下就绪。收入 +{}（基础 {} / 利息 {} / 连胜连败 {} / modifier {}）。当前等级 {}，可部署 {} 个单位{}",
+                            combat.round,
+                            round_event.label(locale),
+                            total_income,
+                            base_income,
+                            interest_income,
+                            streak_income,
+                            modifier_income,
+                            combat.level,
+                            combat.deployment_cap,
+                            if levels_gained > 0 {
+                                "，并已升级。"
+                            } else {
+                                "。"
+                            }
+                        ),
+                    }];
+
+                    if shop.locked {
+                        prep_notes.push(
+                            localized(
+                                locale,
+                                "Locked shop carried forward.",
+                                "锁定商店已保留。",
+                            )
+                            .to_owned(),
+                        );
                     } else {
                         reroll_shop(
                             &mut shop,
@@ -2406,56 +2645,74 @@ fn handle_runtime_commands(
                             &mut identity,
                             combat.run_modifier,
                             round_event,
+                            0,
                         );
-                        combat.status = match locale {
-                            RuntimeLocale::En => format!(
-                                "Round {} ready under {}. Income +{} (base {} / interest {} / streak {} / modifier {}). Draft, merge, or reposition before combat. Level {} supports {} deployed units{}.",
-                                combat.round,
-                                round_event.label(locale),
-                                total_income,
-                                base_income,
-                                interest_income,
-                                streak_income,
-                                modifier_income,
-                                combat.level,
-                                combat.deployment_cap,
-                                if levels_gained > 0 {
-                                    " after leveling up"
-                                } else {
-                                    ""
-                                }
-                            ),
-                            RuntimeLocale::ZhCn => format!(
-                                "第 {} 回合已在 {} 下就绪。收入 +{}（基础 {} / 利息 {} / 连胜连败 {} / modifier {}）。战斗前可以继续招募、合成或调整站位。当前等级 {}，可部署 {} 个单位{}",
-                                combat.round,
-                                round_event.label(locale),
-                                total_income,
-                                base_income,
-                                interest_income,
-                                streak_income,
-                                modifier_income,
-                                combat.level,
-                                combat.deployment_cap,
-                                if levels_gained > 0 {
-                                    "，并已升级。"
-                                } else {
-                                    "。"
-                                }
-                            ),
-                        };
+                        prep_notes.push(
+                            localized(
+                                locale,
+                                "Shop refreshed for the new operation window.",
+                                "商店已按新的行动窗口刷新。",
+                            )
+                            .to_owned(),
+                        );
                     }
+
+                    if upkeep.supply_spent > 0 {
+                        prep_notes.push(
+                            localized(
+                                locale,
+                                "Travel consumed 1 supplies.",
+                                "行军消耗了 1 点补给。",
+                            )
+                            .to_owned(),
+                        );
+                    } else {
+                        prep_notes.push(
+                            localized(
+                                locale,
+                                "Supplies are empty. Rerolls cost +1 until you restock.",
+                                "补给已空。补给恢复前，刷新费用 +1。",
+                            )
+                            .to_owned(),
+                        );
+                    }
+
+                    if upkeep.contamination_treated > 0 {
+                        prep_notes.push(
+                            localized(
+                                locale,
+                                "Medical auto-treated 1 contamination.",
+                                "医疗资源自动清除了 1 点污染。",
+                            )
+                            .to_owned(),
+                        );
+                    }
+
+                    if upkeep.contamination_damage > 0 {
+                        prep_notes.push(match locale {
+                            RuntimeLocale::En => format!(
+                                "Residual contamination dealt {} damage.",
+                                upkeep.contamination_damage
+                            ),
+                            RuntimeLocale::ZhCn => {
+                                format!("残留污染造成了 {} 点伤害。", upkeep.contamination_damage)
+                            }
+                        });
+                    }
+
                     if !augments.pending_choices.is_empty() {
-                        combat.status = match locale {
-                            RuntimeLocale::En => format!(
-                                "Round {} augment draft ready. Pick one upgrade before combat.",
-                                combat.round
-                            ),
-                            RuntimeLocale::ZhCn => format!(
-                                "第 {} 回合强化已出现。先选择一个升级，再进入战斗。",
-                                combat.round
-                            ),
-                        };
+                        prep_notes.push(
+                            localized(
+                                locale,
+                                "Augment draft is waiting after you lock the operation.",
+                                "强化草案已出现，但要先锁定行动节点。",
+                            )
+                            .to_owned(),
+                        );
                     }
+
+                    combat.status =
+                        format!("{} {}", prep_notes.join(" "), operation_prompt(locale));
                     needs_respawn = true;
                 }
             }
@@ -2481,6 +2738,7 @@ fn handle_runtime_commands(
                 let reroll_cost = effective_reroll_cost(&combat);
                 if combat.phase == CombatPhase::Preparation
                     && !combat.run_over
+                    && combat.selected_operation.is_some()
                     && combat.gold >= reroll_cost
                 {
                     combat.gold -= reroll_cost;
@@ -2493,6 +2751,7 @@ fn handle_runtime_commands(
                         &mut identity,
                         combat.run_modifier,
                         round_event,
+                        0,
                     );
                     combat.status = if reroll_cost == 0 {
                         localized(
@@ -2515,6 +2774,7 @@ fn handle_runtime_commands(
                 let round_event = RoundEventKind::for_round(combat.round);
                 if combat.phase != CombatPhase::Preparation
                     || combat.run_over
+                    || combat.selected_operation.is_none()
                     || combat.gold < BUY_XP_COST
                     || combat.level >= max_level()
                 {
@@ -2563,7 +2823,10 @@ fn handle_runtime_commands(
                 };
             }
             RuntimeCommand::ChooseAugment(index) => {
-                if combat.phase != CombatPhase::Preparation || combat.run_over {
+                if combat.phase != CombatPhase::Preparation
+                    || combat.run_over
+                    || combat.selected_operation.is_none()
+                {
                     continue;
                 }
 
@@ -2591,7 +2854,10 @@ fn handle_runtime_commands(
                 needs_respawn = true;
             }
             RuntimeCommand::ToggleShopLock => {
-                if combat.phase != CombatPhase::Preparation || combat.run_over {
+                if combat.phase != CombatPhase::Preparation
+                    || combat.run_over
+                    || combat.selected_operation.is_none()
+                {
                     continue;
                 }
 
@@ -2615,6 +2881,7 @@ fn handle_runtime_commands(
             RuntimeCommand::BuyOffer(index) => {
                 if combat.phase != CombatPhase::Preparation
                     || combat.run_over
+                    || combat.selected_operation.is_none()
                     || combat.gold < BUY_COST
                     || player_squad.bench.len() >= combat.run_modifier.bench_capacity()
                     || index >= shop.offers.len()
@@ -2647,6 +2914,7 @@ fn handle_runtime_commands(
                     &mut identity,
                     combat.run_modifier,
                     RoundEventKind::for_round(combat.round),
+                    0,
                 );
                 needs_respawn = true;
             }
@@ -2657,6 +2925,7 @@ fn handle_runtime_commands(
                 let deployed_units = player_squad.board.iter().flatten().count();
                 if combat.phase != CombatPhase::Preparation
                     || combat.run_over
+                    || combat.selected_operation.is_none()
                     || slot_index >= player_squad.board.len()
                     || bench_index >= player_squad.bench.len()
                     || player_squad.board[slot_index].is_some()
@@ -2690,6 +2959,7 @@ fn handle_runtime_commands(
             RuntimeCommand::RepositionBoardUnit { from_slot, to_slot } => {
                 if combat.phase != CombatPhase::Preparation
                     || combat.run_over
+                    || combat.selected_operation.is_none()
                     || from_slot >= player_squad.board.len()
                     || to_slot >= player_squad.board.len()
                     || from_slot == to_slot
@@ -2736,6 +3006,7 @@ fn handle_runtime_commands(
             RuntimeCommand::WithdrawBoardUnit(slot_index) => {
                 if combat.phase != CombatPhase::Preparation
                     || combat.run_over
+                    || combat.selected_operation.is_none()
                     || slot_index >= player_squad.board.len()
                     || player_squad.bench.len() >= combat.run_modifier.bench_capacity()
                 {
@@ -2768,6 +3039,7 @@ fn handle_runtime_commands(
             RuntimeCommand::SellBenchUnit(bench_index) => {
                 if combat.phase != CombatPhase::Preparation
                     || combat.run_over
+                    || combat.selected_operation.is_none()
                     || bench_index >= player_squad.bench.len()
                 {
                     continue;
@@ -2795,6 +3067,7 @@ fn handle_runtime_commands(
             RuntimeCommand::SellBoardUnit(slot_index) => {
                 if combat.phase != CombatPhase::Preparation
                     || combat.run_over
+                    || combat.selected_operation.is_none()
                     || slot_index >= player_squad.board.len()
                 {
                     continue;
@@ -2847,15 +3120,17 @@ fn handle_runtime_commands(
 
     if needs_respawn {
         despawn_units(&mut commands, units.iter());
-        spawn_round_units(
-            &mut commands,
-            &board,
-            &player_squad,
-            &enemy_squad,
-            &augments,
-            locale,
-            &mut combat,
-        );
+        if !combat.run_over {
+            spawn_round_units(
+                &mut commands,
+                &board,
+                &player_squad,
+                &enemy_squad,
+                &augments,
+                locale,
+                &mut combat,
+            );
+        }
     }
 
     update_projection_from_state(
@@ -3109,7 +3384,21 @@ fn run_combat_tick(
                 combat.income_event_total += round_event.victory_bonus_gold();
             }
             combat.enemy_health = combat.enemy_health.saturating_sub(2);
+            let mut operation_notes = resolve_operation_after_round(&mut combat, locale);
             if combat.round >= FINAL_ROUND {
+                let unsecured_remaining = combat.unsecured_loot;
+                let extraction_lock = lock_loot(&mut combat, unsecured_remaining);
+                if extraction_lock > 0 {
+                    operation_notes.push(match locale {
+                        RuntimeLocale::En => format!(
+                            "Final extraction secured the remaining {} loot.",
+                            extraction_lock
+                        ),
+                        RuntimeLocale::ZhCn => {
+                            format!("最终撤离锁定了剩余的 {} 份收益。", extraction_lock)
+                        }
+                    });
+                }
                 combat.run_over = true;
                 combat.run_result = RunResult::Victory;
                 combat.status = match locale {
@@ -3155,12 +3444,30 @@ fn run_combat_tick(
                     ),
                 };
             }
+            if !operation_notes.is_empty() {
+                combat.status = format!("{} {}", combat.status, operation_notes.join(" "));
+            }
         } else {
             combat.loss_streak += 1;
             combat.win_streak = 0;
             let defeat_damage = combat.enemy_units.max(1) as u32 * 2;
             combat.player_health = combat.player_health.saturating_sub(defeat_damage);
+            let mut operation_notes = resolve_operation_after_round(&mut combat, locale);
             if combat.player_health == 0 {
+                let lost_on_wipe = combat.unsecured_loot;
+                if lost_on_wipe > 0 {
+                    combat.unsecured_loot = 0;
+                    operation_notes.push(match locale {
+                        RuntimeLocale::En => format!(
+                            "The wipe dropped the remaining {} unsecured loot.",
+                            lost_on_wipe
+                        ),
+                        RuntimeLocale::ZhCn => format!(
+                            "整队溃败后，剩余的 {} 份未锁定收益也全部丢失。",
+                            lost_on_wipe
+                        ),
+                    });
+                }
                 combat.run_over = true;
                 combat.run_result = RunResult::Defeat;
                 combat.status = match locale {
@@ -3185,6 +3492,9 @@ fn run_combat_tick(
                         combat.enemy_units
                     ),
                 };
+            }
+            if !operation_notes.is_empty() {
+                combat.status = format!("{} {}", combat.status, operation_notes.join(" "));
             }
         }
 
@@ -4166,6 +4476,15 @@ fn apply_common_projection_fields(
         .copied()
         .map(|augment| augment.as_view(locale))
         .collect();
+    projection.operation_cards = combat
+        .operation_cards
+        .iter()
+        .copied()
+        .map(|operation| operation.as_view(locale))
+        .collect();
+    projection.selected_operation = combat
+        .selected_operation
+        .map(|operation| operation.as_view(locale));
     projection.starter_doctrine = combat.starter_doctrine.as_view(locale);
     projection.run_modifier = combat.run_modifier.as_view(locale);
     projection.round_event = RoundEventKind::for_round(combat.round).as_view(locale);
@@ -4195,11 +4514,21 @@ fn apply_common_projection_fields(
         .map(|directive| directive.as_view(locale))
         .collect();
     projection.augment_draft_round = augments.pending_round.unwrap_or(0);
-    projection.enemy_threat = enemy_threat(enemy_squad.units.iter().copied());
-    projection.enemy_intent = enemy_intent_for_round(combat.round, locale);
+    projection.enemy_threat =
+        enemy_threat(enemy_squad.units.iter().copied()) + combat.operation_enemy_pressure * 8;
+    projection.enemy_intent = format!(
+        "{} {}",
+        enemy_intent_for_round(combat.round, locale),
+        enemy_pressure_label(combat.operation_enemy_pressure, locale)
+    );
     projection.bench_capacity = combat.run_modifier.bench_capacity();
     projection.board_capacity = PLAYER_SLOTS.len();
     projection.deployment_cap = combat.deployment_cap;
+    projection.supplies = combat.supplies;
+    projection.medical = combat.medical;
+    projection.contamination = combat.contamination;
+    projection.secured_loot = combat.secured_loot;
+    projection.unsecured_loot = combat.unsecured_loot;
     projection.streak = current_streak(combat);
     let (base_income, interest_income, streak_income, modifier_income) =
         round_income_preview(
@@ -4265,13 +4594,16 @@ fn spawn_round_units(
 
     for (index, unit) in enemy_squad.units.iter().copied().enumerate() {
         if let Some(&(row, col)) = ENEMY_SLOTS.get(index) {
+            let mut enemy_stats = resolved_stats(unit, enemy_buffs, &[], combat.run_modifier);
+            enemy_stats.attack += combat.operation_enemy_pressure;
+            enemy_stats.max_health += combat.operation_enemy_pressure as i32 * 2;
             spawn_unit(
                 commands,
                 board,
                 UnitOwner::Enemy,
                 index,
                 unit,
-                resolved_stats(unit, enemy_buffs, &[], combat.run_modifier),
+                enemy_stats,
                 locale,
                 row,
                 col,
@@ -4435,11 +4767,202 @@ fn despawn_units(commands: &mut Commands, units: impl Iterator<Item = Entity>) {
 }
 
 fn effective_reroll_cost(combat: &CombatState) -> u32 {
-    if combat.free_reroll_available && RoundEventKind::for_round(combat.round).grants_free_reroll()
+    let base_cost = if combat.free_reroll_available
+        && RoundEventKind::for_round(combat.round).grants_free_reroll()
     {
         0
     } else {
         REROLL_COST
+    };
+
+    if combat.supplies == 0 {
+        base_cost + 1
+    } else {
+        base_cost
+    }
+}
+
+fn operation_cards_for(combat: &CombatState) -> Vec<RunOperationKind> {
+    let mut cards = vec![RunOperationKind::SteadySearch, RunOperationKind::DeepRaid];
+    if combat.unsecured_loot > 0 {
+        cards.push(RunOperationKind::TacticalTransfer);
+    } else {
+        cards.push(RunOperationKind::FieldCache);
+    }
+    cards
+}
+
+fn lock_loot(combat: &mut CombatState, amount: u32) -> u32 {
+    let moved = combat.unsecured_loot.min(amount);
+    combat.unsecured_loot -= moved;
+    combat.secured_loot += moved;
+    combat.score += moved * SECURED_LOOT_SCORE;
+    moved
+}
+
+struct RoundUpkeepOutcome {
+    supply_spent: u32,
+    contamination_treated: u32,
+    contamination_damage: u32,
+}
+
+fn apply_round_upkeep(combat: &mut CombatState) -> RoundUpkeepOutcome {
+    let supply_spent = u32::from(combat.supplies > 0);
+    combat.supplies = combat.supplies.saturating_sub(1);
+
+    let contamination_treated = if combat.contamination > 0 && combat.medical > 0 {
+        combat.medical -= 1;
+        combat.contamination -= 1;
+        1
+    } else {
+        0
+    };
+
+    let contamination_damage = combat.contamination.min(2);
+    combat.player_health = combat.player_health.saturating_sub(contamination_damage);
+
+    RoundUpkeepOutcome {
+        supply_spent,
+        contamination_treated,
+        contamination_damage,
+    }
+}
+
+fn operation_prompt(locale: RuntimeLocale) -> String {
+    localized(
+        locale,
+        "Choose an operation before drafting. It will set this round's risk profile, loot flow, and shop pressure.",
+        "先选择本回合行动节点，再开始运营。它会决定本回合的风险、收益流向和商店压力。",
+    )
+    .to_owned()
+}
+
+fn operation_selection_pending(combat: &CombatState) -> bool {
+    combat.phase == CombatPhase::Preparation
+        && !combat.run_over
+        && combat.selected_operation.is_none()
+}
+
+fn apply_operation_choice(
+    choice: RunOperationKind,
+    combat: &mut CombatState,
+    shop: &mut ShopState,
+    identity: &mut IdentityState,
+    locale: RuntimeLocale,
+) {
+    combat.selected_operation = Some(choice);
+    combat.operation_bonus_secured_on_win = 0;
+    combat.operation_bonus_unsecured_on_win = 0;
+    combat.operation_unsecured_loss_on_defeat = 1;
+    combat.operation_enemy_pressure = 0;
+
+    match choice {
+        RunOperationKind::SteadySearch => {
+            combat.gold += 2;
+            combat.supplies += 1;
+            combat.operation_bonus_secured_on_win = 1;
+            combat.status = match locale {
+                RuntimeLocale::En => "Steady Search locked in. +2 gold, +1 supplies, and a win secures 1 carried loot.".to_owned(),
+                RuntimeLocale::ZhCn => "已选择稳健搜索。+2 金币、+1 补给；若本回合获胜，可再锁定 1 份携行收益。".to_owned(),
+            };
+        }
+        RunOperationKind::DeepRaid => {
+            combat.unsecured_loot += 2;
+            combat.contamination += 1;
+            combat.operation_unsecured_loss_on_defeat = 2;
+            combat.operation_enemy_pressure = 1;
+            reroll_shop(
+                shop,
+                combat.round + 17,
+                identity,
+                combat.run_modifier,
+                RoundEventKind::for_round(combat.round),
+                1,
+            );
+            combat.status = match locale {
+                RuntimeLocale::En => "Deep Raid locked in. +2 unsecured loot and a wider market, but contamination rises and the enemy board hardens.".to_owned(),
+                RuntimeLocale::ZhCn => "已选择深层突入。+2 未锁定收益并刷新成更宽商店，但污染上升，敌方阵容也会更硬。".to_owned(),
+            };
+        }
+        RunOperationKind::FieldCache => {
+            combat.medical += 1;
+            let cleared = u32::from(combat.contamination > 0);
+            combat.contamination = combat.contamination.saturating_sub(1);
+            combat.operation_bonus_unsecured_on_win = 1;
+            combat.status = match (locale, cleared) {
+                (RuntimeLocale::En, 0) => "Field Cache secured. +1 medical now; a clean win adds 1 unsecured loot.".to_owned(),
+                (RuntimeLocale::En, _) => "Field Cache secured. +1 medical, 1 contamination cleared, and a clean win adds 1 unsecured loot.".to_owned(),
+                (RuntimeLocale::ZhCn, 0) => "已拿到野战补给。立刻 +1 医疗；若本回合获胜，再得 1 份未锁定收益。".to_owned(),
+                (RuntimeLocale::ZhCn, _) => "已拿到野战补给。立刻 +1 医疗并清除 1 点污染；若本回合获胜，再得 1 份未锁定收益。".to_owned(),
+            };
+        }
+        RunOperationKind::TacticalTransfer => {
+            let locked = lock_loot(combat, 2);
+            combat.operation_bonus_secured_on_win = 1;
+            if shop.offers.len() > 1 {
+                shop.offers.pop();
+            }
+            combat.status = match locale {
+                RuntimeLocale::En => format!(
+                    "Tactical Transfer locked in. Secured {} carried loot now, but the shop narrows this round.",
+                    locked
+                ),
+                RuntimeLocale::ZhCn => format!(
+                    "已选择战术转运。立刻锁定 {} 份携行收益，但本回合商店会收窄。",
+                    locked
+                ),
+            };
+        }
+    }
+}
+
+fn resolve_operation_after_round(combat: &mut CombatState, locale: RuntimeLocale) -> Vec<String> {
+    let mut notes = Vec::new();
+
+    if combat.enemy_units == 0 {
+        let locked = lock_loot(combat, combat.operation_bonus_secured_on_win);
+        if locked > 0 {
+            notes.push(match locale {
+                RuntimeLocale::En => format!("Secured {} carried loot after the win.", locked),
+                RuntimeLocale::ZhCn => format!("获胜后额外锁定了 {} 份携行收益。", locked),
+            });
+        }
+
+        if combat.operation_bonus_unsecured_on_win > 0 {
+            combat.unsecured_loot += combat.operation_bonus_unsecured_on_win;
+            notes.push(match locale {
+                RuntimeLocale::En => format!(
+                    "The clean sweep added {} unsecured loot.",
+                    combat.operation_bonus_unsecured_on_win
+                ),
+                RuntimeLocale::ZhCn => format!(
+                    "稳稳拿下后又获得了 {} 份未锁定收益。",
+                    combat.operation_bonus_unsecured_on_win
+                ),
+            });
+        }
+    } else {
+        let lost = combat.unsecured_loot.min(combat.operation_unsecured_loss_on_defeat);
+        if lost > 0 {
+            combat.unsecured_loot -= lost;
+            notes.push(match locale {
+                RuntimeLocale::En => format!("Lost {} unsecured loot in the retreat.", lost),
+                RuntimeLocale::ZhCn => format!("撤离时损失了 {} 份未锁定收益。", lost),
+            });
+        }
+    }
+
+    notes
+}
+
+fn enemy_pressure_label(level: u32, locale: RuntimeLocale) -> String {
+    match (level, locale) {
+        (0, RuntimeLocale::En) => "Baseline enemy pressure.".to_owned(),
+        (0, RuntimeLocale::ZhCn) => "敌方压力维持基准。".to_owned(),
+        (1, RuntimeLocale::En) => "Enemy pressure is elevated by the operation choice.".to_owned(),
+        (1, RuntimeLocale::ZhCn) => "由于行动节点选择，敌方压力已上升。".to_owned(),
+        (_, RuntimeLocale::En) => format!("Enemy pressure increased by {} tiers this round.", level),
+        (_, RuntimeLocale::ZhCn) => format!("本回合敌方压力提升了 {} 个档位。", level),
     }
 }
 
@@ -4449,6 +4972,7 @@ fn reroll_shop(
     identity: &mut IdentityState,
     modifier: RunModifierKind,
     round_event: RoundEventKind,
+    shop_size_delta: i32,
 ) {
     let pool = UnitArchetype::all();
     let start = (shop.reroll_cursor + round_seed as usize) % pool.len();
@@ -4467,7 +4991,10 @@ fn reroll_shop(
 
     shop.offers = rotated
         .into_iter()
-        .take(SHOP_SIZE + round_event.shop_size_bonus())
+        .take(
+            ((SHOP_SIZE + round_event.shop_size_bonus()) as i32 + shop_size_delta)
+                .max(1) as usize,
+        )
         .map(|archetype| UnitInstance::new(archetype, identity))
         .collect();
     shop.reroll_cursor = (shop.reroll_cursor + 1) % pool.len();
@@ -4648,22 +5175,47 @@ fn push_round_history_entry(
         RoundOutcome::Defeat
     };
 
+    let operation_label = combat
+        .selected_operation
+        .map(|operation| operation.label(locale))
+        .unwrap_or(localized(locale, "No operation", "未选择行动"));
+
     let summary = match (result, locale) {
         (RoundOutcome::Victory, RuntimeLocale::En) => format!(
-            "Won round {} with {} allied unit(s) left. Next income preview: +{}.",
-            combat.round, combat.player_units, income_total
+            "Won round {} on {} with {} allied unit(s) left. Loot {} secured / {} unsecured. Next income preview: +{}.",
+            combat.round,
+            operation_label,
+            combat.player_units,
+            combat.secured_loot,
+            combat.unsecured_loot,
+            income_total
         ),
         (RoundOutcome::Victory, RuntimeLocale::ZhCn) => format!(
-            "第 {} 回合获胜，场上还剩 {} 个友军。下回合收入预览：+{}。",
-            combat.round, combat.player_units, income_total
+            "第 {} 回合在 {} 下获胜，场上还剩 {} 个友军。收益为已锁定 {} / 未锁定 {}。下回合收入预览：+{}。",
+            combat.round,
+            operation_label,
+            combat.player_units,
+            combat.secured_loot,
+            combat.unsecured_loot,
+            income_total
         ),
         (RoundOutcome::Defeat, RuntimeLocale::En) => format!(
-            "Lost round {}. {} enemy unit(s) survived. Next income preview: +{}.",
-            combat.round, combat.enemy_units, income_total
+            "Lost round {} on {}. {} enemy unit(s) survived. Loot {} secured / {} unsecured. Next income preview: +{}.",
+            combat.round,
+            operation_label,
+            combat.enemy_units,
+            combat.secured_loot,
+            combat.unsecured_loot,
+            income_total
         ),
         (RoundOutcome::Defeat, RuntimeLocale::ZhCn) => format!(
-            "第 {} 回合失利，敌方还剩 {} 个单位。下回合收入预览：+{}。",
-            combat.round, combat.enemy_units, income_total
+            "第 {} 回合在 {} 下失利，敌方还剩 {} 个单位。收益为已锁定 {} / 未锁定 {}。下回合收入预览：+{}。",
+            combat.round,
+            operation_label,
+            combat.enemy_units,
+            combat.secured_loot,
+            combat.unsecured_loot,
+            income_total
         ),
     };
 
@@ -4671,7 +5223,7 @@ fn push_round_history_entry(
         round: combat.round,
         result,
         income_total,
-        threat: enemy_threat(enemy_squad.units.iter().copied()),
+        threat: enemy_threat(enemy_squad.units.iter().copied()) + combat.operation_enemy_pressure * 8,
         summary,
     });
     if combat.round_history.len() > FINAL_ROUND as usize {
@@ -5948,6 +6500,82 @@ mod tests {
     }
 
     #[test]
+    fn operation_cards_for_shows_transfer_once_loot_exists() {
+        let mut combat = CombatState::default();
+
+        let opening_cards = operation_cards_for(&combat);
+        assert!(opening_cards.contains(&RunOperationKind::FieldCache));
+        assert!(!opening_cards.contains(&RunOperationKind::TacticalTransfer));
+
+        combat.unsecured_loot = 2;
+        let loaded_cards = operation_cards_for(&combat);
+        assert!(loaded_cards.contains(&RunOperationKind::TacticalTransfer));
+        assert!(!loaded_cards.contains(&RunOperationKind::FieldCache));
+    }
+
+    #[test]
+    fn lock_loot_moves_unsecured_into_secured_and_scores() {
+        let mut combat = CombatState::default();
+        combat.unsecured_loot = 3;
+
+        let locked = lock_loot(&mut combat, 2);
+
+        assert_eq!(locked, 2);
+        assert_eq!(combat.secured_loot, 2);
+        assert_eq!(combat.unsecured_loot, 1);
+        assert_eq!(combat.score, 2 * SECURED_LOOT_SCORE);
+    }
+
+    #[test]
+    fn apply_round_upkeep_consumes_supplies_and_medical_before_damage() {
+        let mut combat = CombatState::default();
+        combat.supplies = 1;
+        combat.medical = 1;
+        combat.contamination = 2;
+        combat.player_health = 10;
+
+        let upkeep = apply_round_upkeep(&mut combat);
+
+        assert_eq!(upkeep.supply_spent, 1);
+        assert_eq!(upkeep.contamination_treated, 1);
+        assert_eq!(upkeep.contamination_damage, 1);
+        assert_eq!(combat.supplies, 0);
+        assert_eq!(combat.medical, 0);
+        assert_eq!(combat.contamination, 1);
+        assert_eq!(combat.player_health, 9);
+    }
+
+    #[test]
+    fn deep_raid_adds_loot_pressure_and_wider_shop() {
+        let mut combat = CombatState::default();
+        let mut shop = ShopState::default();
+        let mut identity = seeded_identity();
+
+        reroll_shop(
+            &mut shop,
+            combat.round,
+            &mut identity,
+            combat.run_modifier,
+            RoundEventKind::for_round(combat.round),
+            0,
+        );
+        let baseline_shop_size = shop.offers.len();
+
+        apply_operation_choice(
+            RunOperationKind::DeepRaid,
+            &mut combat,
+            &mut shop,
+            &mut identity,
+            RuntimeLocale::En,
+        );
+
+        assert_eq!(combat.unsecured_loot, 2);
+        assert_eq!(combat.contamination, 1);
+        assert_eq!(combat.operation_enemy_pressure, 1);
+        assert_eq!(shop.offers.len(), baseline_shop_size + 1);
+    }
+
+    #[test]
     fn dawn_surge_shop_bias_frontloads_dawn_units() {
         let mut shop = ShopState::default();
         let mut identity = seeded_identity();
@@ -5958,6 +6586,7 @@ mod tests {
             &mut identity,
             RunModifierKind::DawnSurge,
             RoundEventKind::Standard,
+            0,
         );
 
         assert_eq!(shop.offers.len(), SHOP_SIZE);
@@ -6075,6 +6704,7 @@ mod tests {
             &mut identity,
             RunModifierKind::RichOpening,
             RoundEventKind::for_round(combat.round),
+            0,
         );
 
         assert_eq!(
