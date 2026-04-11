@@ -47,6 +47,7 @@ if command -v wasm-opt >/dev/null 2>&1; then
   wasm-opt -Oz \
     --enable-bulk-memory \
     --enable-nontrapping-float-to-int \
+    --enable-sign-ext \
     "$PKG_DIR/numeron_runtime_bg.wasm" \
     -o "$TMP_WASM"
   mv "$TMP_WASM" "$PKG_DIR/numeron_runtime_bg.wasm"
