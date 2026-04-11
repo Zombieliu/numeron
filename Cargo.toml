@@ -1,6 +1,6 @@
 [package]
 name = "numeron"
-version = "0.0.1"
+version = "0.0.7"
 publish = false
 edition = "2024"
 description = "Hybrid auto-battler project with a shared native and Next.js + WASM runtime."
@@ -48,6 +48,8 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "default_app",
     "2d_api",
     "2d_bevy_render",
+    "3d_api",
+    "3d_bevy_render",
     "ui_api",
     "ui_bevy_render",
     "scene",

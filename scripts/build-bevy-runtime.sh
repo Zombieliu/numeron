@@ -41,3 +41,13 @@ wasm-pack build \
   --out-name numeron_runtime
 
 rm -f "$PKG_DIR/.gitignore" "$PKG_DIR/package.json"
+
+if command -v wasm-opt >/dev/null 2>&1; then
+  TMP_WASM="$PKG_DIR/numeron_runtime_bg.optimized.wasm"
+  wasm-opt -Oz \
+    --enable-bulk-memory \
+    --enable-nontrapping-float-to-int \
+    "$PKG_DIR/numeron_runtime_bg.wasm" \
+    -o "$TMP_WASM"
+  mv "$TMP_WASM" "$PKG_DIR/numeron_runtime_bg.wasm"
+fi

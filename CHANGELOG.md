@@ -6,11 +6,19 @@ The format follows Keep a Changelog conventions.
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.0.7] - 2026-04-10
+
+### Added
+
+- Introduced the `0.0.7` presentation pass with a 3D battlefield, mesh-based units, 3D health bars, and the featured GLB runtime asset.
+
 ### Changed
 
-- Stabilized local regression coverage around shop timing and duplicate-merge flow.
-- Aligned release metadata, installer names, and workflow validation on `v0.0.1`.
-- Switched primary docs from template framing to Numeron game-repo framing.
+- Switched the shared Bevy runtime from the earlier 2D presentation into a 2.5D / 3D camera-and-board layout.
+- Optimized release web builds with `wasm-opt -Oz` when available to offset the heavier runtime payload.
+- Stabilized Playwright coverage for the heavier scene by defaulting local runs to one worker and routing critical combat controls through a runtime-aware test helper.
 
 ## [0.0.1] - 2026-04-08
 

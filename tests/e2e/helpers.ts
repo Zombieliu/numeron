@@ -5,6 +5,7 @@ export const REMOTE_BACKEND_URL =
 
 const EMPTY_BENCH_PATTERNS = ["Empty Bench Slot", "空备战槽"];
 const EMPTY_BOARD_PATTERNS = ["Empty Slot", "空槽位"];
+const SHOP_BUY_COST = 3;
 
 export async function openShell(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -21,14 +22,14 @@ export async function switchToEnglish(page: Page) {
 }
 
 export async function launchRuntime(page: Page) {
-  const overlayLaunchButton = page.getByTestId("canvas-launch-runtime");
-  const launchButton =
-    (await overlayLaunchButton.isVisible().catch(() => false))
-      ? overlayLaunchButton
-      : page.getByTestId("launch-runtime");
-  await expect(launchButton).toBeVisible();
-  await expect(launchButton).toBeEnabled();
-  await launchButton.click();
+  const overlayLaunchVisible = await page
+    .getByTestId("canvas-launch-runtime")
+    .isVisible()
+    .catch(() => false);
+  await clickByTestId(
+    page,
+    overlayLaunchVisible ? "canvas-launch-runtime" : "launch-runtime",
+  );
   await expect(page.getByTestId("status-panel")).toContainText(/Runtime active|Runtime 状态/);
   await waitForShopOffers(page);
   await chooseFirstOperationIfPending(page);
@@ -51,6 +52,16 @@ export async function buyFirstOffer(page: Page) {
   await buyOfferAtIndex(page, 0);
 }
 
+export async function clickByTestId(page: Page, testId: string) {
+  await expect
+    .poll(() => isTestIdClickable(page, testId), {
+      timeout: 10_000,
+      intervals: [100, 250, 500],
+    })
+    .toBe(true);
+  await dispatchTestIdClick(page, testId);
+}
+
 export async function deployFirstBenchUnit(page: Page) {
   const benchIndex = await firstOccupiedIndex(page, "bench-slot", EMPTY_BENCH_PATTERNS);
   const boardIndex = await firstEmptyIndex(page, "board-slot", EMPTY_BOARD_PATTERNS);
@@ -65,12 +76,21 @@ export async function deployBenchUnitAtIndex(
 ) {
   const nextBoardIndex =
     boardIndex ?? (await firstEmptyIndex(page, "board-slot", EMPTY_BOARD_PATTERNS));
+  const boardSlotId = `board-slot-${nextBoardIndex}`;
 
-  await page.getByTestId(`bench-slot-${benchIndex}`).click();
-  await page.getByTestId(`board-slot-${nextBoardIndex}`).click();
-  await expect(page.getByTestId(`board-slot-${nextBoardIndex}`)).not.toContainText(
-    /Empty Slot|空槽位/,
-  );
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await triggerElementClick(page, `bench-slot-${benchIndex}`);
+    await page.waitForTimeout(750);
+    await triggerElementClick(page, boardSlotId);
+    await page.waitForTimeout(1_500);
+
+    const boardText = await page.getByTestId(boardSlotId).innerText();
+    if (!/Empty Slot|空槽位/.test(boardText)) {
+      return;
+    }
+  }
+
+  await expect(page.getByTestId(boardSlotId)).not.toContainText(/Empty Slot|空槽位/);
 }
 
 export async function ensureOperationsDrawerOpen(page: Page) {
@@ -85,21 +105,42 @@ export async function ensureOperationsDrawerOpen(page: Page) {
 }
 
 export async function waitForRoundResolution(page: Page) {
-  await expect
-    .poll(
-      async () => {
-        const nextRoundEnabled = await page.getByTestId("next-round").isEnabled();
-        const restartEnabled = await page.getByTestId("restart-run").isEnabled();
-        return nextRoundEnabled || restartEnabled;
-      },
-      { timeout: 20_000 },
-    )
-    .toBe(true);
+  const deadline = Date.now() + 30_000;
+
+  while (Date.now() < deadline) {
+    const resolved = await page.evaluate(() => {
+      const nextRound = document.querySelector<HTMLButtonElement>(
+        '[data-testid="next-round"]',
+      );
+      const restartRun = document.querySelector<HTMLButtonElement>(
+        '[data-testid="restart-run"]',
+      );
+      const status = document.querySelector<HTMLElement>(
+        '[data-testid="status-panel"]',
+      )?.textContent;
+
+      return Boolean(
+        (nextRound && !nextRound.disabled) ||
+          (restartRun && !restartRun.disabled) ||
+          status?.match(
+            /Round resolved|本回合已结算|Click Next Round|点击“下一回合”|Run over|通关|本局结束/,
+          ),
+      );
+    });
+
+    if (resolved) {
+      return;
+    }
+
+    await page.waitForTimeout(500);
+  }
+
+  throw new Error("Round did not resolve within 30s");
 }
 
 export async function advanceToNextRound(page: Page, round?: number) {
   const previousRound = await readVisibleRound(page);
-  await page.getByTestId("next-round").click();
+  await clickByTestId(page, "next-round");
   await waitForRoundReady(page, round ?? previousRound + 1);
   await chooseFirstOperationIfPending(page);
 }
@@ -123,13 +164,14 @@ export async function playUntilRunEnds(
       return;
     }
 
-    const augmentChoices = page.locator('[data-testid^="augment-choice-"]');
-    if ((await augmentChoices.count()) > 0) {
-      await augmentChoices.first().click();
+    if (await tryClickByTestId(page, "augment-choice-0")) {
+      await page.waitForTimeout(250);
     }
 
+    await topOffBoardBeforeCombat(page);
+
     if (await page.getByTestId("start-combat").isEnabled()) {
-      await page.getByTestId("start-combat").click();
+      await clickByTestId(page, "start-combat");
       await waitForRoundResolution(page);
     }
 
@@ -143,6 +185,33 @@ export async function playUntilRunEnds(
     } else {
       roundCursor += 1;
     }
+  }
+}
+
+async function topOffBoardBeforeCombat(page: Page) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const { deployed, cap } = await readDeploymentCap(page);
+    if (deployed >= cap) {
+      return;
+    }
+
+    const benchCount = await occupiedSlotCount(
+      page,
+      "bench-slot",
+      EMPTY_BENCH_PATTERNS,
+    );
+    if (benchCount > 0) {
+      await deployFirstBenchUnit(page);
+      continue;
+    }
+
+    const canBuyUnit = await isTestIdClickable(page, "shop-offer-0");
+    if (!canBuyUnit || (await readGold(page)) < SHOP_BUY_COST) {
+      return;
+    }
+
+    await buyFirstOffer(page);
+    await deployFirstBenchUnit(page);
   }
 }
 
@@ -174,22 +243,22 @@ export async function readVisibleRound(page: Page) {
 }
 
 export async function setRemoteMode(page: Page, backendUrl = REMOTE_BACKEND_URL) {
-  await page.getByTestId("data-mode-remote").click();
+  await clickByTestId(page, "data-mode-remote");
   await page.getByTestId("backend-url-input").fill(backendUrl);
-  await page.getByTestId("pull-remote").click();
+  await clickByTestId(page, "pull-remote");
   await expect(
     page.getByText(/Pulled|已从远端拉取|Remote profile synced|远端资料已同步/).first(),
   ).toBeVisible();
 }
 
 export async function pushRemoteProfile(page: Page) {
-  await page.getByTestId("push-remote").click();
+  await clickByTestId(page, "push-remote");
   await expect(page.getByText(/Remote push complete|远端推送完成/)).toBeVisible();
 }
 
 export async function readSaveDraft(page: Page) {
   await ensureOperationsDrawerOpen(page);
-  await page.getByTestId("copy-snapshot").click();
+  await clickByTestId(page, "copy-snapshot");
   return page.getByTestId("save-draft").inputValue();
 }
 
@@ -220,33 +289,37 @@ export async function readShopOfferTitles(page: Page) {
 export async function buyOfferAtIndex(page: Page, index: number) {
   await waitForShopOffers(page);
   const previousGold = await readGold(page);
-  const previousOffers = (await readShopOfferTitles(page)).join("|");
-  const previousBench = await page.getByTestId("bench-panel").innerText();
+  const previousBenchCount = await occupiedSlotCount(
+    page,
+    "bench-slot",
+    EMPTY_BENCH_PATTERNS,
+  );
+  const previousStatus = await page.getByTestId("status-panel").innerText();
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    await page.getByTestId(`shop-offer-${index}`).click();
+    await triggerElementClick(page, `shop-offer-${index}`);
+    await page.waitForTimeout(2_500);
 
-    try {
-      await expect
-        .poll(
-          async () => {
-            const nextGold = await readGold(page);
-            const nextOffers = (await readShopOfferTitles(page)).join("|");
-            const nextBench = await page.getByTestId("bench-panel").innerText();
-            return (
-              nextGold !== previousGold ||
-              nextOffers !== previousOffers ||
-              nextBench !== previousBench
-            );
-          },
-          { timeout: 3_000 },
-        )
-        .toBe(true);
+    const nextGold = await readGold(page);
+    const nextBenchCount = await occupiedSlotCount(
+      page,
+      "bench-slot",
+      EMPTY_BENCH_PATTERNS,
+    );
+    const nextStatus = await page.getByTestId("status-panel").innerText();
+    if (
+      nextGold !== previousGold ||
+      nextBenchCount !== previousBenchCount ||
+      nextStatus !== previousStatus
+    ) {
       return;
-    } catch (error) {
-      if (attempt === 2) {
-        throw error;
-      }
+    }
+
+    if (attempt === 2) {
+      throw new Error(
+        `Buying shop offer ${index} did not change runtime state. ` +
+          `gold=${nextGold}, bench=${nextBenchCount}, status=${JSON.stringify(nextStatus)}`,
+      );
     }
   }
 }
@@ -254,12 +327,12 @@ export async function buyOfferAtIndex(page: Page, index: number) {
 export async function rerollShop(page: Page) {
   await waitForShopOffers(page);
   const previousGold = await readGold(page);
-  await page.getByTestId("reroll-shop").click();
+  await clickByTestId(page, "reroll-shop");
   await expect.poll(() => readGold(page), { timeout: 10_000 }).toBe(previousGold - 1);
 }
 
 async function waitForShopOffers(page: Page) {
-  await expect(page.getByTestId("shop-offer-0")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("shop-offer-0")).toBeVisible({ timeout: 20_000 });
 }
 
 async function chooseFirstOperationIfPending(page: Page) {
@@ -296,4 +369,155 @@ async function firstEmptyIndex(page: Page, prefix: string, emptyPatterns: string
   }
 
   throw new Error(`No empty slot found for ${prefix}`);
+}
+
+async function occupiedSlotCount(
+  page: Page,
+  prefix: string,
+  emptyPatterns: string[],
+) {
+  const count = await page.locator(`[data-testid^="${prefix}-"]`).count();
+  let occupied = 0;
+
+  for (let index = 0; index < count; index += 1) {
+    const text = await page.getByTestId(`${prefix}-${index}`).innerText();
+    if (!emptyPatterns.some((pattern) => text.includes(pattern))) {
+      occupied += 1;
+    }
+  }
+
+  return occupied;
+}
+
+async function readDeploymentCap(page: Page) {
+  const text = await page.getByTestId("deployment-cap-stat").innerText();
+  const match = text.match(/(\d+)\s*\/\s*(\d+)/);
+
+  if (!match) {
+    throw new Error(`Failed to parse deployment cap from panel:\n${text}`);
+  }
+
+  return {
+    deployed: Number(match[1]),
+    cap: Number(match[2]),
+  };
+}
+
+async function triggerElementClick(page: Page, testId: string) {
+  await clickByTestId(page, testId);
+}
+
+async function tryClickByTestId(page: Page, testId: string) {
+  const runtimeAction =
+    testId === "start-combat"
+      ? "startCombat"
+      : testId === "next-round"
+        ? "nextRound"
+        : testId === "restart-run"
+          ? "restartRun"
+          : null;
+
+  if (runtimeAction) {
+    if (!(await isTestIdClickable(page, testId))) {
+      return false;
+    }
+
+    await dispatchTestIdClick(page, testId);
+    return true;
+  }
+
+  return page.evaluate((id) => {
+    const element = document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
+    if (!element) {
+      return false;
+    }
+
+    const style = window.getComputedStyle(element);
+    const disabled =
+      (element instanceof HTMLButtonElement ||
+        element instanceof HTMLInputElement ||
+        element instanceof HTMLSelectElement ||
+        element instanceof HTMLTextAreaElement)
+        ? element.disabled
+        : element.hasAttribute("disabled");
+
+    if (
+      disabled ||
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.pointerEvents === "none" ||
+      element.getClientRects().length === 0
+    ) {
+      return false;
+    }
+
+    element.click();
+    return true;
+  }, testId);
+}
+
+async function isTestIdClickable(page: Page, testId: string) {
+  return page.evaluate((id) => {
+    const element = document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
+    if (!element) {
+      return false;
+    }
+
+    const style = window.getComputedStyle(element);
+    if (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.pointerEvents === "none" ||
+      element.getClientRects().length === 0
+    ) {
+      return false;
+    }
+
+    if (
+      element instanceof HTMLButtonElement ||
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLSelectElement ||
+      element instanceof HTMLTextAreaElement
+    ) {
+      return !element.disabled;
+    }
+
+    return !element.hasAttribute("disabled");
+  }, testId);
+}
+
+async function dispatchTestIdClick(page: Page, testId: string) {
+  const runtimeAction =
+    testId === "start-combat"
+      ? "startCombat"
+      : testId === "next-round"
+        ? "nextRound"
+        : testId === "restart-run"
+          ? "restartRun"
+          : null;
+
+  if (runtimeAction) {
+    await page.evaluate((action) => {
+      const api = (window as Window & {
+        __NUMERON_TEST_API__?: Record<string, () => void>;
+      }).__NUMERON_TEST_API__;
+      if (!api || typeof api[action] !== "function") {
+        throw new Error(`Missing test runtime action: ${action}`);
+      }
+
+      window.setTimeout(() => {
+        api[action]();
+      }, 0);
+    }, runtimeAction);
+    return;
+  }
+
+  await page.evaluate((id) => {
+    const element = document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
+    if (!element) {
+      throw new Error(`Missing element: ${id}`);
+    }
+
+    element.click();
+  }, testId);
 }

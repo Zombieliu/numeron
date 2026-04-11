@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   REMOTE_BACKEND_URL,
   buyFirstOffer,
+  clickByTestId,
   deployFirstBenchUnit,
   launchRuntime,
   openShell,
@@ -20,6 +21,15 @@ test("remote profile and session sync stays intact @remote", async ({ page }) =>
   await page.getByTestId("player-name-input").fill("Remote QA");
   await pushRemoteProfile(page);
 
+  await expect.poll(fetchBackendSnapshot).toMatchObject({
+    profiles: {
+      "slot-1": {
+        player_name: "Remote QA",
+        locale: "zh-CN",
+      },
+    },
+  });
+
   let snapshot = await fetchBackendSnapshot();
   expect(snapshot.profiles["slot-1"].player_name).toBe("Remote QA");
   expect(snapshot.profiles["slot-1"].locale).toBe("zh-CN");
@@ -27,7 +37,7 @@ test("remote profile and session sync stays intact @remote", async ({ page }) =>
   await launchRuntime(page);
   await buyFirstOffer(page);
   await deployFirstBenchUnit(page);
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "start-combat");
   await waitForRoundResolution(page);
 
   await expect.poll(fetchBackendSnapshot).toMatchObject({

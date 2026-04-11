@@ -12,6 +12,7 @@ import { SuiMoveNormalizedModules } from "@0xobelisk/sui-client";
 import { createNetworkConfig, SuiClientProvider, WalletProvider } from "@mysten/dapp-kit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+import { isRuntimePreviewMode } from "@/lib/preview-mode";
 import {
   DappHubId,
   DappStorageId,
@@ -47,6 +48,10 @@ const DUBHE_CONFIG: DubheConfig = {
 };
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  if (isRuntimePreviewMode()) {
+    return <>{children}</>;
+  }
+
   return (
     <DubheProvider config={DUBHE_CONFIG}>
       <QueryClientProvider client={queryClient}>

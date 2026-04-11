@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import {
   advanceToNextRound,
+  clickByTestId,
   deployBenchUnitAtIndex,
   ensureOperationsDrawerOpen,
   launchRuntime,
@@ -38,7 +39,7 @@ test("save matrix persists locale, profile, and import flow", async ({
   await page
     .getByTestId("save-draft")
     .fill(JSON.stringify(saveMatrix, null, 2));
-  await page.getByTestId("load-snapshot").click();
+  await clickByTestId(page, "load-snapshot");
   await expect(page.getByTestId("slot-label-input")).toHaveValue("Imported QA");
 
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -58,7 +59,7 @@ test("local save slot resumes an in-progress run after reload", async ({
   await launchRuntime(page);
 
   await deployBenchUnitAtIndex(page, 0, 0);
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "start-combat");
   await waitForRoundResolution(page);
   await advanceToNextRound(page, 2);
 
@@ -87,7 +88,7 @@ test("reloading during combat restores the live round state", async ({ page }) =
 
   await deployBenchUnitAtIndex(page, 0, 0);
   await deployBenchUnitAtIndex(page, 0, 1);
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "start-combat");
   await expect(page.getByTestId("status-panel")).toContainText(
     /Combat underway|战斗进行中/
   );
@@ -112,7 +113,7 @@ test("invalid snapshot import is rejected without mutating the active slot", asy
   await expect(page.getByTestId("slot-label-input")).toHaveValue("Stable Slot");
 
   await page.getByTestId("save-draft").fill("{ definitely-not-json");
-  await page.getByTestId("load-snapshot").click();
+  await clickByTestId(page, "load-snapshot");
 
   await expect(page.getByText(/import failed|导入失败/i)).toBeVisible();
   await expect(page.getByTestId("slot-label-input")).toHaveValue("Stable Slot");
@@ -124,13 +125,13 @@ test("completed runs do not auto-resume after restart and reload", async ({ page
 
   await deployBenchUnitAtIndex(page, 0, 0);
   await deployBenchUnitAtIndex(page, 0, 1);
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "start-combat");
   await waitForRoundResolution(page);
   await advanceToNextRound(page, 2);
   await playUntilRunEnds(page, { startRound: 2 });
 
   await expect(page.getByTestId("restart-run")).toBeEnabled();
-  await page.getByTestId("restart-run").click();
+  await clickByTestId(page, "restart-run");
   await expect(page.getByTestId("status-panel")).toContainText(/Run 2|局数 2/);
 
   await page.reload({ waitUntil: "domcontentloaded" });

@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   advanceToNextRound,
   buyOfferAtIndex,
+  clickByTestId,
   deployBenchUnitAtIndex,
   ensureOperationsDrawerOpen,
   launchRuntime,
@@ -21,9 +22,9 @@ test("lock shop carries the same offers into the next round", async ({ page }) =
   await launchRuntime(page);
 
   const initialOffers = await readShopOfferTitles(page);
-  await page.getByTestId("lock-shop").click();
+  await clickByTestId(page, "lock-shop");
   await deployBenchUnitAtIndex(page, 0, 0);
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "start-combat");
   await waitForRoundResolution(page);
   await advanceToNextRound(page, 2);
 
@@ -40,13 +41,13 @@ test("withdraw and sell flows return units and gold cleanly", async ({ page }) =
   const startingGold = await readGold(page);
   await deployBenchUnitAtIndex(page, 0, 0);
   await page.getByTestId("board-slot-0").click();
-  await page.getByTestId("withdraw-board").click();
+  await clickByTestId(page, "withdraw-board");
 
   await expect(page.getByTestId("board-slot-0")).toContainText(/Empty Slot|空槽位/);
   await expect(page.getByTestId("bench-slot-0")).not.toContainText(/Empty Bench Slot|空备战槽/);
 
   await page.getByTestId("bench-slot-1").click();
-  await page.getByTestId("sell-bench").click();
+  await clickByTestId(page, "sell-bench");
 
   await expect(page.getByTestId("bench-slot-1")).toContainText(/Empty Bench Slot|空备战槽/);
   expect(await readGold(page)).toBe(startingGold + 2);
@@ -83,7 +84,7 @@ test("buying the third matching copy merges into a two-star unit", async ({ page
   await launchRuntime(page);
 
   await deployBenchUnitAtIndex(page, 0, 0);
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "start-combat");
   await waitForRoundResolution(page);
   await advanceToNextRound(page, 2);
 
@@ -128,7 +129,7 @@ test("buying xp unlocks an extra deployment slot", async ({ page }) => {
   await expect(page.getByTestId("deployment-cap-stat")).toContainText(/2\/2/);
   await expect(page.getByTestId("board-slot-2")).toBeDisabled();
 
-  await page.getByTestId("buy-xp").click();
+  await clickByTestId(page, "buy-xp");
 
   await expect(page.getByTestId("deployment-cap-stat")).toContainText(/2\/3/);
   await expect(page.getByTestId("board-slot-2")).toBeEnabled();
@@ -141,7 +142,7 @@ test("augment draft blocks combat until a choice is locked", async ({ page }) =>
   await launchRuntime(page);
 
   await deployBenchUnitAtIndex(page, 0, 0);
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "start-combat");
   await waitForRoundResolution(page);
   await advanceToNextRound(page, 2);
 
@@ -149,7 +150,7 @@ test("augment draft blocks combat until a choice is locked", async ({ page }) =>
   await expect(page.getByTestId("augment-choice-0")).toBeVisible();
   await expect(page.getByTestId("start-combat")).toBeDisabled();
 
-  await page.getByTestId("augment-choice-0").click();
+  await clickByTestId(page, "augment-choice-0");
 
   await expect(page.getByTestId("augment-panel")).toContainText(/Locked Augments|已锁定强化/);
   await expect(page.getByTestId("start-combat")).toBeEnabled();
@@ -162,23 +163,23 @@ test("round events surface training-day XP spikes and high-roll market width", a
   await launchRuntime(page);
 
   await deployBenchUnitAtIndex(page, 0, 0);
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "start-combat");
   await waitForRoundResolution(page);
   await advanceToNextRound(page, 2);
 
   await expect(page.getByTestId("round-event-panel")).toContainText(
     /Training Day|训练日/,
   );
-  await page.getByTestId("buy-xp").click();
+  await clickByTestId(page, "buy-xp");
   await expect(page.getByTestId("status-panel")).toContainText(
     /Bought 6 XP|购买 6 经验/,
   );
 
-  await page.getByTestId("augment-choice-0").click();
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "augment-choice-0");
+  await clickByTestId(page, "start-combat");
   await waitForRoundResolution(page);
   await advanceToNextRound(page, 3);
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "start-combat");
   await waitForRoundResolution(page);
   await advanceToNextRound(page, 4);
 

@@ -1,6 +1,9 @@
 use crate::web_bridge::{RuntimeCommand, take_runtime_commands};
 use crate::{GameState, RuntimeConfig, RuntimeLocale, RuntimeStarterDoctrine};
+use bevy::camera::{primitives::Aabb, visibility::NoFrustumCulling};
+use bevy::gltf::GltfAssetLabel;
 use bevy::prelude::*;
+use bevy::scene::SceneInstanceReady;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -10,7 +13,6 @@ const BOARD_ROWS: usize = 4;
 const BOARD_COLS: usize = 7;
 const CELL_SIZE: f32 = 140.0;
 const CELL_PADDING: f32 = 16.0;
-const UNIT_SIZE_RATIO: f32 = 0.64;
 const SHOP_SIZE: usize = 4;
 const BENCH_CAPACITY: usize = 6;
 const BUY_COST: u32 = 3;
@@ -25,12 +27,24 @@ const STARTING_MEDICAL: u32 = 1;
 const ROUND_BASE_INCOME: u32 = 4;
 const PASSIVE_ROUND_XP: u32 = 1;
 const MAX_INTEREST_INCOME: u32 = 3;
-const COMBAT_INTERVAL: f32 = 0.7;
+const COMBAT_INTERVAL: f32 = 0.3;
+const COMBAT_TIMEOUT_TICKS: u32 = 36;
 const TRAIT_THRESHOLD: usize = 2;
 const TRAIT_CAPSTONE_THRESHOLD: usize = 4;
 const MAX_STARS: u8 = 3;
 const FINAL_ROUND: u32 = 8;
 const SECURED_LOOT_SCORE: u32 = 30;
+const FEATURED_UNIT_MODEL_PATH: &str = "numeron/models/featured_unit_runtime.glb";
+const BOARD_TILE_HEIGHT: f32 = 8.0;
+const BOARD_BASE_HEIGHT: f32 = 18.0;
+const UNIT_BASE_HEIGHT: f32 = 10.0;
+const UNIT_BODY_HEIGHT: f32 = 62.0;
+const UNIT_MODEL_SCALE: f32 = 58.0;
+const FEATURED_UNIT_TARGET_HEIGHT: f32 = 60.0;
+const FEATURED_UNIT_GROUND_CLEARANCE: f32 = 1.0;
+const FEATURED_UNIT_BASE_YAW: f32 = std::f32::consts::PI;
+const HEALTH_BAR_HEIGHT: f32 = 8.0;
+const HEALTH_BAR_Y_OFFSET: f32 = 74.0;
 
 const PLAYER_SLOTS: [(usize, usize); 5] = [(0, 1), (1, 1), (2, 1), (3, 1), (1, 2)];
 const ENEMY_SLOTS: [(usize, usize); 5] = [(0, 5), (1, 5), (2, 5), (3, 5), (2, 4)];
@@ -178,6 +192,8 @@ pub struct CombatState {
     pub player_units: usize,
     pub enemy_units: usize,
     #[serde(default)]
+    pub combat_ticks_elapsed: u32,
+    #[serde(default)]
     pub free_reroll_available: bool,
     #[serde(default = "default_supplies")]
     pub supplies: u32,
@@ -247,6 +263,7 @@ impl Default for CombatState {
             loss_streak: 0,
             player_units: 0,
             enemy_units: 0,
+            combat_ticks_elapsed: 0,
             free_reroll_available: false,
             supplies: STARTING_SUPPLIES,
             medical: STARTING_MEDICAL,
@@ -586,7 +603,26 @@ impl Default for CombatTickTimer {
 pub struct BoardAnchor;
 
 #[derive(Component)]
+pub struct RuntimeCameraRig;
+
+#[derive(Component)]
 struct BoardTile;
+
+#[derive(Resource, Clone)]
+struct BattlefieldPresentationAssets {
+    unit_base_mesh: Handle<Mesh>,
+    unit_body_mesh: Handle<Mesh>,
+    health_frame_mesh: Handle<Mesh>,
+    health_fill_mesh: Handle<Mesh>,
+    player_base_material: Handle<StandardMaterial>,
+    enemy_base_material: Handle<StandardMaterial>,
+    player_body_material: Handle<StandardMaterial>,
+    enemy_body_material: Handle<StandardMaterial>,
+    player_health_material: Handle<StandardMaterial>,
+    enemy_health_material: Handle<StandardMaterial>,
+    health_frame_material: Handle<StandardMaterial>,
+    featured_unit_scene: Handle<Scene>,
+}
 
 #[derive(Component)]
 struct UnitEntity {
@@ -607,6 +643,24 @@ struct UnitHealthFrame;
 
 #[derive(Component)]
 struct UnitHealthFill;
+
+#[derive(Component)]
+struct UnitBodyPlaceholder;
+
+#[derive(Component)]
+struct FeaturedUnitModelRoot;
+
+#[derive(Component)]
+struct FeaturedUnitModelCalibration {
+    scale: f32,
+    ground_offset: f32,
+}
+
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+enum FeaturedUnitModelFitStage {
+    Scale,
+    Lift,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -1900,6 +1954,7 @@ impl UnitArchetype {
         }
     }
 
+    #[allow(dead_code)]
     fn color(self, owner: UnitOwner) -> Color {
         match (self, owner) {
             (Self::VerdantBruiser, UnitOwner::Player) => Color::linear_rgba(0.30, 0.83, 0.79, 0.98),
@@ -2179,6 +2234,7 @@ impl Plugin for StarterScenePlugin {
                 (
                     handle_runtime_commands,
                     run_combat_tick,
+                    fit_loaded_featured_unit_models,
                     update_unit_health_bars,
                 )
                     .run_if(in_state(GameState::Playing)),
@@ -2190,6 +2246,9 @@ fn setup_board_scene(
     mut commands: Commands,
     board: Res<BoardConfig>,
     config: Res<RuntimeConfig>,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     mut combat: ResMut<CombatState>,
     mut projection: ResMut<StarterSliceProjection>,
     mut shop: ResMut<ShopState>,
@@ -2199,7 +2258,98 @@ fn setup_board_scene(
     mut augments: ResMut<AugmentState>,
     mut combat_timer: ResMut<CombatTickTimer>,
 ) {
-    commands.spawn((Camera2d, Name::new("RuntimeCamera")));
+    commands.insert_resource(GlobalAmbientLight {
+        color: Color::WHITE,
+        brightness: 900.0,
+        affects_lightmapped_meshes: true,
+    });
+
+    let presentation_assets = BattlefieldPresentationAssets {
+        unit_base_mesh: meshes.add(Cuboid::new(
+            board.cell_size * 0.30,
+            UNIT_BASE_HEIGHT,
+            board.cell_size * 0.30,
+        )),
+        unit_body_mesh: meshes.add(Cuboid::new(
+            board.cell_size * 0.38,
+            UNIT_BODY_HEIGHT,
+            board.cell_size * 0.24,
+        )),
+        health_frame_mesh: meshes.add(Cuboid::new(board.cell_size * 0.50, HEALTH_BAR_HEIGHT, 6.0)),
+        health_fill_mesh: meshes.add(Cuboid::new(board.cell_size * 0.48, HEALTH_BAR_HEIGHT - 2.0, 4.0)),
+        player_base_material: materials.add(StandardMaterial {
+            base_color: Color::linear_rgba(0.18, 0.34, 0.38, 0.96),
+            emissive: LinearRgba::rgb(0.02, 0.06, 0.06),
+            perceptual_roughness: 0.8,
+            metallic: 0.03,
+            ..default()
+        }),
+        enemy_base_material: materials.add(StandardMaterial {
+            base_color: Color::linear_rgba(0.34, 0.16, 0.20, 0.98),
+            emissive: LinearRgba::rgb(0.05, 0.02, 0.03),
+            perceptual_roughness: 0.82,
+            metallic: 0.04,
+            ..default()
+        }),
+        player_body_material: materials.add(StandardMaterial {
+            base_color: Color::linear_rgba(0.30, 0.83, 0.79, 0.98),
+            emissive: LinearRgba::rgb(0.04, 0.09, 0.08),
+            perceptual_roughness: 0.58,
+            metallic: 0.10,
+            ..default()
+        }),
+        enemy_body_material: materials.add(StandardMaterial {
+            base_color: Color::linear_rgba(0.90, 0.36, 0.46, 0.98),
+            emissive: LinearRgba::rgb(0.08, 0.03, 0.04),
+            perceptual_roughness: 0.62,
+            metallic: 0.12,
+            ..default()
+        }),
+        player_health_material: materials.add(StandardMaterial {
+            base_color: Color::linear_rgba(0.38, 0.88, 0.72, 0.96),
+            emissive: LinearRgba::rgb(0.10, 0.22, 0.18),
+            perceptual_roughness: 0.65,
+            ..default()
+        }),
+        enemy_health_material: materials.add(StandardMaterial {
+            base_color: Color::linear_rgba(0.97, 0.43, 0.55, 0.96),
+            emissive: LinearRgba::rgb(0.20, 0.08, 0.10),
+            perceptual_roughness: 0.7,
+            ..default()
+        }),
+        health_frame_material: materials.add(StandardMaterial {
+            base_color: Color::linear_rgba(0.02, 0.03, 0.05, 0.92),
+            perceptual_roughness: 0.95,
+            ..default()
+        }),
+        featured_unit_scene: asset_server
+            .load(GltfAssetLabel::Scene(0).from_asset(FEATURED_UNIT_MODEL_PATH)),
+    };
+    commands.insert_resource(presentation_assets.clone());
+
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, board.cell_size * 5.8, board.cell_size * 5.4).looking_at(
+            Vec3::new(0.0, board.cell_size * 0.35, 0.0),
+            Vec3::Y,
+        ),
+        RuntimeCameraRig,
+        Name::new("RuntimeCamera"),
+    ));
+    commands.spawn((
+        DirectionalLight {
+            shadows_enabled: false,
+            illuminance: 18_000.0,
+            ..default()
+        },
+        Transform::from_rotation(Quat::from_euler(
+            EulerRot::ZYX,
+            0.0,
+            1.05,
+            -std::f32::consts::FRAC_PI_4,
+        )),
+        Name::new("SunLight"),
+    ));
     commands.spawn((
         BoardAnchor,
         Name::new("BoardAnchor"),
@@ -2211,40 +2361,59 @@ fn setup_board_scene(
     let board_height = board.rows as f32 * board.cell_size;
 
     commands.spawn((
-        Sprite::from_color(
-            Color::linear_rgba(0.04, 0.06, 0.09, 0.98),
-            Vec2::new(board_width + 120.0, board_height + 120.0),
-        ),
-        Transform::from_translation(Vec3::new(0.0, 0.0, -12.0)),
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(board_width + 420.0, board_height + 420.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::linear_rgba(0.05, 0.07, 0.10, 1.0),
+            perceptual_roughness: 0.98,
+            ..default()
+        })),
+        Transform::from_xyz(0.0, -BOARD_BASE_HEIGHT - 18.0, 0.0),
         Name::new("BoardBackdrop"),
     ));
 
     commands.spawn((
-        Sprite::from_color(
-            Color::linear_rgba(0.07, 0.11, 0.16, 1.0),
-            Vec2::new(board_width + 24.0, board_height + 24.0),
-        ),
-        Transform::from_translation(Vec3::new(0.0, 0.0, -10.0)),
+        Mesh3d(meshes.add(Cuboid::new(
+            board_width + 48.0,
+            BOARD_BASE_HEIGHT,
+            board_height + 48.0,
+        ))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::linear_rgba(0.08, 0.12, 0.18, 1.0),
+            perceptual_roughness: 0.9,
+            metallic: 0.05,
+            ..default()
+        })),
+        Transform::from_xyz(0.0, -BOARD_BASE_HEIGHT * 0.5, 0.0),
         Name::new("BoardPlate"),
     ));
 
     commands.spawn((
-        Sprite::from_color(
-            Color::linear_rgba(0.22, 0.78, 0.64, 0.18),
-            Vec2::new(6.0, board_height + 32.0),
-        ),
-        Transform::from_translation(Vec3::new(0.0, 0.0, -8.0)),
+        Mesh3d(meshes.add(Cuboid::new(10.0, BOARD_TILE_HEIGHT + 2.0, board_height + 32.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::linear_rgba(0.22, 0.78, 0.64, 0.45),
+            emissive: LinearRgba::rgb(0.04, 0.10, 0.08),
+            perceptual_roughness: 0.6,
+            ..default()
+        })),
+        Transform::from_xyz(0.0, BOARD_TILE_HEIGHT * 0.45, 0.0),
         Name::new("MidLine"),
     ));
 
     for row in 0..board.rows {
         for col in 0..board.cols {
             commands.spawn((
-                Sprite::from_color(
-                    tile_color(row, col),
-                    Vec2::splat(board.cell_size - CELL_PADDING),
-                ),
-                Transform::from_translation(board_to_world(&board, row, col).extend(-4.0)),
+                Mesh3d(meshes.add(Cuboid::new(
+                    board.cell_size - CELL_PADDING,
+                    BOARD_TILE_HEIGHT,
+                    board.cell_size - CELL_PADDING,
+                ))),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: tile_color(row, col),
+                    perceptual_roughness: 0.84,
+                    metallic: 0.02,
+                    ..default()
+                })),
+                Transform::from_translation(board_to_world(&board, row, col)),
                 BoardTile,
                 Name::new("BoardTile"),
             ));
@@ -2258,6 +2427,7 @@ fn setup_board_scene(
             restore_run_state(
                 &mut commands,
                 &board,
+                &presentation_assets,
                 config.locale,
                 &mut combat,
                 &mut shop,
@@ -2274,6 +2444,7 @@ fn setup_board_scene(
         reset_run_state(
             &mut commands,
             &board,
+            &presentation_assets,
             config.locale,
             config.starter_doctrine,
             &mut combat,
@@ -2320,6 +2491,7 @@ fn setup_board_scene(
 fn reset_run_state(
     commands: &mut Commands,
     board: &BoardConfig,
+    presentation_assets: &BattlefieldPresentationAssets,
     locale: RuntimeLocale,
     starter_doctrine: RuntimeStarterDoctrine,
     combat: &mut CombatState,
@@ -2373,6 +2545,7 @@ fn reset_run_state(
     spawn_round_units(
         commands,
         board,
+        presentation_assets,
         player_squad,
         enemy_squad,
         augments,
@@ -2384,6 +2557,7 @@ fn reset_run_state(
 fn restore_run_state(
     commands: &mut Commands,
     board: &BoardConfig,
+    presentation_assets: &BattlefieldPresentationAssets,
     locale: RuntimeLocale,
     combat: &mut CombatState,
     shop: &mut ShopState,
@@ -2424,12 +2598,20 @@ fn restore_run_state(
     combat_timer.0.reset();
 
     if combat.phase == CombatPhase::Combat && !saved_state.live_units.is_empty() {
-        spawn_persisted_live_units(commands, board, &saved_state.live_units, locale, combat);
+        spawn_persisted_live_units(
+            commands,
+            board,
+            presentation_assets,
+            &saved_state.live_units,
+            locale,
+            combat,
+        );
         Some(saved_state.live_units)
     } else {
         spawn_round_units(
             commands,
             board,
+            presentation_assets,
             player_squad,
             enemy_squad,
             augments,
@@ -2444,6 +2626,7 @@ fn handle_runtime_commands(
     mut commands: Commands,
     board: Res<BoardConfig>,
     config: Res<RuntimeConfig>,
+    presentation_assets: Res<BattlefieldPresentationAssets>,
     mut combat: ResMut<CombatState>,
     mut projection: ResMut<StarterSliceProjection>,
     mut shop: ResMut<ShopState>,
@@ -2473,6 +2656,7 @@ fn handle_runtime_commands(
                     && combat.selected_operation.is_some()
                 {
                     combat.phase = CombatPhase::Combat;
+                    combat.combat_ticks_elapsed = 0;
                     combat.recent_highlights.clear();
                     combat.status = if combat.active_directive.is_some() {
                         match locale {
@@ -2721,6 +2905,7 @@ fn handle_runtime_commands(
                 reset_run_state(
                     &mut commands,
                     &board,
+                    &presentation_assets,
                     locale,
                     config.starter_doctrine,
                     &mut combat,
@@ -3124,6 +3309,7 @@ fn handle_runtime_commands(
             spawn_round_units(
                 &mut commands,
                 &board,
+                &presentation_assets,
                 &player_squad,
                 &enemy_squad,
                 &augments,
@@ -3147,9 +3333,10 @@ fn handle_runtime_commands(
 
 fn run_combat_tick(
     mut commands: Commands,
-    time: Res<Time>,
+    real_time: Res<Time<Real>>,
     board: Res<BoardConfig>,
     config: Res<RuntimeConfig>,
+    presentation_assets: Res<BattlefieldPresentationAssets>,
     mut combat: ResMut<CombatState>,
     identity: Res<IdentityState>,
     player_squad: Res<PlayerSquad>,
@@ -3165,10 +3352,85 @@ fn run_combat_tick(
         return;
     }
 
-    timer.0.tick(time.delta());
-    if !timer.0.just_finished() {
+    timer.0.tick(real_time.delta());
+    let combat_ticks = timer.0.times_finished_this_tick();
+    if combat_ticks == 0 {
         return;
     }
+
+    for _ in 0..combat_ticks {
+        if combat.phase != CombatPhase::Combat {
+            break;
+        }
+        run_single_combat_step(
+            &mut commands,
+            &board,
+            &presentation_assets,
+            &mut combat,
+            &player_squad,
+            &enemy_squad,
+            &augments,
+            locale,
+            &mut unit_queries,
+        );
+    }
+
+    let live_snapshots = unit_queries
+        .p0()
+        .iter()
+        .map(|(entity, unit)| CombatUnitSnapshot {
+            entity,
+            owner: unit.owner,
+            slot_index: unit.slot_index,
+            agent_id: unit.agent_id,
+            battle_instance_id: unit.battle_instance_id,
+            archetype: unit.archetype,
+            stars: unit.stars,
+            health: unit.health,
+            max_health: unit.max_health,
+            attack: unit.attack,
+            action_counter: unit.action_counter,
+        })
+        .collect::<Vec<_>>();
+
+    if combat.phase == CombatPhase::Combat || combat.run_over {
+        update_projection_from_live_state(
+            &combat,
+            &shop,
+            &identity,
+            &player_squad,
+            &enemy_squad,
+            &augments,
+            &live_snapshots,
+            locale,
+            &mut projection,
+        );
+    } else {
+        update_projection_from_state(
+            &combat,
+            &shop,
+            &identity,
+            &player_squad,
+            &enemy_squad,
+            &augments,
+            locale,
+            &mut projection,
+        );
+    }
+}
+
+fn run_single_combat_step(
+    commands: &mut Commands,
+    board: &BoardConfig,
+    presentation_assets: &BattlefieldPresentationAssets,
+    combat: &mut CombatState,
+    player_squad: &PlayerSquad,
+    enemy_squad: &EnemySquad,
+    augments: &AugmentState,
+    locale: RuntimeLocale,
+    unit_queries: &mut ParamSet<(Query<(Entity, &UnitEntity)>, Query<&mut UnitEntity>)>,
+) {
+    combat.combat_ticks_elapsed += 1;
 
     let snapshots = unit_queries
         .p0()
@@ -3234,7 +3496,7 @@ fn run_combat_tick(
             for &(target_entity, healing) in &action.heals {
                 *pending_healing.entry(target_entity).or_insert(0) += healing;
             }
-            record_healing_done(&mut combat, attacker.agent_id, healing_total);
+            record_healing_done(combat, attacker.agent_id, healing_total);
             if combat_highlights.len() < 2 {
                 combat_highlights.push(action.highlight);
             }
@@ -3290,7 +3552,7 @@ fn run_combat_tick(
             );
             unit.health -= mitigated;
             if unit.owner == UnitOwner::Player {
-                record_damage_taken(&mut combat, unit.agent_id, mitigated.max(0) as u32);
+                record_damage_taken(combat, unit.agent_id, mitigated.max(0) as u32);
             }
 
             if let Some(sources) = pending_damage_sources.get(&target_entity) {
@@ -3308,14 +3570,14 @@ fn run_combat_tick(
                     }
                     let share = ((mitigated.max(0) as u32) * (*raw).max(0) as u32) / total_raw;
                     if unit.owner == UnitOwner::Enemy {
-                        record_damage_dealt(&mut combat, *agent_id, share);
+                        record_damage_dealt(combat, *agent_id, share);
                     }
                     remainder = remainder.saturating_sub(share);
                 }
 
                 if unit.owner == UnitOwner::Enemy {
                     if let Some(top_source) = top_source {
-                        record_damage_dealt(&mut combat, top_source, remainder);
+                        record_damage_dealt(combat, top_source, remainder);
                     }
                 }
             }
@@ -3334,12 +3596,35 @@ fn run_combat_tick(
         .map(|(entity, unit)| (entity, unit.owner, unit.health))
         .collect::<Vec<_>>();
 
+    let timeout_loser = if combat.combat_ticks_elapsed >= COMBAT_TIMEOUT_TICKS {
+        overtime_loser_for(post_units.iter().map(|(_, owner, health)| (*owner, *health)))
+    } else {
+        None
+    };
+
     let mut defeated = Vec::new();
     combat.player_units = 0;
     combat.enemy_units = 0;
+    let mut collapse_highlight = timeout_loser.map(|loser| match (loser, locale) {
+        (UnitOwner::Enemy, RuntimeLocale::En) => {
+            "Contamination storm closed the board. Your squad won on remaining board control."
+                .to_owned()
+        }
+        (UnitOwner::Enemy, RuntimeLocale::ZhCn) => {
+            "污染风暴开始收缩战场。你的队伍凭剩余场面优势拿下了残局。".to_owned()
+        }
+        (UnitOwner::Player, RuntimeLocale::En) => {
+            "Contamination storm closed the board. The enemy won the attrition check."
+                .to_owned()
+        }
+        (UnitOwner::Player, RuntimeLocale::ZhCn) => {
+            "污染风暴开始收缩战场。敌方在残局消耗战中占优。".to_owned()
+        }
+    });
 
     for (entity, owner, health) in post_units {
-        if health <= 0 {
+        let forced_down = timeout_loser == Some(owner);
+        if health <= 0 || forced_down {
             let credited_killer = pending_damage_sources
                 .get(&entity)
                 .and_then(|sources| {
@@ -3362,7 +3647,7 @@ fn run_combat_tick(
         if owner == UnitOwner::Enemy {
             combat.score += 20;
             if let Some(killer_agent_id) = credited_killer {
-                record_kill(&mut combat, killer_agent_id);
+                record_kill(combat, killer_agent_id);
             }
         }
         commands.entity(entity).despawn();
@@ -3370,8 +3655,12 @@ fn run_combat_tick(
 
     if combat.player_units == 0 || combat.enemy_units == 0 {
         combat.phase = CombatPhase::Resolution;
+        combat.combat_ticks_elapsed = 0;
         combat.active_directive = None;
         combat.queued_directives.clear();
+        if let Some(highlight) = collapse_highlight.take() {
+            combat_highlights.insert(0, highlight);
+        }
         combat.recent_highlights = combat_highlights.iter().take(4).cloned().collect();
         let round_event = RoundEventKind::for_round(combat.round);
         if combat.enemy_units == 0 {
@@ -3384,10 +3673,10 @@ fn run_combat_tick(
                 combat.income_event_total += round_event.victory_bonus_gold();
             }
             combat.enemy_health = combat.enemy_health.saturating_sub(2);
-            let mut operation_notes = resolve_operation_after_round(&mut combat, locale);
+            let mut operation_notes = resolve_operation_after_round(combat, locale);
             if combat.round >= FINAL_ROUND {
                 let unsecured_remaining = combat.unsecured_loot;
-                let extraction_lock = lock_loot(&mut combat, unsecured_remaining);
+                let extraction_lock = lock_loot(combat, unsecured_remaining);
                 if extraction_lock > 0 {
                     operation_notes.push(match locale {
                         RuntimeLocale::En => format!(
@@ -3452,7 +3741,7 @@ fn run_combat_tick(
             combat.win_streak = 0;
             let defeat_damage = combat.enemy_units.max(1) as u32 * 2;
             combat.player_health = combat.player_health.saturating_sub(defeat_damage);
-            let mut operation_notes = resolve_operation_after_round(&mut combat, locale);
+            let mut operation_notes = resolve_operation_after_round(combat, locale);
             if combat.player_health == 0 {
                 let lost_on_wipe = combat.unsecured_loot;
                 if lost_on_wipe > 0 {
@@ -3498,10 +3787,9 @@ fn run_combat_tick(
             }
         }
 
-        combat.round_diagnosis =
-            diagnose_round_outcome(&combat, &player_squad, &augments, locale);
+        combat.round_diagnosis = diagnose_round_outcome(combat, player_squad, augments, locale);
 
-        push_round_history_entry(&mut combat, &augments, &enemy_squad, locale);
+        push_round_history_entry(combat, augments, enemy_squad, locale);
 
         if !combat.run_over {
             let entities = unit_queries
@@ -3509,19 +3797,20 @@ fn run_combat_tick(
                 .iter()
                 .map(|(entity, _)| entity)
                 .collect::<Vec<_>>();
-            despawn_units(&mut commands, entities.into_iter());
+            despawn_units(commands, entities.into_iter());
             spawn_round_units(
-                &mut commands,
-                &board,
-                &player_squad,
-                &enemy_squad,
-                &augments,
+                commands,
+                board,
+                presentation_assets,
+                player_squad,
+                enemy_squad,
+                augments,
                 locale,
-                &mut combat,
+                combat,
             );
         }
     } else {
-        advance_combat_plan_tick(&mut combat);
+        advance_combat_plan_tick(combat);
         combat.recent_highlights = combat_highlights.iter().take(4).cloned().collect();
         let directive_prefix = combat
             .active_directive
@@ -3569,49 +3858,46 @@ fn run_combat_tick(
             }
         };
     }
+}
 
-    let live_snapshots = unit_queries
-        .p0()
-        .iter()
-        .map(|(entity, unit)| CombatUnitSnapshot {
-            entity,
-            owner: unit.owner,
-            slot_index: unit.slot_index,
-            agent_id: unit.agent_id,
-            battle_instance_id: unit.battle_instance_id,
-            archetype: unit.archetype,
-            stars: unit.stars,
-            health: unit.health,
-            max_health: unit.max_health,
-            attack: unit.attack,
-            action_counter: unit.action_counter,
-        })
-        .collect::<Vec<_>>();
+fn overtime_loser_for(
+    units: impl Iterator<Item = (UnitOwner, i32)>,
+) -> Option<UnitOwner> {
+    let mut player_units = 0usize;
+    let mut enemy_units = 0usize;
+    let mut player_health_total = 0i32;
+    let mut enemy_health_total = 0i32;
 
-    if combat.phase == CombatPhase::Combat || combat.run_over {
-        update_projection_from_live_state(
-            &combat,
-            &shop,
-            &identity,
-            &player_squad,
-            &enemy_squad,
-            &augments,
-            &live_snapshots,
-            locale,
-            &mut projection,
-        );
-    } else {
-        update_projection_from_state(
-            &combat,
-            &shop,
-            &identity,
-            &player_squad,
-            &enemy_squad,
-            &augments,
-            locale,
-            &mut projection,
-        );
+    for (owner, health) in units {
+        if health <= 0 {
+            continue;
+        }
+
+        match owner {
+            UnitOwner::Player => {
+                player_units += 1;
+                player_health_total += health;
+            }
+            UnitOwner::Enemy => {
+                enemy_units += 1;
+                enemy_health_total += health;
+            }
+        }
     }
+
+    if player_units == 0 || enemy_units == 0 {
+        return None;
+    }
+
+    Some(match player_health_total.cmp(&enemy_health_total) {
+        std::cmp::Ordering::Greater => UnitOwner::Enemy,
+        std::cmp::Ordering::Less => UnitOwner::Player,
+        std::cmp::Ordering::Equal => match player_units.cmp(&enemy_units) {
+            std::cmp::Ordering::Greater => UnitOwner::Enemy,
+            std::cmp::Ordering::Less => UnitOwner::Player,
+            std::cmp::Ordering::Equal => UnitOwner::Player,
+        },
+    })
 }
 
 fn resolve_attack(
@@ -4114,17 +4400,119 @@ fn mitigate_damage(
 
 fn update_unit_health_bars(
     units: Query<&UnitEntity>,
-    mut bars: Query<(&mut Sprite, &ChildOf), With<UnitHealthFill>>,
-    board: Res<BoardConfig>,
+    mut bars: Query<(&mut Transform, &ChildOf), With<UnitHealthFill>>,
 ) {
-    for (mut sprite, parent) in &mut bars {
+    for (mut transform, parent) in &mut bars {
         if let Ok(unit) = units.get(parent.parent()) {
-            let width = board.cell_size
-                * 0.46
-                * (unit.health.max(0) as f32 / unit.max_health.max(1) as f32);
-            sprite.custom_size = Some(Vec2::new(width.max(8.0), 10.0));
+            let ratio = unit.health.max(0) as f32 / unit.max_health.max(1) as f32;
+            transform.scale.x = ratio.max(0.12);
         }
     }
+}
+
+fn mark_loaded_featured_unit_meshes(
+    scene_ready: On<SceneInstanceReady>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    meshes: Query<(), With<Mesh3d>>,
+) {
+    for child in children
+        .iter_descendants(scene_ready.entity)
+        .filter(|entity| meshes.contains(*entity))
+    {
+        commands.entity(child).insert(NoFrustumCulling);
+    }
+}
+
+fn fit_loaded_featured_unit_models(
+    mut commands: Commands,
+    mut model_roots: Query<
+        (
+            Entity,
+            &mut Transform,
+            &mut FeaturedUnitModelCalibration,
+            &FeaturedUnitModelFitStage,
+            &ChildOf,
+        ),
+        With<FeaturedUnitModelRoot>,
+    >,
+    unit_transforms: Query<&GlobalTransform, With<UnitEntity>>,
+    children: Query<&Children>,
+    mesh_bounds: Query<(&Aabb, &GlobalTransform), With<Mesh3d>>,
+    body_placeholders: Query<(), With<UnitBodyPlaceholder>>,
+) {
+    for (entity, mut model_transform, mut calibration, fit_stage, parent) in &mut model_roots {
+        let Some((bounds_min, bounds_max)) =
+            scene_world_bounds(entity, &children, &mesh_bounds)
+        else {
+            continue;
+        };
+
+        match fit_stage {
+            FeaturedUnitModelFitStage::Scale => {
+                let current_height = (bounds_max.y - bounds_min.y).max(0.0001);
+                let scale_factor = FEATURED_UNIT_TARGET_HEIGHT / current_height;
+                calibration.scale *= scale_factor;
+                model_transform.scale *= scale_factor;
+                commands
+                    .entity(entity)
+                    .insert(FeaturedUnitModelFitStage::Lift);
+            }
+            FeaturedUnitModelFitStage::Lift => {
+                let Ok(unit_transform) = unit_transforms.get(parent.parent()) else {
+                    continue;
+                };
+
+                let desired_min_y =
+                    unit_transform.translation().y + UNIT_BASE_HEIGHT + FEATURED_UNIT_GROUND_CLEARANCE;
+                let lift = desired_min_y - bounds_min.y;
+                calibration.ground_offset += lift;
+                model_transform.translation.y += lift;
+                commands.entity(entity).remove::<FeaturedUnitModelFitStage>();
+
+                if let Ok(unit_children) = children.get(parent.parent()) {
+                    for child in unit_children.iter() {
+                        if body_placeholders.contains(child) {
+                            commands.entity(child).insert(Visibility::Hidden);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn scene_world_bounds(
+    root: Entity,
+    children: &Query<&Children>,
+    mesh_bounds: &Query<(&Aabb, &GlobalTransform), With<Mesh3d>>,
+) -> Option<(Vec3, Vec3)> {
+    let mut bounds_min = Vec3::splat(f32::INFINITY);
+    let mut bounds_max = Vec3::splat(f32::NEG_INFINITY);
+    let mut found_bounds = false;
+
+    for child in children.iter_descendants(root) {
+        let Ok((aabb, global_transform)) = mesh_bounds.get(child) else {
+            continue;
+        };
+        found_bounds = true;
+
+        let local_min = aabb.min();
+        let local_max = aabb.max();
+        for x in [local_min.x, local_max.x] {
+            for y in [local_min.y, local_max.y] {
+                for z in [local_min.z, local_max.z] {
+                    let corner = global_transform
+                        .affine()
+                        .transform_point3(Vec3::new(x, y, z));
+                    bounds_min = bounds_min.min(corner);
+                    bounds_max = bounds_max.max(corner);
+                }
+            }
+        }
+    }
+
+    found_bounds.then_some((bounds_min, bounds_max))
 }
 
 fn board_views_from_live_units(
@@ -4557,6 +4945,7 @@ fn apply_common_projection_fields(
 fn spawn_round_units(
     commands: &mut Commands,
     board: &BoardConfig,
+    presentation_assets: &BattlefieldPresentationAssets,
     player_squad: &PlayerSquad,
     enemy_squad: &EnemySquad,
     augments: &AugmentState,
@@ -4580,6 +4969,7 @@ fn spawn_round_units(
             spawn_unit(
                 commands,
                 board,
+                presentation_assets,
                 UnitOwner::Player,
                 index,
                 unit,
@@ -4600,6 +4990,7 @@ fn spawn_round_units(
             spawn_unit(
                 commands,
                 board,
+                presentation_assets,
                 UnitOwner::Enemy,
                 index,
                 unit,
@@ -4616,6 +5007,7 @@ fn spawn_round_units(
 fn spawn_persisted_live_units(
     commands: &mut Commands,
     board: &BoardConfig,
+    presentation_assets: &BattlefieldPresentationAssets,
     live_units: &[PersistedLiveUnit],
     locale: RuntimeLocale,
     combat: &mut CombatState,
@@ -4635,6 +5027,7 @@ fn spawn_persisted_live_units(
         spawn_unit_with_state(
             commands,
             board,
+            presentation_assets,
             unit.owner,
             unit.slot_index,
             UnitInstance {
@@ -4675,6 +5068,7 @@ fn spawn_persisted_live_units(
 fn spawn_unit(
     commands: &mut Commands,
     board: &BoardConfig,
+    presentation_assets: &BattlefieldPresentationAssets,
     owner: UnitOwner,
     slot_index: usize,
     unit: UnitInstance,
@@ -4686,6 +5080,7 @@ fn spawn_unit(
     spawn_unit_with_state(
         commands,
         board,
+        presentation_assets,
         owner,
         slot_index,
         unit,
@@ -4701,6 +5096,7 @@ fn spawn_unit(
 fn spawn_unit_with_state(
     commands: &mut Commands,
     board: &BoardConfig,
+    presentation_assets: &BattlefieldPresentationAssets,
     owner: UnitOwner,
     slot_index: usize,
     unit: UnitInstance,
@@ -4712,14 +5108,28 @@ fn spawn_unit_with_state(
     action_counter: u32,
 ) {
     let translation = board_to_world(board, row, col);
+    let base_material = match owner {
+        UnitOwner::Player => presentation_assets.player_base_material.clone(),
+        UnitOwner::Enemy => presentation_assets.enemy_base_material.clone(),
+    };
+    let body_material = match owner {
+        UnitOwner::Player => presentation_assets.player_body_material.clone(),
+        UnitOwner::Enemy => presentation_assets.enemy_body_material.clone(),
+    };
+    let health_material = match owner {
+        UnitOwner::Player => presentation_assets.player_health_material.clone(),
+        UnitOwner::Enemy => presentation_assets.enemy_health_material.clone(),
+    };
+    let facing = match owner {
+        UnitOwner::Player => 0.0,
+        UnitOwner::Enemy => std::f32::consts::PI,
+    };
+    let model_rotation = Quat::from_rotation_y(FEATURED_UNIT_BASE_YAW + facing);
+    let model_scale = UNIT_MODEL_SCALE * (1.0 + (unit.stars.saturating_sub(1) as f32 * 0.16));
 
     commands
         .spawn((
-            Sprite::from_color(
-                unit.archetype.color(owner),
-                Vec2::splat(board.cell_size * UNIT_SIZE_RATIO),
-            ),
-            Transform::from_translation(translation.extend(2.0)),
+            Transform::from_translation(translation + Vec3::Y * (BOARD_TILE_HEIGHT * 0.5)),
             UnitEntity {
                 owner,
                 slot_index,
@@ -4736,24 +5146,57 @@ fn spawn_unit_with_state(
         ))
         .with_children(|parent| {
             parent.spawn((
-                Sprite::from_color(
-                    Color::linear_rgba(0.02, 0.03, 0.05, 0.92),
-                    Vec2::new(board.cell_size * 0.48, 12.0),
-                ),
-                Transform::from_translation(Vec3::new(0.0, board.cell_size * 0.34, 2.0)),
+                Mesh3d(presentation_assets.unit_base_mesh.clone()),
+                MeshMaterial3d(base_material.clone()),
+                Transform::from_xyz(0.0, UNIT_BASE_HEIGHT * 0.5, 0.0),
+                Name::new("UnitBase"),
+            ));
+
+            parent.spawn((
+                Mesh3d(presentation_assets.unit_body_mesh.clone()),
+                MeshMaterial3d(body_material),
+                Transform::from_xyz(
+                    0.0,
+                    UNIT_BASE_HEIGHT + UNIT_BODY_HEIGHT * 0.5,
+                    0.0,
+                )
+                .with_rotation(Quat::from_rotation_y(facing))
+                .with_scale(Vec3::new(
+                    1.0,
+                    1.0 + (stats.attack as f32 / 18.0),
+                    1.0 + (unit.stars.saturating_sub(1) as f32 * 0.08),
+                )),
+                UnitBodyPlaceholder,
+                Name::new("UnitBody"),
+            ));
+
+            parent.spawn((
+                FeaturedUnitModelRoot,
+                FeaturedUnitModelCalibration {
+                    scale: model_scale,
+                    ground_offset: UNIT_BASE_HEIGHT + 2.0,
+                },
+                FeaturedUnitModelFitStage::Scale,
+                SceneRoot(presentation_assets.featured_unit_scene.clone()),
+                Transform::from_xyz(0.0, UNIT_BASE_HEIGHT + 2.0, 0.0)
+                    .with_rotation(model_rotation)
+                    .with_scale(Vec3::splat(model_scale)),
+                Name::new("FeaturedUnitModel"),
+            ))
+            .observe(mark_loaded_featured_unit_meshes);
+
+            parent.spawn((
+                Mesh3d(presentation_assets.health_frame_mesh.clone()),
+                MeshMaterial3d(presentation_assets.health_frame_material.clone()),
+                Transform::from_xyz(0.0, HEALTH_BAR_Y_OFFSET, 0.0),
                 UnitHealthFrame,
                 Name::new("UnitHealthFrame"),
             ));
 
             parent.spawn((
-                Sprite::from_color(
-                    match owner {
-                        UnitOwner::Player => Color::linear_rgba(0.38, 0.88, 0.72, 0.96),
-                        UnitOwner::Enemy => Color::linear_rgba(0.97, 0.43, 0.55, 0.96),
-                    },
-                    Vec2::new(board.cell_size * 0.46, 10.0),
-                ),
-                Transform::from_translation(Vec3::new(0.0, board.cell_size * 0.34, 3.0)),
+                Mesh3d(presentation_assets.health_fill_mesh.clone()),
+                MeshMaterial3d(health_material),
+                Transform::from_xyz(0.0, HEALTH_BAR_Y_OFFSET, 1.5),
                 UnitHealthFill,
                 Name::new("UnitHealthFill"),
             ));
@@ -5848,9 +6291,10 @@ fn star_badge(stars: u8) -> &'static str {
     }
 }
 
-fn board_to_world(board: &BoardConfig, row: usize, col: usize) -> Vec2 {
-    Vec2::new(
+fn board_to_world(board: &BoardConfig, row: usize, col: usize) -> Vec3 {
+    Vec3::new(
         board.origin.x + col as f32 * board.cell_size,
+        BOARD_TILE_HEIGHT * 0.5,
         board.origin.y + row as f32 * board.cell_size,
     )
 }
@@ -6394,6 +6838,29 @@ mod tests {
 
         assert!(combat.active_directive.is_none());
         assert!(combat.queued_directives.is_empty());
+    }
+
+    #[test]
+    fn overtime_resolution_eliminates_the_side_with_less_remaining_health() {
+        let loser = overtime_loser_for([
+            (UnitOwner::Player, 7),
+            (UnitOwner::Enemy, 3),
+            (UnitOwner::Enemy, 2),
+        ]
+        .into_iter());
+
+        assert_eq!(loser, Some(UnitOwner::Enemy));
+    }
+
+    #[test]
+    fn overtime_resolution_breaks_exact_ties_against_the_player() {
+        let loser = overtime_loser_for([
+            (UnitOwner::Player, 5),
+            (UnitOwner::Enemy, 5),
+        ]
+        .into_iter());
+
+        assert_eq!(loser, Some(UnitOwner::Player));
     }
 
     #[test]

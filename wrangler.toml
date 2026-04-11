@@ -1,0 +1,4 @@
+# Cloudflare Pages project config for the exported single-player web shell.
+# Rename `name` if your Pages project uses a different production name.
+name = "numeron"
+pages_build_output_dir = "apps/web/out"

@@ -5,10 +5,13 @@ const port = Number(process.env.PLAYWRIGHT_PORT ?? "3191");
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://${host}:${port}`;
 const remoteBackendUrl =
   process.env.PLAYWRIGHT_REMOTE_BACKEND_URL ?? "http://127.0.0.1:8787";
+const workers = Math.max(1, Number(process.env.PLAYWRIGHT_WORKERS ?? "1") || 1);
 
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
+  // Headless Chromium becomes flaky under parallel load after the 3D presentation pass.
+  workers,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   timeout: 90_000,
@@ -26,6 +29,13 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    launchOptions: {
+      args: [
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+      ],
+    },
   },
   projects: [
     {

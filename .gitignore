@@ -12,7 +12,9 @@ apps/web/public/bevy-runtime/pkg/
 apps/web/tsconfig.tsbuildinfo
 out/
 output/playwright/
+.playwright-cli/
 _incoming_assets/
+asset-sources/**/*.out-stale.glb
 
 packages/contracts/.env
 packages/contracts/Pub.localnet.toml

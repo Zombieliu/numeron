@@ -178,6 +178,35 @@ If you deploy under a subpath, set `NEXT_PUBLIC_BASE_PATH=/your-path` before
 `pnpm build`. The GitHub Pages workflow does this automatically for project
 pages repos.
 
+### Cloudflare Pages
+
+This repo now includes a minimal [`wrangler.toml`](./wrangler.toml) for
+Cloudflare Pages. For the current single-player shell, the smallest working
+flow is:
+
+```bash
+pnpm cf:pages:deploy
+```
+
+For local Cloudflare Pages preview against the exported artifact:
+
+```bash
+pnpm cf:pages:dev
+```
+
+If your Pages project is named differently, update `name` in
+[`wrangler.toml`](./wrangler.toml) before the first deploy.
+
+Production static exports default to the lightweight single-player preview
+surface. The deployed root URL is enough for sharing:
+
+```text
+https://your-site.pages.dev/
+```
+
+`?preview=0` or `?full=1` can still be used when you want to force the heavier
+non-preview shell for debugging.
+
 ### Build only the wasm runtime
 
 ```bash
@@ -214,6 +243,10 @@ The Playwright suite keeps the static-export path under test and covers:
 - local gameplay flow: launch, draft, deploy, combat, next round, restart
 - save matrix flow: locale/profile persistence plus snapshot import/export
 - remote backend flow: profile push/pull plus live session sync
+
+Local runs default to `PLAYWRIGHT_WORKERS=1` because the heavier `0.0.7`
+3D runtime can saturate headless Chromium under parallel load. Override
+`PLAYWRIGHT_WORKERS` explicitly when you want to stress-test parallelism again.
 
 ## Architecture
 

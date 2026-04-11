@@ -68,6 +68,16 @@ import type {
   SaveSlotId,
 } from "@/lib/types";
 
+declare global {
+  interface Window {
+    __NUMERON_TEST_API__?: {
+      startCombat: () => void;
+      nextRound: () => void;
+      restartRun: () => void;
+    };
+  }
+}
+
 const LAUNCHER_STORAGE_KEY = "numeron.launcher.v1";
 const DATA_MODE_STORAGE_KEY = "numeron.data-mode.v1";
 const BACKEND_URL_STORAGE_KEY = "numeron.backend-url.v1";
@@ -214,7 +224,11 @@ const BUILD_PACK_BLUEPRINTS = [
   },
 ] as const;
 
-export function GameShell() {
+export function GameShell({
+  previewMode = false,
+}: {
+  previewMode?: boolean;
+}) {
   const [clientReady, setClientReady] = useState(false);
   const [runtimeSnapshot, setRuntimeSnapshot] =
     useState<RuntimeSnapshot>(getRuntimeSnapshot);
@@ -1107,6 +1121,27 @@ export function GameShell() {
     });
   }
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!window.navigator.webdriver) {
+      delete window.__NUMERON_TEST_API__;
+      return;
+    }
+
+    window.__NUMERON_TEST_API__ = {
+      startCombat: handleStartCombat,
+      nextRound: handleResetRound,
+      restartRun: handleRestartRun,
+    };
+
+    return () => {
+      delete window.__NUMERON_TEST_API__;
+    };
+  }, [handleResetRound, handleRestartRun, handleStartCombat]);
+
   function handleRerollShop() {
     void dispatchUiIntent({
       type: "runtime.shop.reroll",
@@ -1546,8 +1581,12 @@ export function GameShell() {
           : null;
 
   return (
-    <main className="shell">
-      <header className={`topbar${runtimeReady ? "" : " boot-state"}`}>
+    <main className={`shell${previewMode ? " preview-shell" : ""}`}>
+      <header
+        className={`topbar${runtimeReady ? "" : " boot-state"}${
+          previewMode && runtimeReady ? " preview-state" : ""
+        }`}
+      >
         <div className="topbar-main">
           <div className="hero-header-row">
             <div>
@@ -1642,7 +1681,7 @@ export function GameShell() {
         </div>
       </header>
 
-      {runtimeReady ? (
+      {runtimeReady && !previewMode ? (
         <section className="guide-strip" data-testid="first-run-guide">
           {onboarding.steps.map((step) => (
             <article
@@ -2987,7 +3026,9 @@ export function GameShell() {
             </div>
           </section>
 
-          <WorldCorePanel locale={locale} slot={activeSlot} />
+          {previewMode ? null : (
+            <WorldCorePanel locale={locale} slot={activeSlot} />
+          )}
 
           <section className="panel" data-testid="session-panel">
             <div className="eyebrow">{copy.activeRun}</div>

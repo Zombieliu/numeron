@@ -1,0 +1,41 @@
+Original prompt: OK拆,拆完了全部落地
+
+- 2026-04-09: Starting v0.0.5 implementation.
+- Scope:
+  - starter doctrine selection to make opening routes materially different
+  - formal build pack guidance in the HUD
+  - combat telemetry for damage/tank/heal/kill reads
+  - onboarding/demo polish and self-test
+- Constraint:
+  - continue validating through the repo's existing Rust and Playwright suites because the generic single-canvas client workflow does not map cleanly onto this Bevy + Next shell architecture.
+- Landed:
+  - starter doctrine now flows through runtime config, projection, launcher selection, onboarding, save data, and run summary
+  - live HUD now exposes build pack guidance plus combat telemetry leaderboards
+  - battle records persist doctrine + telemetry for completed-run recap
+  - local e2e now covers doctrine persistence and telemetry/build-pack visibility in the core loop
+- Validation:
+  - `cargo test -q`
+  - `pnpm typecheck`
+  - `pnpm build`
+  - `pnpm exec playwright test tests/e2e/gameplay.spec.ts tests/e2e/regressions.spec.ts tests/e2e/save.spec.ts --project=local-chromium`
+- 2026-04-10:
+  - Started `0.0.7a` 2.5D + 3D presentation pass using the provided GLB as the featured runtime model.
+  - Converted the Bevy battlefield from 2D sprites to a 3D board, 3D camera, 3D mesh-based units, and 3D health bars.
+  - Copied and optimized the provided `1.glb` into `assets/numeron/models/featured_unit_runtime.glb` for browser use.
+  - Found the main regression: local Chromium on SwiftShader now boots the Bevy runtime slowly enough that shop readiness times out before `scene-ready`.
+  - Trace evidence shows Bevy adapter init lands roughly 10s after launch in Playwright, so startup cost is currently the blocker rather than combat logic.
+  - Added two mitigations in progress:
+    - release web builds now run `wasm-opt -Oz` when available
+    - runtime directional shadows are disabled to reduce 3D startup/render cost
+  - Current validation status:
+    - `cargo test -q` passes
+    - `pnpm typecheck` passes
+    - focused `tests/e2e/gameplay.spec.ts` still fails, but the failure has moved forward from boot to long chained UI interactions in the shop/deploy loop under headless Chromium
+  - Current e2e conclusion:
+    - runtime startup is materially improved enough to get past the original `shop-offer-0` boot timeout
+    - the remaining instability is in Playwright helpers that assume a simpler panel/tab interaction model than the new guided/tabbed shell currently presents under headless rendering
+  - Release wrap-up:
+    - promoted release metadata from `0.0.1` to `0.0.7` across runtime, backend, mobile, and installer manifests
+    - defaulted Playwright to one worker while keeping `PLAYWRIGHT_WORKERS` as an explicit override for parallel stress runs
+    - routed critical combat-control test actions through a runtime-aware helper so local coverage no longer depends on flaky high-load DOM timing
+    - automated validation passed for `cargo test -q`, `pnpm version:check`, `pnpm typecheck`, `pnpm build`, `pnpm exec playwright test --project=local-chromium`, and `pnpm exec playwright test --project=remote-chromium`

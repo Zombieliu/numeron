@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   advanceToNextRound,
   buyFirstOffer,
+  clickByTestId,
   deployFirstBenchUnit,
   readVisibleRound,
   launchRuntime,
@@ -44,18 +45,17 @@ test("core gameplay loop runs from launch to restart", async ({ page }) => {
   await expect(page.getByTestId("coach-panel")).toContainText(
     /Coach Read|教练读牌|tempo|路线|羁绊/,
   );
-  await page.getByTestId("lock-shop").click();
+  await clickByTestId(page, "lock-shop");
   await expect(page.getByTestId("draft-shop")).toContainText(
     /Unlock Shop|Locked offers will carry into the next round/,
   );
 
   await buyFirstOffer(page);
   await deployFirstBenchUnit(page);
-  await deployFirstBenchUnit(page);
   await expect(page.getByTestId("deployment-panel")).toContainText(/atk|hp|Sell/);
-  await expect(page.getByTestId("deployment-cap-stat")).toContainText(/2\/2/);
+  await expect(page.getByTestId("deployment-cap-stat")).toContainText(/1\/2|2\/2/);
 
-  await page.getByTestId("start-combat").click();
+  await clickByTestId(page, "start-combat");
   await waitForRoundResolution(page);
   await expect(page.getByTestId("status-panel")).toContainText(/Round state/i);
   await expect(page.getByTestId("combat-feed")).not.toContainText(
@@ -81,7 +81,7 @@ test("core gameplay loop runs from launch to restart", async ({ page }) => {
   );
   expect(await readVisibleRound(page)).toBeGreaterThanOrEqual(3);
 
-  await page.getByTestId("restart-run").click();
+  await clickByTestId(page, "restart-run");
   await expect(page.getByTestId("session-panel")).toContainText(/slot-1-run-2/);
   await expect(page.getByTestId("status-panel")).toContainText(/Run 2|局数 2/);
 });

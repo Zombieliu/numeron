@@ -5,6 +5,8 @@
     "native": "cargo run",
     "backend:dev": "cargo run --manifest-path server/headless_runtime/Cargo.toml",
     "backend:check": "cargo check --manifest-path server/headless_runtime/Cargo.toml",
+    "cf:pages:dev": "pnpm build && npx wrangler pages dev apps/web/out",
+    "cf:pages:deploy": "pnpm build && npx wrangler pages deploy apps/web/out",
     "contracts:generate": "pnpm --dir packages/contracts generate",
     "contracts:typecheck": "pnpm --dir packages/contracts type-check",
     "version:check": "node scripts/check-version-alignment.mjs",

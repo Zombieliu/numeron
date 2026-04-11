@@ -3,7 +3,7 @@
         Name="Numeron"
         Manufacturer="Henry Liu"
         UpgradeCode="A29727DB-F6F0-4200-AEEC-F2B8D21100C7"
-        Version="0.0.1"
+        Version="0.0.7"
 
         Scope="perUserOrMachine">
         <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />

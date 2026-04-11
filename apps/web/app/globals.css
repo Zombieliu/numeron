@@ -197,6 +197,82 @@ textarea {
   color: var(--text);
 }
 
+.preview-shell {
+  gap: 12px;
+  padding: 12px;
+}
+
+.topbar.preview-state {
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 24px;
+  align-items: flex-start;
+}
+
+.topbar.preview-state .topbar-main {
+  flex: 1;
+  min-width: 0;
+  gap: 8px;
+}
+
+.topbar.preview-state .topbar-actions {
+  min-width: 260px;
+  max-width: 320px;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.topbar.preview-state .topbar-copy,
+.topbar.preview-state .topbar-actions > .eyebrow {
+  display: none;
+}
+
+.topbar.preview-state .hero-header-row {
+  align-items: center;
+}
+
+.topbar.preview-state .hero-badge {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.topbar.preview-state .title {
+  font-size: clamp(24px, 2.7vw, 34px);
+  line-height: 0.92;
+}
+
+.topbar.preview-state .status-strip {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 8px;
+  padding-bottom: 0;
+}
+
+.topbar.preview-state .status-pill {
+  min-width: 72px;
+  padding: 8px 11px;
+  gap: 2px;
+}
+
+.topbar.preview-state .stat-label,
+.topbar.preview-state .eyebrow {
+  font-size: 10px;
+}
+
+.topbar.preview-state .guide-summary-card {
+  padding: 12px 14px;
+  gap: 6px;
+  border-radius: 18px;
+}
+
+.topbar.preview-state .guide-summary-card .muted {
+  display: none;
+}
+
+.topbar.preview-state .guide-summary-card .button {
+  padding: 10px 12px;
+}
+
 .guide-summary-card {
   width: 100%;
   border: 1px solid rgba(110, 211, 183, 0.28);
@@ -217,6 +293,10 @@ textarea {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.preview-shell .guide-strip {
+  display: none;
 }
 
 .guide-step {
@@ -302,6 +382,11 @@ textarea {
   gap: 18px;
 }
 
+.preview-shell .game-layout {
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 380px);
+}
+
 .game-layout.boot-layout {
   grid-template-columns: 1fr;
 }
@@ -320,6 +405,10 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.preview-shell .stage-column {
+  gap: 12px;
 }
 
 .intel-column {
@@ -775,6 +864,11 @@ textarea {
     linear-gradient(180deg, rgba(7, 14, 20, 0.96), rgba(6, 10, 16, 0.98));
 }
 
+.preview-shell .canvas-area,
+.preview-shell .canvas-frame {
+  min-height: clamp(520px, 74vh, 900px);
+}
+
 .boot-stage-column .canvas-area {
   background:
     linear-gradient(180deg, rgba(8, 16, 23, 0.34), rgba(8, 14, 20, 0.52)),
@@ -1053,6 +1147,11 @@ textarea {
     min-height: clamp(320px, 48vh, 520px);
   }
 
+  .preview-shell .canvas-area,
+  .preview-shell .canvas-frame {
+    min-height: clamp(320px, 48vh, 520px);
+  }
+
   .intel-column {
     grid-template-columns: 1fr;
   }
@@ -1320,6 +1419,11 @@ textarea {
   .canvas-frame {
     min-height: min(43vh, 248px);
     border-radius: 24px;
+  }
+
+  .preview-shell .canvas-area,
+  .preview-shell .canvas-frame {
+    min-height: min(43vh, 248px);
   }
 
   .canvas-overlay {
