@@ -175,8 +175,8 @@ pnpm build
 Static output is written to `apps/web/out`.
 
 If you deploy under a subpath, set `NEXT_PUBLIC_BASE_PATH=/your-path` before
-`pnpm build`. The GitHub Pages workflow does this automatically for project
-pages repos.
+`pnpm build`. The Cloudflare Pages production workflow in this repo deploys at
+the site root, so it does not need a base-path override.
 
 ### Cloudflare Pages
 
@@ -196,6 +196,18 @@ pnpm cf:pages:dev
 
 If your Pages project is named differently, update `name` in
 [`wrangler.toml`](./wrangler.toml) before the first deploy.
+
+Automatic production deploys now go through GitHub Actions on every push to
+`main` via [`.github/workflows/deploy-page.yaml`](./.github/workflows/deploy-page.yaml).
+For that workflow to succeed, configure these repository secrets in GitHub:
+
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_API_TOKEN`
+
+The token should have Pages edit/deploy permissions for the target account and
+project. This repo keeps the current `numeron` site as a direct-upload Pages
+project, so GitHub Actions deploys it with `wrangler pages deploy` instead of
+using Cloudflare's separate Git integration flow.
 
 Production static exports default to the lightweight single-player preview
 surface. The deployed root URL is enough for sharing:
@@ -357,7 +369,7 @@ runtime bridge.
 
 - GitHub CI now validates both the Rust crate and the web shell
 - GitHub CI installs Chromium and runs `pnpm smoke:web` against the hybrid shell
-- GitHub Pages deployment uses the exported `apps/web/out` artifact
+- GitHub Actions deploy `main` to Cloudflare Pages from the exported `apps/web/out` artifact
 - GitHub release web artifacts zip the same exported static site
 
 ## Maintenance
