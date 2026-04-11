@@ -71,6 +71,7 @@ function parseArgs(argv) {
     mode: "human",
     stamp: DEFAULT_STAMP,
     url: DEFAULT_URL,
+    timeoutMs: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -101,6 +102,18 @@ function parseArgs(argv) {
 
     if (rawKey === "url" && nextValue) {
       values.url = nextValue;
+      if (consumeNext) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (rawKey === "timeout-ms" && nextValue) {
+      const parsed = Number(nextValue);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error(`Invalid --timeout-ms value: ${nextValue}`);
+      }
+      values.timeoutMs = parsed;
       if (consumeNext) {
         index += 1;
       }
@@ -299,7 +312,7 @@ async function locatorCenter(locator) {
 }
 
 async function run() {
-  const { mode, stamp, url } = parseArgs(process.argv.slice(2));
+  const { mode, stamp, url, timeoutMs } = parseArgs(process.argv.slice(2));
   const profile = MODES[mode];
   const paths = buildPaths(mode, stamp);
 
@@ -325,7 +338,7 @@ async function run() {
   const subtitles = new SubtitleRecorder();
   let mousePosition = { x: 80, y: 80 };
   const overallStartedAt = Date.now();
-  const overallTimeoutMs = mode === "guided" ? 900_000 : 720_000;
+  const overallTimeoutMs = timeoutMs ?? (mode === "guided" ? 900_000 : 720_000);
 
   async function wait(ms) {
     await page.waitForTimeout(ms);
